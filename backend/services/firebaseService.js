@@ -1,16 +1,18 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const admin = require('firebase-admin');
 const logger = require('../utils/logger');
 
 let isInitialized = false;
 
 /**
- * Initializes the Firebase Admin SDK using environment variables.
+ * Initializes the Firebase Admin SDK using environment variables or local service-account JSON file.
  * Project ID target: we-donate-8170b
  *
  * SECURITY:
- * - Credentials are read strictly from environment variables.
+ * - Credentials are read from environment variables or gitignored firebase-service-account.json.
  * - No service account JSON file is ever committed to source control.
  */
 const initFirebaseAdmin = () => {
@@ -19,9 +21,23 @@ const initFirebaseAdmin = () => {
     return admin.app();
   }
 
-  const projectId = process.env.FIREBASE_PROJECT_ID || 'we-donate-8170b';
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  let projectId = process.env.FIREBASE_PROJECT_ID || 'we-donate-8170b';
+  let clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+  // Fallback to local gitignored firebase-service-account.json if env vars are missing
+  const localServiceAccountPath = path.join(__dirname, '..', 'firebase-service-account.json');
+  if ((!clientEmail || !privateKey) && fs.existsSync(localServiceAccountPath)) {
+    try {
+      const serviceAccount = JSON.parse(fs.readFileSync(localServiceAccountPath, 'utf8'));
+      projectId = serviceAccount.project_id || projectId;
+      clientEmail = serviceAccount.client_email || clientEmail;
+      privateKey = serviceAccount.private_key || privateKey;
+      logger.info('Loaded Firebase Admin credentials from local firebase-service-account.json');
+    } catch (readErr) {
+      logger.warn(`Could not read local firebase-service-account.json: ${readErr.message}`);
+    }
+  }
 
   if (!clientEmail || !privateKey) {
     logger.warn('FIREBASE_CLIENT_EMAIL or FIREBASE_PRIVATE_KEY missing from environment — Firebase Admin running in stub/mock mode for local unit tests');
@@ -30,7 +46,7 @@ const initFirebaseAdmin = () => {
   }
 
   // Handle escaped line breaks in private key string from .env
-  if (privateKey.includes('\\n')) {
+  if (typeof privateKey === 'string' && privateKey.includes('\\n')) {
     privateKey = privateKey.replace(/\\n/g, '\n');
   }
 
@@ -108,7 +124,15 @@ const verifyFirebaseIdToken = async (idToken) => {
   }
 };
 
+const getFirebaseAdmin = () => {
+  if (!isInitialized) {
+    initFirebaseAdmin();
+  }
+  return admin.apps.length > 0 ? admin : null;
+};
+
 module.exports = {
   initFirebaseAdmin,
   verifyFirebaseIdToken,
+  getFirebaseAdmin,
 };
