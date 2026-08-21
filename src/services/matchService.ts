@@ -1,0 +1,76 @@
+import { api } from './api';
+import { ApiSuccessResponse } from '../types/api.types';
+
+export interface DonorMatch {
+  id: string;
+  bloodRequest: string;
+  donor: {
+    id: string;
+    fullName?: string;
+    name?: string;
+    phone?: string;
+    bloodGroup?: string;
+    isEligible?: boolean;
+    isAvailable?: boolean;
+  };
+  requester: string;
+  donorBloodGroup: string;
+  requestedBloodGroup: string;
+  distanceKm: number;
+  formattedDistance: string;
+  status: 'PENDING' | 'NOTIFIED' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CANCELLED' | 'COMPLETED';
+  matchedAt: string;
+  respondedAt?: string | null;
+  expiresAt?: string;
+  rejectionReason?: string | null;
+}
+
+export const getNearbyMatches = async (requestId: string): Promise<DonorMatch[]> => {
+  try {
+    const response = await api.get<ApiSuccessResponse<{ matches: DonorMatch[] }>>(`/matches/nearby/${requestId}`);
+    return response.data.data!.matches;
+  } catch (error) {
+    console.error(`Failed to fetch matches for request ${requestId}:`, error);
+    throw error;
+  }
+};
+
+export const triggerMatchAssignment = async (requestId: string, radiusKm?: number): Promise<{ matches: DonorMatch[]; newCount: number }> => {
+  try {
+    const response = await api.post<ApiSuccessResponse<{ matches: DonorMatch[]; newCount: number }>>(`/matches/${requestId}/assign`, { radiusKm });
+    return response.data.data!;
+  } catch (error) {
+    console.error(`Failed to assign matches for request ${requestId}:`, error);
+    throw error;
+  }
+};
+
+export const acceptMatch = async (matchId: string): Promise<DonorMatch> => {
+  try {
+    const response = await api.post<ApiSuccessResponse<{ match: DonorMatch }>>(`/matches/${matchId}/accept`);
+    return response.data.data!.match;
+  } catch (error) {
+    console.error(`Failed to accept match ${matchId}:`, error);
+    throw error;
+  }
+};
+
+export const rejectMatch = async (matchId: string, reason?: string): Promise<DonorMatch> => {
+  try {
+    const response = await api.post<ApiSuccessResponse<{ match: DonorMatch }>>(`/matches/${matchId}/reject`, { reason });
+    return response.data.data!.match;
+  } catch (error) {
+    console.error(`Failed to reject match ${matchId}:`, error);
+    throw error;
+  }
+};
+
+export const getMatchDetails = async (matchId: string): Promise<DonorMatch> => {
+  try {
+    const response = await api.get<ApiSuccessResponse<{ match: DonorMatch }>>(`/matches/${matchId}`);
+    return response.data.data!.match;
+  } catch (error) {
+    console.error(`Failed to fetch details for match ${matchId}:`, error);
+    throw error;
+  }
+};
