@@ -1,0 +1,27 @@
+# Backend-specific .gitignore
+
+# Environment — NEVER commit
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime
+pids/
+*.pid
+*.seed
