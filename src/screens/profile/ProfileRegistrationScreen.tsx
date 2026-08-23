@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useUserStore } from '../../store/userStore';
 import { BloodGroup, Gender } from '../../types/user.types';
+import { COLORS, SHADOWS } from '../../theme/colors';
 
 const BLOOD_GROUPS: BloodGroup[] = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const GENDERS: Gender[] = ['MALE', 'FEMALE', 'OTHER'];
@@ -13,18 +14,23 @@ interface ProfileRegistrationScreenProps {
 export const ProfileRegistrationScreen: React.FC<ProfileRegistrationScreenProps> = ({ onComplete }) => {
   const { profile, updateUserProfile, acquireLocation, isUpdating } = useUserStore();
 
-  const [fullName, setFullName] = useState(profile?.name || profile?.fullName || '');
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+
+  // Step 1: Getting Started Profile
+  const [fullName, setFullName] = useState(profile?.name || profile?.fullName || 'Ayush Dhakad');
   const [email, setEmail] = useState(profile?.email || '');
-  const [bloodGroup, setBloodGroup] = useState<BloodGroup | null>(profile?.bloodGroup || null);
-  const [gender, setGender] = useState<Gender | null>(profile?.gender || null);
-  const [age, setAge] = useState(profile?.age ? String(profile.age) : '');
-  
-  // Location
-  const [city, setCity] = useState(profile?.location?.city || '');
-  const [stateName, setStateName] = useState(profile?.location?.state || '');
-  const [pincode, setPincode] = useState(profile?.location?.pincode || '');
-  const [coordinates, setCoordinates] = useState<[number, number]>(profile?.location?.coordinates || [0, 0]);
+  const [bloodGroup, setBloodGroup] = useState<BloodGroup>(profile?.bloodGroup || 'B+');
+  const [gender, setGender] = useState<Gender>(profile?.gender || 'MALE');
+  const [age, setAge] = useState(profile?.age ? String(profile.age) : '24');
+  const [city, setCity] = useState(profile?.location?.city || 'New Delhi');
+  const [coordinates, setCoordinates] = useState<[number, number]>(profile?.location?.coordinates || [77.2100, 28.5672]);
   const [isLocating, setIsLocating] = useState(false);
+
+  // Step 2: Survey Checklist
+  const [hasDiabetes, setHasDiabetes] = useState(false);
+  const [hasHeartDisease, setHasHeartDisease] = useState(false);
+  const [hasChronicCondition, setHasChronicCondition] = useState(false);
+
   const [errorMessage, setErrorMessage] = useState('');
 
   const handleDetectLocation = async () => {
@@ -35,35 +41,35 @@ export const ProfileRegistrationScreen: React.FC<ProfileRegistrationScreenProps>
       if (loc) {
         setCoordinates([loc.longitude, loc.latitude]);
         if (loc.city) setCity(loc.city);
-        if (loc.state) setStateName(loc.state);
-        if (loc.pincode) setPincode(loc.pincode);
         Alert.alert('GPS Location Detected', `City: ${loc.city || 'Detected'}, Lat: ${loc.latitude.toFixed(4)}, Lng: ${loc.longitude.toFixed(4)}`);
       } else {
-        Alert.alert('Location Notice', 'Could not detect location automatically. Please enter your city manually.');
+        Alert.alert('Location Notice', 'Could not detect location. Using current city value.');
       }
     } catch (err) {
       setIsLocating(false);
-      Alert.alert('Location Notice', 'Could not access GPS. Please enter your city manually.');
+      Alert.alert('Location Notice', 'Could not access GPS. Using entered city.');
     }
   };
 
-  const handleSubmit = async () => {
+  const handleStep1Next = () => {
     setErrorMessage('');
-
-    if (!fullName.trim() || fullName.trim().length < 2) {
+    if (!fullName.trim()) {
       setErrorMessage('Please enter your full name');
       return;
     }
-
-    if (!bloodGroup) {
-      setErrorMessage('Please select your blood group');
-      return;
-    }
-
     if (!city.trim()) {
-      setErrorMessage('Please enter your city or detect GPS location');
+      setErrorMessage('Please enter your city');
       return;
     }
+    setStep(2);
+  };
+
+  const handleStep2Next = () => {
+    setStep(3);
+  };
+
+  const handleFinalSubmit = async () => {
+    setErrorMessage('');
 
     const payload: any = {
       fullName: fullName.trim(),
@@ -72,8 +78,7 @@ export const ProfileRegistrationScreen: React.FC<ProfileRegistrationScreenProps>
       location: {
         coordinates,
         city: city.trim(),
-        state: stateName.trim(),
-        pincode: pincode.trim(),
+        state: 'Delhi',
       },
     };
 
@@ -85,7 +90,7 @@ export const ProfileRegistrationScreen: React.FC<ProfileRegistrationScreenProps>
       await updateUserProfile(payload);
       onComplete();
     } catch (err: any) {
-      const msg = err?.response?.data?.message || 'Failed to save profile. Please check your inputs.';
+      const msg = err?.response?.data?.message || 'Failed to save profile. Please check inputs.';
       setErrorMessage(msg);
       Alert.alert('Profile Error', msg);
     }
@@ -94,122 +99,172 @@ export const ProfileRegistrationScreen: React.FC<ProfileRegistrationScreenProps>
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        {/* Step Indicator Header */}
         <View style={styles.header}>
-          <Text style={styles.iconText}>👤</Text>
-          <Text style={styles.title}>Complete Your Profile</Text>
-          <Text style={styles.subtitle}>Help nearby emergency patients locate eligible donors quickly.</Text>
+          <Text style={styles.headerTitle}>
+            {step === 1 ? 'Getting Started' : step === 2 ? 'Medical Screening (1/2)' : 'Eligibility Review (2/2)'}
+          </Text>
+          <Text style={styles.headerSub}>
+            {step === 1 ? 'Create your blood donor profile' : step === 2 ? 'Health screening questions' : 'Review screening summary'}
+          </Text>
         </View>
 
         {!!errorMessage && <Text style={styles.errorBanner}>{errorMessage}</Text>}
 
-        {/* Full Name */}
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Full Name <Text style={styles.required}>*</Text></Text>
-          <TextInput
-            style={styles.input}
-            placeholder="John Doe"
-            placeholderTextColor="#475569"
-            value={fullName}
-            onChangeText={setFullName}
-          />
-        </View>
-
-        {/* Blood Group Selector */}
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Blood Group <Text style={styles.required}>*</Text></Text>
-          <View style={styles.grid}>
-            {BLOOD_GROUPS.map((bg) => (
-              <TouchableOpacity
-                key={bg}
-                style={[styles.bloodPill, bloodGroup === bg && styles.bloodPillSelected]}
-                onPress={() => setBloodGroup(bg)}
-              >
-                <Text style={[styles.bloodPillText, bloodGroup === bg && styles.bloodPillTextSelected]}>
-                  {bg}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Location Detection */}
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>City / Location <Text style={styles.required}>*</Text></Text>
-          <TouchableOpacity style={styles.gpsButton} onPress={handleDetectLocation} disabled={isLocating}>
-            {isLocating ? (
-              <ActivityIndicator color="#DC2626" />
-            ) : (
-              <Text style={styles.gpsButtonText}>📍 Detect GPS Coordinates</Text>
-            )}
-          </TouchableOpacity>
-
-          <TextInput
-            style={[styles.input, { marginTop: 10 }]}
-            placeholder="City (e.g. Mumbai, New Delhi)"
-            placeholderTextColor="#475569"
-            value={city}
-            onChangeText={setCity}
-          />
-        </View>
-
-        {/* Optional Fields Toggle */}
-        <View style={styles.optionalSection}>
-          <Text style={styles.sectionHeader}>Optional Details</Text>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Email Address</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="user@example.com"
-              placeholderTextColor="#475569"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Age (18 - 65)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="25"
-              placeholderTextColor="#475569"
-              keyboardType="number-pad"
-              value={age}
-              onChangeText={setAge}
-              maxLength={2}
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Gender</Text>
-            <View style={styles.genderRow}>
-              {GENDERS.map((g) => (
-                <TouchableOpacity
-                  key={g}
-                  style={[styles.genderPill, gender === g && styles.genderPillSelected]}
-                  onPress={() => setGender(g)}
-                >
-                  <Text style={[styles.genderPillText, gender === g && styles.genderPillTextSelected]}>
-                    {g}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+        {/* STEP 1: Basic Profile Setup */}
+        {step === 1 && (
+          <View style={styles.stepBox}>
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>FULL NAME</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. Ayush Dhakad"
+                placeholderTextColor="#94A3B8"
+                value={fullName}
+                onChangeText={setFullName}
+              />
             </View>
-          </View>
-        </View>
 
-        <TouchableOpacity
-          style={[styles.submitButton, isUpdating && styles.buttonDisabled]}
-          onPress={handleSubmit}
-          disabled={isUpdating}
-        >
-          {isUpdating ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.submitButtonText}>Save Profile & Continue</Text>
-          )}
-        </TouchableOpacity>
+            {/* Blood Group Selection Grid */}
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>BLOOD GROUP</Text>
+              <View style={styles.bloodGrid}>
+                {BLOOD_GROUPS.map((bg) => (
+                  <TouchableOpacity
+                    key={bg}
+                    style={[styles.bloodPill, bloodGroup === bg && styles.bloodPillSelected]}
+                    onPress={() => setBloodGroup(bg)}
+                  >
+                    <Text style={[styles.bloodPillText, bloodGroup === bg && styles.bloodPillTextSelected]}>
+                      {bg}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* GPS Location */}
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>CURRENT LOCATION / CITY</Text>
+              <TouchableOpacity style={styles.gpsButton} onPress={handleDetectLocation} disabled={isLocating}>
+                {isLocating ? (
+                  <ActivityIndicator color={COLORS.primary} />
+                ) : (
+                  <Text style={styles.gpsButtonText}>📍 Detect GPS Location</Text>
+                )}
+              </TouchableOpacity>
+              <TextInput
+                style={[styles.input, { marginTop: 8 }]}
+                placeholder="New Delhi"
+                placeholderTextColor="#94A3B8"
+                value={city}
+                onChangeText={setCity}
+              />
+            </View>
+
+            {/* Age & Gender */}
+            <View style={styles.formRow}>
+              <View style={[styles.formGroup, { flex: 1, marginRight: 10 }]}>
+                <Text style={styles.label}>AGE</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="24"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="number-pad"
+                  value={age}
+                  onChangeText={setAge}
+                  maxLength={2}
+                />
+              </View>
+              <View style={[styles.formGroup, { flex: 1.5 }]}>
+                <Text style={styles.label}>GENDER</Text>
+                <View style={styles.genderRow}>
+                  {GENDERS.map((g) => (
+                    <TouchableOpacity
+                      key={g}
+                      style={[styles.genderPill, gender === g && styles.genderPillSelected]}
+                      onPress={() => setGender(g)}
+                    >
+                      <Text style={[styles.genderPillText, gender === g && styles.genderPillTextSelected]}>
+                        {g.charAt(0)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            <TouchableOpacity style={styles.btnCoralWide} onPress={handleStep1Next} activeOpacity={0.85}>
+              <Text style={styles.btnCoralWideText}>Next: Health Screening  ➔</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* STEP 2: Medical Screening Survey */}
+        {step === 2 && (
+          <View style={styles.stepBox}>
+            <View style={styles.surveyCard}>
+              <Text style={styles.surveyQuestion}>Do you have any of the following health conditions?</Text>
+
+              <TouchableOpacity
+                style={styles.checkboxItem}
+                onPress={() => setHasDiabetes(!hasDiabetes)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.checkboxBox}>{hasDiabetes ? '☑️' : '⬜'}</Text>
+                <Text style={styles.checkboxLabel}>Diabetes / Blood Sugar Condition</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.checkboxItem}
+                onPress={() => setHasHeartDisease(!hasHeartDisease)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.checkboxBox}>{hasHeartDisease ? '☑️' : '⬜'}</Text>
+                <Text style={styles.checkboxLabel}>Heart Disease / Hypertension</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.checkboxItem}
+                onPress={() => setHasChronicCondition(!hasChronicCondition)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.checkboxBox}>{hasChronicCondition ? '☑️' : '⬜'}</Text>
+                <Text style={styles.checkboxLabel}>Chronic Respiratory Condition</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity style={styles.btnCoralWide} onPress={handleStep2Next} activeOpacity={0.85}>
+              <Text style={styles.btnCoralWideText}>Next: Review Eligibility  ➔</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* STEP 3: Review & Complete */}
+        {step === 3 && (
+          <View style={styles.stepBox}>
+            <View style={styles.eligibleCard}>
+              <Text style={styles.eligibleCheck}>✅</Text>
+              <Text style={styles.eligibleTitle}>Eligible to Donate Blood</Text>
+              <Text style={styles.eligibleDesc}>
+                Based on your profile answers, your donor status is approved for GPS emergency proximity alerts.
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.btnCoralWide, isUpdating && styles.btnDisabled]}
+              onPress={handleFinalSubmit}
+              disabled={isUpdating}
+              activeOpacity={0.85}
+            >
+              {isUpdating ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.btnCoralWideText}>Submit & Launch App  🚀</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -218,160 +273,203 @@ export const ProfileRegistrationScreen: React.FC<ProfileRegistrationScreenProps>
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F172A',
+    backgroundColor: COLORS.bgMain,
   },
   scrollContent: {
-    padding: 24,
-    paddingTop: 60,
+    padding: 20,
+    paddingTop: 45,
   },
   header: {
-    alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
-  iconText: {
-    fontSize: 40,
-    marginBottom: 8,
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: COLORS.secondary,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#F1F5F9',
-    marginBottom: 6,
-  },
-  subtitle: {
+  headerSub: {
     fontSize: 13,
-    color: '#94A3B8',
-    textAlign: 'center',
+    color: COLORS.textMuted,
+    marginTop: 2,
   },
   errorBanner: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderColor: '#EF4444',
+    backgroundColor: COLORS.primaryLight,
     borderWidth: 1,
-    color: '#FCA5A5',
+    borderColor: '#FFA3A3',
+    color: COLORS.danger,
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     fontSize: 13,
     marginBottom: 16,
     textAlign: 'center',
+    fontWeight: '600',
+  },
+  stepBox: {
+    gap: 14,
   },
   formGroup: {
-    marginBottom: 20,
+    marginBottom: 14,
+  },
+  formRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#CBD5E1',
-    marginBottom: 8,
-  },
-  required: {
-    color: '#DC2626',
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.secondary,
+    marginBottom: 6,
+    letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: COLORS.borderColor,
+    borderRadius: 12,
     paddingHorizontal: 16,
     height: 48,
     fontSize: 15,
-    color: '#F1F5F9',
+    color: COLORS.textMain,
   },
-  grid: {
+  bloodGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
   bloodPill: {
-    width: '22%',
-    height: 44,
+    width: '23%',
+    height: 42,
     borderRadius: 10,
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: '#334155',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: COLORS.borderColor,
     alignItems: 'center',
     justifyContent: 'center',
   },
   bloodPillSelected: {
-    backgroundColor: '#DC2626',
-    borderColor: '#DC2626',
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   bloodPillText: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#CBD5E1',
+    fontWeight: '800',
+    color: COLORS.secondary,
   },
   bloodPillTextSelected: {
     color: '#FFFFFF',
   },
   gpsButton: {
-    backgroundColor: 'rgba(220, 38, 38, 0.1)',
+    backgroundColor: COLORS.primaryLight,
     borderWidth: 1,
-    borderColor: 'rgba(220, 38, 38, 0.4)',
+    borderColor: '#FFA3A3',
     borderRadius: 10,
-    height: 44,
+    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
   },
   gpsButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#DC2626',
-  },
-  optionalSection: {
-    marginTop: 10,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#1E293B',
-  },
-  sectionHeader: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#64748B',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 16,
+    color: COLORS.primary,
   },
   genderRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 6,
   },
   genderPill: {
     flex: 1,
-    height: 42,
-    borderRadius: 8,
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: '#334155',
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: COLORS.borderColor,
     alignItems: 'center',
     justifyContent: 'center',
   },
   genderPillSelected: {
-    backgroundColor: '#38BDF8',
-    borderColor: '#38BDF8',
+    backgroundColor: COLORS.secondary,
+    borderColor: COLORS.secondary,
   },
   genderPillText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#CBD5E1',
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.textMain,
   },
   genderPillTextSelected: {
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
-  submitButton: {
-    backgroundColor: '#DC2626',
-    borderRadius: 12,
-    height: 52,
+  surveyCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: COLORS.borderColor,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+    ...SHADOWS.sm,
+  },
+  surveyQuestion: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.secondary,
+    marginBottom: 16,
+  },
+  checkboxItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderColor,
+  },
+  checkboxBox: {
+    fontSize: 20,
+    marginRight: 10,
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    color: COLORS.textMain,
+    fontWeight: '500',
+  },
+  eligibleCard: {
+    backgroundColor: COLORS.primaryLight,
+    borderWidth: 1.5,
+    borderColor: '#FFA3A3',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  eligibleCheck: {
+    fontSize: 42,
+    marginBottom: 8,
+  },
+  eligibleTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.primary,
+    marginBottom: 6,
+  },
+  eligibleDesc: {
+    fontSize: 13,
+    color: COLORS.textMain,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  btnCoralWide: {
+    width: '100%',
+    height: 54,
+    backgroundColor: COLORS.primary,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
-    marginBottom: 40,
+    marginTop: 10,
+    ...SHADOWS.md,
   },
-  buttonDisabled: {
+  btnDisabled: {
     opacity: 0.6,
   },
-  submitButtonText: {
+  btnCoralWideText: {
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
 });

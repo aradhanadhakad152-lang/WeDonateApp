@@ -4,6 +4,7 @@ import { useRequestStore } from '../../store/requestStore';
 import { useUserStore } from '../../store/userStore';
 import { useMatchStore } from '../../store/matchStore';
 import { BloodRequest } from '../../types/request.types';
+import { COLORS, SHADOWS } from '../../theme/colors';
 
 interface RequestDetailsScreenProps {
   request: BloodRequest;
@@ -52,13 +53,13 @@ export const RequestDetailsScreen: React.FC<RequestDetailsScreenProps> = ({ requ
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'OPEN': return '#22C55E';
-      case 'MATCHING': return '#38BDF8';
-      case 'ACCEPTED': return '#8B5CF6';
-      case 'FULFILLED': return '#10B981';
-      case 'CANCELLED': return '#EF4444';
-      case 'EXPIRED': return '#64748B';
-      default: return '#94A3B8';
+      case 'OPEN': return COLORS.success;
+      case 'MATCHING': return COLORS.info;
+      case 'ACCEPTED': return COLORS.purple;
+      case 'FULFILLED': return COLORS.success;
+      case 'CANCELLED': return COLORS.danger;
+      case 'EXPIRED': return COLORS.textMuted;
+      default: return COLORS.textMuted;
     }
   };
 
@@ -92,8 +93,8 @@ export const RequestDetailsScreen: React.FC<RequestDetailsScreenProps> = ({ requ
 
         {/* Urgency & Hospital Info */}
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Urgency:</Text>
-          <Text style={[styles.infoValue, { color: request.urgency === 'CRITICAL' ? '#EF4444' : '#F59E0B' }]}>
+          <Text style={styles.infoLabel}>Urgency Level:</Text>
+          <Text style={[styles.infoValue, { color: request.urgency === 'CRITICAL' ? COLORS.danger : COLORS.warning }]}>
             {request.urgency}
           </Text>
         </View>
@@ -110,7 +111,7 @@ export const RequestDetailsScreen: React.FC<RequestDetailsScreenProps> = ({ requ
 
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Contact Phone:</Text>
-          <Text style={[styles.infoValue, { color: '#38BDF8' }]}>{request.contactPhone}</Text>
+          <Text style={[styles.infoValue, { color: COLORS.info }]}>{request.contactPhone}</Text>
         </View>
 
         {!!request.reason && (
@@ -147,7 +148,7 @@ export const RequestDetailsScreen: React.FC<RequestDetailsScreenProps> = ({ requ
                 <Text style={styles.matchDonorName}>{m.donor?.fullName || m.donor?.name || 'Donor'}</Text>
                 <Text style={styles.matchDistance}>📍 {m.formattedDistance} ({m.donorBloodGroup})</Text>
               </View>
-              <View style={[styles.matchStatusBadge, m.status === 'ACCEPTED' && { backgroundColor: '#22C55E' }]}>
+              <View style={[styles.matchStatusBadge, m.status === 'ACCEPTED' && { backgroundColor: COLORS.success }]}>
                 <Text style={styles.matchStatusText}>{m.status}</Text>
               </View>
             </View>
@@ -166,39 +167,39 @@ export const RequestDetailsScreen: React.FC<RequestDetailsScreenProps> = ({ requ
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0F172A' },
-  content: { padding: 20, paddingTop: 50 },
+  container: { flex: 1, backgroundColor: COLORS.bgMain },
+  content: { padding: 20, paddingTop: 45 },
   navBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
-  backText: { fontSize: 16, color: '#94A3B8', fontWeight: '600' },
-  navTitle: { fontSize: 18, fontWeight: '700', color: '#F1F5F9' },
-  card: { backgroundColor: '#1E293B', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: '#334155', marginBottom: 20 },
+  backText: { fontSize: 14, color: COLORS.textMuted, fontWeight: '600' },
+  navTitle: { fontSize: 18, fontWeight: '800', color: COLORS.secondary },
+  card: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: COLORS.borderColor, marginBottom: 20, ...SHADOWS.sm },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  bloodBadge: { backgroundColor: 'rgba(220, 38, 38, 0.15)', borderWidth: 1, borderColor: '#DC2626', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginRight: 14 },
-  bloodBadgeText: { fontSize: 20, fontWeight: '800', color: '#DC2626' },
+  bloodBadge: { backgroundColor: COLORS.primaryLight, borderWidth: 1, borderColor: '#FFA3A3', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginRight: 14 },
+  bloodBadgeText: { fontSize: 20, fontWeight: '800', color: COLORS.primary },
   headerTitleContainer: { flex: 1 },
-  patientName: { fontSize: 18, fontWeight: '700', color: '#F1F5F9' },
-  unitsText: { fontSize: 13, color: '#94A3B8', marginTop: 2 },
+  patientName: { fontSize: 18, fontWeight: '800', color: COLORS.secondary },
+  unitsText: { fontSize: 13, color: COLORS.textMuted, marginTop: 2 },
   statusBadge: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   statusText: { fontSize: 12, fontWeight: '700' },
-  divider: { height: 1, backgroundColor: '#334155', marginVertical: 14 },
+  divider: { height: 1, backgroundColor: COLORS.borderColor, marginVertical: 14 },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  infoLabel: { fontSize: 14, color: '#94A3B8' },
-  infoValue: { fontSize: 14, fontWeight: '600', color: '#F1F5F9' },
-  notesBox: { backgroundColor: '#0F172A', borderRadius: 10, padding: 12, marginTop: 10 },
-  notesLabel: { fontSize: 12, color: '#64748B', fontWeight: '600', marginBottom: 4 },
-  notesText: { fontSize: 13, color: '#CBD5E1' },
-  timestampText: { fontSize: 12, color: '#64748B', textAlign: 'center', marginTop: 4 },
-  matchingBtn: { backgroundColor: '#38BDF8', borderRadius: 12, height: 48, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-  matchingBtnText: { color: '#0F172A', fontSize: 14, fontWeight: '700' },
-  matchedSection: { backgroundColor: '#1E293B', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#334155', marginBottom: 20 },
-  sectionHeader: { fontSize: 14, fontWeight: '700', color: '#CBD5E1', marginBottom: 12, textTransform: 'uppercase' },
-  matchItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0F172A', padding: 12, borderRadius: 10, marginBottom: 8 },
-  matchAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#DC2626', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  infoLabel: { fontSize: 13, color: COLORS.textMuted },
+  infoValue: { fontSize: 14, fontWeight: '700', color: COLORS.secondary },
+  notesBox: { backgroundColor: COLORS.bgMain, borderRadius: 10, padding: 12, marginTop: 10 },
+  notesLabel: { fontSize: 12, color: COLORS.textMuted, fontWeight: '600', marginBottom: 4 },
+  notesText: { fontSize: 13, color: COLORS.textMain },
+  timestampText: { fontSize: 12, color: COLORS.textMuted, textAlign: 'center', marginTop: 4 },
+  matchingBtn: { backgroundColor: COLORS.info, borderRadius: 12, height: 48, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+  matchingBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  matchedSection: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: COLORS.borderColor, marginBottom: 20, ...SHADOWS.sm },
+  sectionHeader: { fontSize: 13, fontWeight: '700', color: COLORS.textMuted, marginBottom: 12, textTransform: 'uppercase' },
+  matchItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.bgMain, padding: 12, borderRadius: 10, marginBottom: 8 },
+  matchAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   matchAvatarText: { color: '#FFF', fontWeight: '700', fontSize: 16 },
-  matchDonorName: { color: '#F1F5F9', fontWeight: '600', fontSize: 14 },
-  matchDistance: { color: '#38BDF8', fontSize: 12, marginTop: 2 },
-  matchStatusBadge: { backgroundColor: '#334155', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
+  matchDonorName: { color: COLORS.secondary, fontWeight: '700', fontSize: 14 },
+  matchDistance: { color: COLORS.info, fontSize: 12, marginTop: 2 },
+  matchStatusBadge: { backgroundColor: COLORS.secondary, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
   matchStatusText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
-  cancelButton: { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderWidth: 1, borderColor: '#EF4444', borderRadius: 12, height: 50, alignItems: 'center', justifyContent: 'center', marginBottom: 40 },
-  cancelButtonText: { color: '#EF4444', fontSize: 15, fontWeight: '700' },
+  cancelButton: { backgroundColor: COLORS.primaryLight, borderWidth: 1, borderColor: COLORS.danger, borderRadius: 12, height: 50, alignItems: 'center', justifyContent: 'center', marginBottom: 30 },
+  cancelButtonText: { color: COLORS.danger, fontSize: 15, fontWeight: '700' },
 });

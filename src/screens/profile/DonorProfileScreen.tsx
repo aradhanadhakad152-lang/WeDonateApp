@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useUserStore } from '../../store/userStore';
 import { BloodGroup, Gender } from '../../types/user.types';
+import { COLORS, SHADOWS } from '../../theme/colors';
 
 const BLOOD_GROUPS: BloodGroup[] = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const GENDERS: Gender[] = ['MALE', 'FEMALE', 'OTHER'];
@@ -105,17 +106,17 @@ export const DonorProfileScreen: React.FC<DonorProfileScreenProps> = ({ onBack }
 
         {/* Form Fields */}
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Full Name</Text>
-          <TextInput style={styles.input} value={fullName} onChangeText={setFullName} placeholder="Full Name" placeholderTextColor="#475569" />
+          <Text style={styles.label}>FULL NAME</Text>
+          <TextInput style={styles.input} value={fullName} onChangeText={setFullName} placeholder="Full Name" placeholderTextColor="#94A3B8" />
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Email Address</Text>
-          <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="Email" placeholderTextColor="#475569" keyboardType="email-address" />
+          <Text style={styles.label}>EMAIL ADDRESS</Text>
+          <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="Email" placeholderTextColor="#94A3B8" keyboardType="email-address" />
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Blood Group</Text>
+          <Text style={styles.label}>BLOOD GROUP</Text>
           <View style={styles.grid}>
             {BLOOD_GROUPS.map((bg) => (
               <TouchableOpacity
@@ -130,25 +131,25 @@ export const DonorProfileScreen: React.FC<DonorProfileScreenProps> = ({ onBack }
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Last Donation Date (YYYY-MM-DD)</Text>
-          <TextInput style={styles.input} value={lastDonationDate} onChangeText={setLastDonationDate} placeholder="2026-05-15" placeholderTextColor="#475569" />
+          <Text style={styles.label}>LAST DONATION DATE (YYYY-MM-DD)</Text>
+          <TextInput style={styles.input} value={lastDonationDate} onChangeText={setLastDonationDate} placeholder="2026-05-15" placeholderTextColor="#94A3B8" />
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>City & GPS Location</Text>
+          <Text style={styles.label}>CITY & GPS LOCATION</Text>
           <TouchableOpacity style={styles.gpsButton} onPress={handleDetectLocation} disabled={isLocating}>
-            {isLocating ? <ActivityIndicator color="#DC2626" /> : <Text style={styles.gpsButtonText}>📍 Update GPS Coordinates</Text>}
+            {isLocating ? <ActivityIndicator color={COLORS.primary} /> : <Text style={styles.gpsButtonText}>📍 Update GPS Coordinates</Text>}
           </TouchableOpacity>
-          <TextInput style={[styles.input, { marginTop: 10 }]} value={city} onChangeText={setCity} placeholder="City Name" placeholderTextColor="#475569" />
+          <TextInput style={[styles.input, { marginTop: 8 }]} value={city} onChangeText={setCity} placeholder="City Name" placeholderTextColor="#94A3B8" />
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Age</Text>
-          <TextInput style={styles.input} value={age} onChangeText={setAge} placeholder="Age" placeholderTextColor="#475569" keyboardType="number-pad" maxLength={2} />
+          <Text style={styles.label}>AGE</Text>
+          <TextInput style={styles.input} value={age} onChangeText={setAge} placeholder="Age" placeholderTextColor="#94A3B8" keyboardType="number-pad" maxLength={2} />
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Gender</Text>
+          <Text style={styles.label}>GENDER</Text>
           <View style={styles.genderRow}>
             {GENDERS.map((g) => (
               <TouchableOpacity key={g} style={[styles.genderPill, gender === g && styles.genderPillSelected]} onPress={() => setGender(g)}>
@@ -158,8 +159,8 @@ export const DonorProfileScreen: React.FC<DonorProfileScreenProps> = ({ onBack }
           </View>
         </View>
 
-        <TouchableOpacity style={[styles.saveButton, isUpdating && styles.buttonDisabled]} onPress={handleSave} disabled={isUpdating}>
-          {isUpdating ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveButtonText}>Save Changes</Text>}
+        <TouchableOpacity style={[styles.saveButton, isUpdating && styles.buttonDisabled]} onPress={handleSave} disabled={isUpdating} activeOpacity={0.85}>
+          {isUpdating ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveButtonText}>Save Profile Changes</Text>}
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -167,32 +168,32 @@ export const DonorProfileScreen: React.FC<DonorProfileScreenProps> = ({ onBack }
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0F172A' },
-  scrollContent: { padding: 20, paddingTop: 50 },
+  container: { flex: 1, backgroundColor: COLORS.bgMain },
+  scrollContent: { padding: 20, paddingTop: 45 },
   navBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
-  backText: { fontSize: 16, color: '#94A3B8', fontWeight: '600' },
-  navTitle: { fontSize: 18, fontWeight: '700', color: '#F1F5F9' },
-  errorBanner: { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: '#EF4444', borderWidth: 1, color: '#FCA5A5', padding: 12, borderRadius: 8, fontSize: 13, marginBottom: 16, textAlign: 'center' },
-  readOnlyCard: { backgroundColor: '#1E293B', borderWidth: 1, borderColor: '#334155', borderRadius: 12, padding: 16, marginBottom: 20 },
-  readOnlyLabel: { fontSize: 12, color: '#94A3B8', fontWeight: '600' },
-  readOnlyValue: { fontSize: 16, fontWeight: '700', color: '#22C55E', marginTop: 4 },
-  readOnlySub: { fontSize: 11, color: '#64748B', marginTop: 2 },
-  formGroup: { marginBottom: 20 },
-  label: { fontSize: 14, fontWeight: '600', color: '#CBD5E1', marginBottom: 8 },
-  input: { backgroundColor: '#1E293B', borderWidth: 1, borderColor: '#334155', borderRadius: 10, paddingHorizontal: 16, height: 48, fontSize: 15, color: '#F1F5F9' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  bloodPill: { width: '22%', height: 44, borderRadius: 10, backgroundColor: '#1E293B', borderWidth: 1, borderColor: '#334155', alignItems: 'center', justifyContent: 'center' },
-  bloodPillSelected: { backgroundColor: '#DC2626', borderColor: '#DC2626' },
-  bloodPillText: { fontSize: 15, fontWeight: '700', color: '#CBD5E1' },
+  backText: { fontSize: 14, color: COLORS.textMuted, fontWeight: '600' },
+  navTitle: { fontSize: 18, fontWeight: '800', color: COLORS.secondary },
+  errorBanner: { backgroundColor: COLORS.primaryLight, borderColor: '#FFA3A3', borderWidth: 1, color: COLORS.danger, padding: 12, borderRadius: 10, fontSize: 13, marginBottom: 16, textAlign: 'center', fontWeight: '600' },
+  readOnlyCard: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 14, padding: 16, marginBottom: 20, ...SHADOWS.sm },
+  readOnlyLabel: { fontSize: 11, color: COLORS.textMuted, fontWeight: '700', textTransform: 'uppercase' },
+  readOnlyValue: { fontSize: 16, fontWeight: '800', color: COLORS.success, marginTop: 4 },
+  readOnlySub: { fontSize: 11, color: COLORS.textMuted, marginTop: 2 },
+  formGroup: { marginBottom: 16 },
+  label: { fontSize: 12, fontWeight: '700', color: COLORS.secondary, marginBottom: 6, letterSpacing: 0.5 },
+  input: { backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: COLORS.borderColor, borderRadius: 12, paddingHorizontal: 16, height: 48, fontSize: 15, color: COLORS.textMain },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  bloodPill: { width: '23%', height: 42, borderRadius: 10, backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: COLORS.borderColor, alignItems: 'center', justifyContent: 'center' },
+  bloodPillSelected: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  bloodPillText: { fontSize: 15, fontWeight: '800', color: COLORS.secondary },
   bloodPillTextSelected: { color: '#FFFFFF' },
-  gpsButton: { backgroundColor: 'rgba(220, 38, 38, 0.1)', borderWidth: 1, borderColor: 'rgba(220, 38, 38, 0.4)', borderRadius: 10, height: 44, alignItems: 'center', justifyContent: 'center' },
-  gpsButtonText: { fontSize: 14, fontWeight: '600', color: '#DC2626' },
-  genderRow: { flexDirection: 'row', gap: 12 },
-  genderPill: { flex: 1, height: 42, borderRadius: 8, backgroundColor: '#1E293B', borderWidth: 1, borderColor: '#334155', alignItems: 'center', justifyContent: 'center' },
-  genderPillSelected: { backgroundColor: '#38BDF8', borderColor: '#38BDF8' },
-  genderPillText: { fontSize: 13, fontWeight: '600', color: '#CBD5E1' },
-  genderPillTextSelected: { color: '#0F172A' },
-  saveButton: { backgroundColor: '#DC2626', borderRadius: 12, height: 52, alignItems: 'center', justifyContent: 'center', marginTop: 10, marginBottom: 40 },
+  gpsButton: { backgroundColor: COLORS.primaryLight, borderWidth: 1, borderColor: '#FFA3A3', borderRadius: 10, height: 42, alignItems: 'center', justifyContent: 'center' },
+  gpsButtonText: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
+  genderRow: { flexDirection: 'row', gap: 8 },
+  genderPill: { flex: 1, height: 42, borderRadius: 10, backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: COLORS.borderColor, alignItems: 'center', justifyContent: 'center' },
+  genderPillSelected: { backgroundColor: COLORS.secondary, borderColor: COLORS.secondary },
+  genderPillText: { fontSize: 13, fontWeight: '700', color: COLORS.secondary },
+  genderPillTextSelected: { color: '#FFFFFF' },
+  saveButton: { backgroundColor: COLORS.primary, borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center', marginTop: 10, marginBottom: 30, ...SHADOWS.md },
   buttonDisabled: { opacity: 0.6 },
   saveButtonText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
 });

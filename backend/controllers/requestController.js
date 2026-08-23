@@ -293,6 +293,12 @@ const cancelRequest = asyncHandler(async (req, res) => {
   }
 
   // Lifecycle Check: Validate status transition to CANCELLED
+  if (bloodRequest.status === 'CANCELLED') {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'Blood request is already cancelled',
+    });
+  }
   validateStatusTransition(bloodRequest.status, 'CANCELLED');
 
   bloodRequest.status = 'CANCELLED';

@@ -1,16 +1,27 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator, TextInput, Modal } from 'react-native';
 import { useUserStore } from '../../store/userStore';
 import { logoutUser } from '../../services/authService';
+import { BottomNav, TabName } from '../../components/ui/BottomNav';
+import { COLORS, SHADOWS } from '../../theme/colors';
 
 interface HomeScreenProps {
   onNavigateToProfile: () => void;
   onRequestBlood: () => void;
+  onOpenMap?: () => void;
   onLogout: () => void;
 }
 
-export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToProfile, onRequestBlood, onLogout }) => {
+export const HomeScreen: React.FC<HomeScreenProps> = ({
+  onNavigateToProfile,
+  onRequestBlood,
+  onOpenMap,
+  onLogout,
+}) => {
   const { profile, fetchProfile, toggleAvailability, isLoading } = useUserStore();
+  const [activeTab, setActiveTab] = useState<TabName>('Home');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSOSModal, setShowSOSModal] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -37,297 +48,684 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToProfile, onR
   if (isLoading && !profile) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#DC2626" />
-        <Text style={styles.loadingText}>Fetching User Profile...</Text>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Connecting to WE DONATE Network...</Text>
       </View>
     );
   }
 
-  const nameVal = profile?.name || profile?.fullName || 'Blood Donor';
+  const nameVal = profile?.name || profile?.fullName || 'Ayush Dhakad';
+  const bloodGroupVal = profile?.bloodGroup || 'B+';
   const isAvailable = profile?.isAvailable ?? profile?.donorStatus === 'AVAILABLE';
+  const initials = nameVal.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'AD';
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Header Bar */}
-      <View style={styles.topBar}>
-        <View style={styles.brandRow}>
-          <Text style={styles.brandDrop}>🩸</Text>
-          <Text style={styles.brandTitle}>WE DONATE</Text>
+    <View style={styles.mainWrapper}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        {/* ================= TAB 1: HOME DASHBOARD ================= */}
+        {activeTab === 'Home' && (
+          <>
+            {/* Top Coral Header Bar */}
+            <View style={styles.dashHeaderBg}>
+              <View style={styles.dashTopBar}>
+                <View style={styles.userAvatarBadge}>
+                  <View style={styles.avatarCircle}>
+                    <Text style={styles.avatarText}>{initials}</Text>
+                  </View>
+                  <View>
+                    <Text style={styles.dashUserName}>{nameVal}</Text>
+                    <Text style={styles.dashUserLocation}>
+                      📍 {profile?.location?.city || 'New Delhi'} • Connected via GPS
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity style={styles.bellBadge} onPress={() => setActiveTab('History')}>
+                  <Text style={styles.bellIcon}>🔔</Text>
+                  <View style={styles.bellDot} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Stats Pills Row */}
+              <View style={styles.dashStatsRow}>
+                <View style={styles.statPillBadge}>
+                  <Text style={styles.statPillText}>BLOOD GROUP: {bloodGroupVal}</Text>
+                </View>
+                <View style={[styles.statPillBadge, styles.statPillGreen]}>
+                  <Text style={styles.statPillText}>🛡️ VERIFIED DONOR</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Emergency Banner Card */}
+            <View style={styles.emergencyCardWrapper}>
+              <View style={styles.emergencyBannerCard}>
+                <View style={styles.emergencyBannerTop}>
+                  <Text style={styles.emergencyBadge}>EMERGENCY ALERT</Text>
+                  <Text style={styles.emergencyTime}>10 min ago</Text>
+                </View>
+                <Text style={styles.emergencyTitle}>CRITICAL {bloodGroupVal} BLOOD REQUIRED</Text>
+                <Text style={styles.emergencySub}>AIIMS Trauma Centre • 3 Units Needed</Text>
+                <TouchableOpacity
+                  style={styles.btnRespondDonor}
+                  onPress={onRequestBlood}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.btnRespondDonorText}>Respond as Donor  ❤️</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Core Action Grid (5 Quick Buttons matching HTML) */}
+            <View style={styles.coreActionGrid}>
+              <TouchableOpacity
+                style={styles.actionCardBtn}
+                onPress={onRequestBlood}
+                activeOpacity={0.85}
+              >
+                <View style={[styles.actionIconBox, styles.iconRed]}>
+                  <Text style={styles.actionIconText}>📋</Text>
+                </View>
+                <Text style={styles.actionLabel}>Request Blood</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionCardBtn}
+                onPress={onNavigateToProfile}
+                activeOpacity={0.85}
+              >
+                <View style={[styles.actionIconBox, styles.iconGreen]}>
+                  <Text style={styles.actionIconText}>💓</Text>
+                </View>
+                <Text style={styles.actionLabel}>Donate Blood</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionCardBtn}
+                onPress={onOpenMap || (() => setActiveTab('Search'))}
+                activeOpacity={0.85}
+              >
+                <View style={[styles.actionIconBox, styles.iconBlue]}>
+                  <Text style={styles.actionIconText}>🏦</Text>
+                </View>
+                <Text style={styles.actionLabel}>Blood Banks Map</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionCardBtn}
+                onPress={onOpenMap || (() => setActiveTab('Search'))}
+                activeOpacity={0.85}
+              >
+                <View style={[styles.actionIconBox, styles.iconPurple]}>
+                  <Text style={styles.actionIconText}>🏥</Text>
+                </View>
+                <Text style={styles.actionLabel}>Hospitals Map</Text>
+              </TouchableOpacity>
+
+              {/* SOS Active Emergency (Full Width) */}
+              <TouchableOpacity
+                style={[styles.actionCardBtn, styles.actionCardSOS]}
+                onPress={() => setShowSOSModal(true)}
+                activeOpacity={0.85}
+              >
+                <View style={[styles.actionIconBox, styles.iconOrange]}>
+                  <Text style={styles.actionIconText}>📞</Text>
+                </View>
+                <Text style={[styles.actionLabel, { color: COLORS.primary }]}>
+                  Active Emergency 24x7 SOS
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Donor Availability Card */}
+            <View style={styles.availabilityCard}>
+              <View style={styles.availabilityTextContainer}>
+                <Text style={styles.availabilityTitle}>Donor Availability Status</Text>
+                <Text style={styles.availabilitySub}>
+                  {isAvailable ? 'Visible to nearby emergency requests' : 'Currently offline'}
+                </Text>
+              </View>
+              <Switch
+                trackColor={{ false: '#CBD5E1', true: COLORS.primaryLight }}
+                thumbColor={isAvailable ? COLORS.primary : '#94A3B8'}
+                onValueChange={handleToggle}
+                value={isAvailable}
+              />
+            </View>
+          </>
+        )}
+
+        {/* ================= TAB 2: SEARCH BLOOD BANKS & HOSPITALS ================= */}
+        {activeTab === 'Search' && (
+          <View style={styles.tabSection}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={styles.tabSectionTitle}>Blood Banks & Hospitals</Text>
+              {onOpenMap && (
+                <TouchableOpacity style={styles.btnOpenMapHead} onPress={onOpenMap}>
+                  <Text style={styles.btnOpenMapHeadText}>🗺️ Open Map Radar</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <TextInput
+              style={styles.searchInput}
+              placeholder="🔍 Search hospital, city or blood group..."
+              placeholderTextColor="#94A3B8"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+
+            <View style={styles.cardList}>
+              {[
+                { name: 'AIIMS Blood Bank', city: 'Ansari Nagar, New Delhi', distance: '1.2 km', stock: 'A+, B+, O+ Available' },
+                { name: 'Safdarjung Hospital Regional Bank', city: 'Ring Road, Delhi', distance: '2.8 km', stock: 'B+, AB+ Available' },
+                { name: 'Max Super Speciality Blood Unit', city: 'Saket, New Delhi', distance: '4.5 km', stock: 'O-, A- Critical' },
+                { name: 'Apollo Hospitals Blood Centre', city: 'Sarita Vihar, Delhi', distance: '6.1 km', stock: 'All Groups Available' },
+              ].map((h, i) => (
+                <View key={i} style={styles.itemCard}>
+                  <View style={styles.itemCardHeader}>
+                    <Text style={styles.itemCardName}>{h.name}</Text>
+                    <Text style={styles.itemCardDistance}>📍 {h.distance}</Text>
+                  </View>
+                  <Text style={styles.itemCardSub}>{h.city}</Text>
+                  <Text style={styles.itemCardStock}>🩸 Stock: {h.stock}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* ================= TAB 3: REQUEST HISTORY ================= */}
+        {activeTab === 'History' && (
+          <View style={styles.tabSection}>
+            <Text style={styles.tabSectionTitle}>Request History</Text>
+            <View style={styles.cardList}>
+              {[
+                { id: 'REQ-8821', patient: 'Ramesh Kumar', bg: 'B+', units: '3 Units', hospital: 'AIIMS Trauma Centre', status: 'MATCHING', color: COLORS.warning },
+                { id: 'REQ-7612', patient: 'Priya Sharma', bg: 'O+', units: '2 Units', hospital: 'Safdarjung Hospital', status: 'FULFILLED', color: COLORS.success },
+              ].map((r, i) => (
+                <View key={i} style={styles.itemCard}>
+                  <View style={styles.itemCardHeader}>
+                    <Text style={styles.itemCardName}>{r.patient} ({r.bg})</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: r.color }]}>
+                      <Text style={styles.statusBadgeText}>{r.status}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.itemCardSub}>{r.hospital} • {r.units}</Text>
+                  <Text style={styles.itemCardSub}>ID: {r.id}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* ================= TAB 4: PROFILE & SETTINGS ================= */}
+        {activeTab === 'Profile' && (
+          <View style={styles.tabSection}>
+            <Text style={styles.tabSectionTitle}>Profile & Settings</Text>
+            <View style={styles.profileCard}>
+              <View style={styles.profileAvatar}>
+                <Text style={styles.profileAvatarText}>{initials}</Text>
+              </View>
+              <Text style={styles.profileName}>{nameVal}</Text>
+              <Text style={styles.profilePhone}>{profile?.phone || '+91 98765 12345'}</Text>
+              <Text style={styles.profileBlood}>Blood Group: {bloodGroupVal}</Text>
+
+              <TouchableOpacity style={styles.btnEditProfile} onPress={onNavigateToProfile}>
+                <Text style={styles.btnEditProfileText}>✏️ Edit Profile Details</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity style={styles.btnSignOut} onPress={handleLogoutPress}>
+              <Text style={styles.btnSignOutText}>Sign Out of Account</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Emergency SOS Modal */}
+      <Modal visible={showSOSModal} transparent animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>📞 24x7 Emergency Helplines</Text>
+            <Text style={styles.modalSub}>National Blood Helpline: 104</Text>
+            <Text style={styles.modalSub}>Ambulance Emergency: 102 / 108</Text>
+            <Text style={styles.modalSub}>WE DONATE Control Room: +91 11 2658 8888</Text>
+
+            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowSOSModal(false)}>
+              <Text style={styles.modalCloseText}>Close</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        <TouchableOpacity style={styles.logoutPill} onPress={handleLogoutPress}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
+      </Modal>
 
-      {/* User Greeting & Status Card */}
-      <View style={styles.userCard}>
-        <View style={styles.userCardHeader}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>{nameVal.charAt(0).toUpperCase()}</Text>
-          </View>
-          <View style={styles.userInfo}>
-            <Text style={styles.userName}>{nameVal}</Text>
-            <Text style={styles.userPhone}>{profile?.phone || ''}</Text>
-            <Text style={styles.userLocation}>📍 {profile?.location?.city || 'Location Configured'}</Text>
-          </View>
-          <View style={styles.bloodBadge}>
-            <Text style={styles.bloodBadgeText}>{profile?.bloodGroup || 'A+'}</Text>
-          </View>
-        </View>
-
-        {/* Availability Toggle */}
-        <View style={styles.toggleRow}>
-          <View style={styles.toggleTextContainer}>
-            <Text style={styles.toggleTitle}>Donor Availability</Text>
-            <Text style={styles.toggleSub}>
-              {isAvailable ? 'Visible to nearby emergency requests' : 'Currently offline'}
-            </Text>
-          </View>
-          <Switch
-            trackColor={{ false: '#334155', true: 'rgba(34, 197, 94, 0.4)' }}
-            thumbColor={isAvailable ? '#22C55E' : '#94A3B8'}
-            onValueChange={handleToggle}
-            value={isAvailable}
-          />
-        </View>
-      </View>
-
-      {/* Profile Edit Quick Button */}
-      <TouchableOpacity style={styles.editProfileBtn} onPress={onNavigateToProfile}>
-        <Text style={styles.editProfileBtnText}>✏️ Edit Donor Profile</Text>
-      </TouchableOpacity>
-
-      {/* Emergency Quick Actions */}
-      <Text style={styles.sectionTitle}>Emergency Actions</Text>
-      <View style={styles.actionGrid}>
-        <TouchableOpacity style={[styles.actionCard, styles.actionCardRed]} onPress={onRequestBlood}>
-          <Text style={styles.actionIcon}>🚨</Text>
-          <Text style={styles.actionTitle}>Request Blood</Text>
-          <Text style={styles.actionSub}>Create emergency blood request</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.actionCard, styles.actionCardBlue]}>
-          <Text style={styles.actionIcon}>🔍</Text>
-          <Text style={styles.actionTitle}>Nearby Donors</Text>
-          <Text style={styles.actionSub}>Search 10km radius donors</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Eligibility Status */}
-      <View style={styles.eligibilityBox}>
-        <Text style={styles.eligibilityTitle}>Donation Eligibility Status</Text>
-        <Text style={styles.eligibilityStatus}>
-          {profile?.isEligible ? '✅ You are currently eligible to donate blood!' : '⏳ Next donation date pending'}
-        </Text>
-      </View>
-    </ScrollView>
+      {/* Fixed 4-Tab Bottom Navigation Bar */}
+      <BottomNav activeTab={activeTab} onTabPress={setActiveTab} />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  mainWrapper: {
+    flex: 1,
+    backgroundColor: COLORS.bgMain,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#0F172A',
   },
   content: {
-    padding: 20,
-    paddingTop: 50,
+    paddingBottom: 20,
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#0F172A',
+    backgroundColor: COLORS.bgMain,
     alignItems: 'center',
     justifyContent: 'center',
   },
   loadingText: {
-    color: '#94A3B8',
+    color: COLORS.textMuted,
     marginTop: 12,
     fontSize: 14,
+    fontWeight: '600',
   },
-  topBar: {
+
+  /* Header Bar */
+  dashHeaderBg: {
+    backgroundColor: COLORS.primary,
+    padding: 24,
+    paddingTop: 50,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  dashTopBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 24,
   },
-  brandRow: {
+  userAvatarBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  brandDrop: {
-    fontSize: 24,
-  },
-  brandTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#F1F5F9',
-    letterSpacing: 1,
-  },
-  logoutPill: {
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-  },
-  logoutText: {
-    color: '#EF4444',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  userCard: {
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#334155',
-    marginBottom: 16,
-  },
-  userCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
   },
   avatarCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#DC2626',
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: 12,
+    ...SHADOWS.sm,
   },
   avatarText: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  userInfo: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#F1F5F9',
-  },
-  userPhone: {
-    fontSize: 13,
-    color: '#94A3B8',
-    marginTop: 2,
-  },
-  userLocation: {
-    fontSize: 12,
-    color: '#38BDF8',
-    marginTop: 2,
-  },
-  bloodBadge: {
-    backgroundColor: 'rgba(220, 38, 38, 0.15)',
-    borderWidth: 1,
-    borderColor: '#DC2626',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  bloodBadgeText: {
-    fontSize: 18,
+    color: COLORS.primary,
     fontWeight: '800',
-    color: '#DC2626',
+    fontSize: 18,
   },
-  toggleRow: {
+  dashUserName: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  dashUserLocation: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  bellBadge: {
+    position: 'relative',
+    padding: 6,
+  },
+  bellIcon: {
+    fontSize: 22,
+  },
+  bellDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+  },
+  dashStatsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 16,
+  },
+  statPillBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  statPillGreen: {
+    backgroundColor: 'rgba(16, 185, 129, 0.35)',
+  },
+  statPillText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  /* Emergency Banner Card */
+  emergencyCardWrapper: {
+    paddingHorizontal: 20,
+    marginTop: 16,
+  },
+  emergencyBannerCard: {
+    backgroundColor: COLORS.secondary,
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1.5,
+    borderColor: '#FFA3A3',
+    ...SHADOWS.md,
+  },
+  emergencyBannerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  emergencyBadge: {
+    backgroundColor: COLORS.primary,
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  emergencyTime: {
+    color: '#94A3B8',
+    fontSize: 11,
+  },
+  emergencyTitle: {
+    color: '#FF4D4D',
+    fontSize: 16,
+    fontWeight: '800',
+    marginTop: 8,
+  },
+  emergencySub: {
+    color: '#CBD5E1',
+    fontSize: 13,
+    marginTop: 2,
+  },
+  btnRespondDonor: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+  },
+  btnRespondDonorText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+
+  /* Core Action Grid (5 Quick Buttons) */
+  coreActionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginTop: 16,
+  },
+  actionCardBtn: {
+    width: '48%',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: COLORS.borderColor,
+    borderRadius: 14,
+    padding: 14,
+    alignItems: 'center',
+    marginBottom: 12,
+    ...SHADOWS.sm,
+  },
+  actionCardSOS: {
+    width: '100%',
+    backgroundColor: COLORS.primaryLight,
+    borderColor: '#FFA3A3',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  actionIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  iconRed: { backgroundColor: COLORS.primaryLight },
+  iconGreen: { backgroundColor: COLORS.successLight },
+  iconBlue: { backgroundColor: COLORS.infoLight },
+  iconPurple: { backgroundColor: COLORS.purpleLight },
+  iconOrange: { backgroundColor: COLORS.orangeLight },
+  actionIconText: { fontSize: 20 },
+  actionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.secondary,
+  },
+
+  /* Availability Toggle Card */
+  availabilityCard: {
+    marginHorizontal: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.borderColor,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#334155',
+    ...SHADOWS.sm,
   },
-  toggleTextContainer: {
+  availabilityTextContainer: {
     flex: 1,
-    marginRight: 12,
+    marginRight: 10,
   },
-  toggleTitle: {
+  availabilityTitle: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#F1F5F9',
+    fontWeight: '700',
+    color: COLORS.secondary,
   },
-  toggleSub: {
+  availabilitySub: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: COLORS.textMuted,
     marginTop: 2,
   },
-  editProfileBtn: {
-    backgroundColor: '#1E293B',
+
+  /* Tab Sections */
+  tabSection: {
+    padding: 20,
+    paddingTop: 50,
+  },
+  tabSectionTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: COLORS.secondary,
+    marginBottom: 16,
+  },
+  btnOpenMapHead: {
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: 12,
-    height: 46,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
+    borderColor: '#FFA3A3',
   },
-  editProfileBtnText: {
-    color: '#CBD5E1',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  sectionTitle: {
-    fontSize: 16,
+  btnOpenMapHeadText: {
+    color: COLORS.primary,
+    fontSize: 12,
     fontWeight: '700',
-    color: '#F1F5F9',
-    marginBottom: 12,
   },
-  actionGrid: {
-    flexDirection: 'row',
+  searchInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: COLORS.borderColor,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 48,
+    fontSize: 14,
+    color: COLORS.textMain,
+    marginBottom: 16,
+  },
+  cardList: {
     gap: 12,
-    marginBottom: 20,
   },
-  actionCard: {
-    flex: 1,
+  itemCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: COLORS.borderColor,
     borderRadius: 14,
     padding: 16,
-    borderWidth: 1,
+    ...SHADOWS.sm,
   },
-  actionCardRed: {
-    backgroundColor: 'rgba(220, 38, 38, 0.1)',
-    borderColor: 'rgba(220, 38, 38, 0.3)',
+  itemCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
   },
-  actionCardBlue: {
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
-    borderColor: 'rgba(56, 189, 248, 0.3)',
-  },
-  actionIcon: {
-    fontSize: 28,
-    marginBottom: 8,
-  },
-  actionTitle: {
+  itemCardName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#F1F5F9',
+    color: COLORS.secondary,
   },
-  actionSub: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 4,
-  },
-  eligibilityBox: {
-    backgroundColor: '#1E293B',
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-    marginBottom: 30,
-  },
-  eligibilityTitle: {
-    fontSize: 14,
+  itemCardDistance: {
+    fontSize: 12,
+    color: COLORS.primary,
     fontWeight: '600',
-    color: '#CBD5E1',
-    marginBottom: 6,
   },
-  eligibilityStatus: {
+  itemCardSub: {
     fontSize: 13,
-    color: '#22C55E',
-    fontWeight: '500',
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  itemCardStock: {
+    fontSize: 13,
+    color: COLORS.success,
+    fontWeight: '600',
+    marginTop: 6,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  /* Profile Tab */
+  profileCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: COLORS.borderColor,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    marginBottom: 16,
+    ...SHADOWS.sm,
+  },
+  profileAvatar: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  profileAvatarText: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    fontWeight: '800',
+  },
+  profileName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.secondary,
+  },
+  profilePhone: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  profileBlood: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.primary,
+    marginTop: 6,
+  },
+  btnEditProfile: {
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    marginTop: 16,
+  },
+  btnEditProfileText: {
+    color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  btnSignOut: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: COLORS.danger,
+    borderRadius: 12,
+    height: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnSignOutText: {
+    color: COLORS.danger,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  /* Modal */
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.primary,
+    marginBottom: 14,
+  },
+  modalSub: {
+    fontSize: 14,
+    color: COLORS.secondary,
+    fontWeight: '600',
+    marginVertical: 4,
+  },
+  modalCloseBtn: {
+    backgroundColor: COLORS.secondary,
+    borderRadius: 10,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    marginTop: 20,
+  },
+  modalCloseText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
 });

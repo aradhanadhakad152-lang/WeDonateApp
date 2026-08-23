@@ -8,10 +8,20 @@ import { HomeScreen } from '../screens/home/HomeScreen';
 import { DonorProfileScreen } from '../screens/profile/DonorProfileScreen';
 import { RequestBloodScreen } from '../screens/requests/RequestBloodScreen';
 import { RequestDetailsScreen } from '../screens/requests/RequestDetailsScreen';
+import { NearbyDonorsMapScreen } from '../screens/map/NearbyDonorsMapScreen';
 import { User } from '../types/user.types';
 import { BloodRequest } from '../types/request.types';
 
-type ScreenState = 'Splash' | 'PhoneLogin' | 'OTPVerification' | 'ProfileRegistration' | 'Home' | 'DonorProfile' | 'RequestBlood' | 'RequestDetails';
+type ScreenState =
+  | 'Splash'
+  | 'PhoneLogin'
+  | 'OTPVerification'
+  | 'ProfileRegistration'
+  | 'Home'
+  | 'DonorProfile'
+  | 'RequestBlood'
+  | 'RequestDetails'
+  | 'NearbyDonorsMap';
 
 export const RootNavigator: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<ScreenState>('Splash');
@@ -62,6 +72,7 @@ export const RootNavigator: React.FC = () => {
         <HomeScreen
           onNavigateToProfile={() => setCurrentScreen('DonorProfile')}
           onRequestBlood={() => setCurrentScreen('RequestBlood')}
+          onOpenMap={() => setCurrentScreen('NearbyDonorsMap')}
           onLogout={() => setCurrentScreen('PhoneLogin')}
         />
       )}
@@ -86,6 +97,13 @@ export const RootNavigator: React.FC = () => {
         <RequestDetailsScreen
           request={activeRequest}
           onBack={() => setCurrentScreen('Home')}
+        />
+      )}
+
+      {currentScreen === 'NearbyDonorsMap' && (
+        <NearbyDonorsMapScreen
+          onBack={() => setCurrentScreen('Home')}
+          onRequestBlood={() => setCurrentScreen('RequestBlood')}
         />
       )}
     </View>

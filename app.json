@@ -44,7 +44,8 @@
         {
           "locationAlwaysAndWhenInUsePermission": "WE DONATE requires location access to find nearby blood donors and emergency requests."
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "extra": {
       "eas": {

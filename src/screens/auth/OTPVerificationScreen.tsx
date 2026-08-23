@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { verifyOTPAndLogin } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
 import { User } from '../../types/user.types';
+import { COLORS, SHADOWS } from '../../theme/colors';
 
 interface OTPVerificationScreenProps {
   phoneNumber: string;
@@ -20,6 +21,16 @@ export const OTPVerificationScreen: React.FC<OTPVerificationScreenProps> = ({
   const [otpCode, setOtpCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [resendTimer, setResendTimer] = useState(30);
+
+  useEffect(() => {
+    if (resendTimer > 0) {
+      const interval = setInterval(() => {
+        setResendTimer((prev) => prev - 1);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [resendTimer]);
 
   const handleVerifyOTP = async () => {
     setErrorMessage('');
@@ -45,26 +56,28 @@ export const OTPVerificationScreen: React.FC<OTPVerificationScreenProps> = ({
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <TouchableOpacity style={styles.backButton} onPress={onBack}>
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
 
-        <View style={styles.header}>
-          <Text style={styles.iconText}>📲</Text>
-          <Text style={styles.title}>Verify OTP Code</Text>
-          <Text style={styles.subtitle}>
-            Enter the 6-digit verification code sent to{' '}
-            <Text style={styles.phoneHighlight}>{phoneNumber}</Text>
-          </Text>
+        {/* Circular Logo Header */}
+        <View style={styles.circularBadgeHeader}>
+          <Text style={styles.badgeShieldIcon}>🛡️</Text>
+          <Text style={styles.badgeText}>VERIFY</Text>
         </View>
 
+        <Text style={styles.title}>OTP Verification</Text>
+        <Text style={styles.subtitle}>
+          Enter the 6-digit code sent to <Text style={styles.phoneHighlight}>{phoneNumber}</Text>
+        </Text>
+
         <View style={styles.formGroup}>
-          <Text style={styles.label}>6-Digit SMS Code</Text>
+          <Text style={styles.label}>ENTER 6-DIGIT CODE</Text>
           <TextInput
             style={styles.input}
-            placeholder="123456"
-            placeholderTextColor="#475569"
+            placeholder="1 2 3 4 5 6"
+            placeholderTextColor="#94A3B8"
             keyboardType="number-pad"
             value={otpCode}
             onChangeText={(text) => {
@@ -77,18 +90,23 @@ export const OTPVerificationScreen: React.FC<OTPVerificationScreenProps> = ({
           {!!errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
         </View>
 
+        <Text style={styles.timerText}>
+          Resend OTP in <Text style={styles.timerBold}>00:{resendTimer < 10 ? `0${resendTimer}` : resendTimer}</Text>
+        </Text>
+
         <TouchableOpacity
-          style={[styles.button, (isLoading || otpCode.length < 6) && styles.buttonDisabled]}
+          style={[styles.btnCoralWide, (isLoading || otpCode.length < 6) && styles.btnDisabled]}
           onPress={handleVerifyOTP}
           disabled={isLoading || otpCode.length < 6}
+          activeOpacity={0.85}
         >
           {isLoading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.buttonText}>Verify & Continue</Text>
+            <Text style={styles.btnCoralWideText}>Confirm & Continue  ➔</Text>
           )}
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 };
@@ -96,94 +114,119 @@ export const OTPVerificationScreen: React.FC<OTPVerificationScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F172A',
+    backgroundColor: COLORS.bgMain,
   },
-  content: {
-    flex: 1,
+  scrollContent: {
     padding: 24,
-    justifyContent: 'center',
+    paddingTop: 50,
+    flexGrow: 1,
+    justifyContent: 'space-between',
   },
   backButton: {
-    position: 'absolute',
-    top: 50,
-    left: 24,
+    alignSelf: 'flex-start',
+    marginBottom: 10,
   },
   backText: {
-    fontSize: 16,
-    color: '#94A3B8',
+    fontSize: 14,
+    color: COLORS.textMuted,
     fontWeight: '600',
   },
-  header: {
+  circularBadgeHeader: {
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
-    marginBottom: 36,
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: 16,
+    borderWidth: 3,
+    borderColor: COLORS.primaryLight,
+    ...SHADOWS.md,
   },
-  iconText: {
-    fontSize: 48,
-    marginBottom: 12,
+  badgeShieldIcon: {
+    fontSize: 28,
+  },
+  badgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: COLORS.primary,
+    letterSpacing: 0.5,
+    marginTop: 2,
   },
   title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#F1F5F9',
-    marginBottom: 8,
+    fontSize: 22,
+    fontWeight: '800',
+    color: COLORS.secondary,
+    textAlign: 'center',
+    marginBottom: 4,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#94A3B8',
+    fontSize: 13,
+    color: COLORS.textMuted,
     textAlign: 'center',
-    lineHeight: 20,
+    marginBottom: 24,
   },
   phoneHighlight: {
-    color: '#DC2626',
+    color: COLORS.primary,
     fontWeight: '700',
   },
   formGroup: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#CBD5E1',
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.secondary,
     marginBottom: 8,
+    textAlign: 'center',
+    letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    borderRadius: 14,
     height: 56,
     fontSize: 24,
-    fontWeight: '700',
-    color: '#F1F5F9',
+    fontWeight: '800',
+    color: COLORS.textMain,
     textAlign: 'center',
-    letterSpacing: 8,
+    letterSpacing: 10,
+    ...SHADOWS.sm,
   },
   errorText: {
     fontSize: 12,
-    color: '#EF4444',
-    marginTop: 6,
+    color: COLORS.danger,
+    marginTop: 8,
     textAlign: 'center',
   },
-  button: {
-    backgroundColor: '#DC2626',
-    borderRadius: 12,
-    height: 52,
+  timerText: {
+    textAlign: 'center',
+    fontSize: 13,
+    color: COLORS.textMuted,
+    marginVertical: 14,
+  },
+  timerBold: {
+    color: COLORS.primary,
+    fontWeight: '700',
+  },
+  btnCoralWide: {
+    width: '100%',
+    height: 54,
+    backgroundColor: COLORS.primary,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-    shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    marginTop: 10,
+    ...SHADOWS.md,
   },
-  buttonDisabled: {
+  btnDisabled: {
     opacity: 0.5,
   },
-  buttonText: {
+  btnCoralWideText: {
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
 });

@@ -1,21 +1,34 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { requestSMSOTP } from '../../services/authService';
+import { COLORS, SHADOWS } from '../../theme/colors';
 
 interface PhoneLoginScreenProps {
   onOTPSent: (phoneNumber: string, confirmation: any) => void;
 }
 
 export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onOTPSent }) => {
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('9876512345');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  const pressKey = (key: string) => {
+    if (errorMessage) setErrorMessage('');
+    if (key === 'c') {
+      setPhoneNumber('');
+    } else if (key === 'back') {
+      setPhoneNumber((prev) => prev.slice(0, -1));
+    } else {
+      if (phoneNumber.length < 10) {
+        setPhoneNumber((prev) => prev + key);
+      }
+    }
+  };
 
   const handleSendOTP = async () => {
     setErrorMessage('');
     const trimmed = phoneNumber.trim();
 
-    // Format verification for phone number
     const formattedPhone = trimmed.startsWith('+') ? trimmed : `+91${trimmed}`;
     if (!/^\+[1-9]\d{9,14}$/.test(formattedPhone)) {
       setErrorMessage('Please enter a valid 10-digit mobile phone number');
@@ -29,7 +42,7 @@ export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onOTPSent })
       onOTPSent(formattedPhone, confirmation);
     } catch (error: any) {
       setIsLoading(false);
-      const msg = error?.message || 'Failed to send SMS OTP. Please check your phone number and network.';
+      const msg = error?.message || 'Failed to send SMS OTP. Please check your phone number.';
       setErrorMessage(msg);
       Alert.alert('Authentication Error', msg);
     }
@@ -37,21 +50,24 @@ export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onOTPSent })
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.iconText}>🩸</Text>
-          <Text style={styles.title}>Sign In with Phone</Text>
-          <Text style={styles.subtitle}>Enter your mobile number to receive a real SMS verification code.</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        {/* Circular Logo Badge Header */}
+        <View style={styles.circularBadgeHeader}>
+          <Text style={styles.badgeDropIcon}>🩸</Text>
+          <Text style={styles.badgeText}>SAVE LIFE</Text>
         </View>
 
+        <Text style={styles.title}>Enter Mobile Number</Text>
+        <Text style={styles.subtitle}>We will send a real SMS verification code</Text>
+
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Mobile Phone Number</Text>
+          <Text style={styles.label}>MOBILE NUMBER</Text>
           <View style={styles.inputContainer}>
             <Text style={styles.countryCode}>+91</Text>
             <TextInput
               style={styles.input}
-              placeholder="9876543210"
-              placeholderTextColor="#475569"
+              placeholder="98765 43210"
+              placeholderTextColor="#94A3B8"
               keyboardType="phone-pad"
               value={phoneNumber}
               onChangeText={(text) => {
@@ -64,22 +80,30 @@ export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onOTPSent })
           {!!errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
         </View>
 
+        {/* Custom 3x4 Keypad Grid */}
+        <View style={styles.keypadGrid}>
+          {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'c', '0', 'back'].map((k) => (
+            <TouchableOpacity key={k} style={styles.keypadBtn} onPress={() => pressKey(k)} activeOpacity={0.7}>
+              <Text style={styles.keypadBtnText}>
+                {k === 'c' ? 'C' : k === 'back' ? '⌫' : k}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <TouchableOpacity
-          style={[styles.button, isLoading && styles.buttonDisabled]}
+          style={[styles.btnCoralWide, isLoading && styles.btnDisabled]}
           onPress={handleSendOTP}
           disabled={isLoading}
+          activeOpacity={0.85}
         >
           {isLoading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.buttonText}>Send Real SMS OTP</Text>
+            <Text style={styles.btnCoralWideText}>Send OTP Code  ➔</Text>
           )}
         </TouchableOpacity>
-
-        <Text style={styles.disclaimer}>
-          By continuing, you will receive an SMS for authentication. Standard message rates may apply.
-        </Text>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 };
@@ -87,93 +111,126 @@ export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onOTPSent })
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F172A',
+    backgroundColor: COLORS.bgMain,
   },
-  content: {
-    flex: 1,
+  scrollContent: {
     padding: 24,
-    justifyContent: 'center',
+    paddingTop: 50,
+    flexGrow: 1,
+    justifyContent: 'space-between',
   },
-  header: {
+  circularBadgeHeader: {
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
-    marginBottom: 36,
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: 16,
+    borderWidth: 3,
+    borderColor: COLORS.primaryLight,
+    ...SHADOWS.md,
   },
-  iconText: {
-    fontSize: 48,
-    marginBottom: 12,
+  badgeDropIcon: {
+    fontSize: 28,
+  },
+  badgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: COLORS.primary,
+    letterSpacing: 0.5,
+    marginTop: 2,
   },
   title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#F1F5F9',
-    marginBottom: 8,
+    fontSize: 22,
+    fontWeight: '800',
+    color: COLORS.secondary,
+    textAlign: 'center',
+    marginBottom: 4,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#94A3B8',
+    fontSize: 13,
+    color: COLORS.textMuted,
     textAlign: 'center',
-    lineHeight: 20,
+    marginBottom: 20,
   },
   formGroup: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#CBD5E1',
-    marginBottom: 8,
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.secondary,
+    marginBottom: 6,
+    letterSpacing: 0.5,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: '#334155',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: COLORS.borderColor,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 52,
   },
   countryCode: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#DC2626',
-    marginRight: 12,
+    fontWeight: '700',
+    color: COLORS.primary,
+    marginRight: 10,
   },
   input: {
     flex: 1,
-    fontSize: 16,
-    color: '#F1F5F9',
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.textMain,
   },
   errorText: {
     fontSize: 12,
-    color: '#EF4444',
+    color: COLORS.danger,
     marginTop: 6,
+    textAlign: 'center',
   },
-  button: {
-    backgroundColor: '#DC2626',
+  keypadGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginVertical: 12,
+  },
+  keypadBtn: {
+    width: '30%',
+    height: 48,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: COLORS.borderColor,
     borderRadius: 12,
-    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-    shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    marginBottom: 10,
   },
-  buttonDisabled: {
+  keypadBtnText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.secondary,
+  },
+  btnCoralWide: {
+    width: '100%',
+    height: 54,
+    backgroundColor: COLORS.primary,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    ...SHADOWS.md,
+  },
+  btnDisabled: {
     opacity: 0.6,
   },
-  buttonText: {
+  btnCoralWideText: {
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  disclaimer: {
-    fontSize: 12,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 18,
   },
 });
