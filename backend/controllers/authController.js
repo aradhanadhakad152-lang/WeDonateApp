@@ -11,7 +11,7 @@ const logger = require('../utils/logger');
  * Auth Controller
  *
  * Implements real Firebase ID token verification, MongoDB User upsert,
- * SHA-256 hashed refresh token storage, token rotation, and logout.
+ * SHA-256 hashed refresh token storage, token rotation, logout, and dev auth bypass.
  */
 
 // POST /api/v1/auth/firebase-login
@@ -80,6 +80,86 @@ const firebaseLogin = asyncHandler(async (req, res) => {
   return sendSuccess(res, {
     statusCode: 200,
     message: 'Authentication successful',
+    data: {
+      user: user.toProfileJSON(),
+      tokens: {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresIn: tokens.expiresIn,
+      },
+    },
+  });
+});
+
+// POST /api/v1/auth/dev-login
+// Development-only direct phone/email registration and login without OTP
+const devLogin = asyncHandler(async (req, res) => {
+  const { phone: rawPhone, fullName, email } = req.body;
+
+  if (!rawPhone || typeof rawPhone !== 'string') {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'Mobile phone number is required',
+    });
+  }
+
+  const trimmed = rawPhone.trim();
+  const phone = trimmed.startsWith('+') ? trimmed : `+91${trimmed}`;
+  const devUid = `DEV_UID_${phone.replace(/[^0-9]/g, '')}`;
+
+  let user = await User.findOne({ $or: [{ firebaseUid: devUid }, { phone }] });
+
+  if (!user) {
+    user = new User({
+      firebaseUid: devUid,
+      phone,
+      fullName: fullName ? fullName.trim() : 'WeDonate Citizen',
+      name: fullName ? fullName.trim() : 'WeDonate Citizen',
+      email: email ? email.trim() : undefined,
+      role: 'CITIZEN',
+      accountStatus: 'ACTIVE',
+      isVerified: true,
+      bloodGroup: 'B+',
+      location: {
+        type: 'Point',
+        coordinates: [77.2100, 28.5672],
+        city: 'New Delhi',
+        state: 'Delhi',
+      },
+    });
+  } else {
+    if (fullName && fullName.trim()) {
+      user.fullName = fullName.trim();
+      user.name = fullName.trim();
+    }
+    if (email && email.trim()) {
+      user.email = email.trim();
+    }
+  }
+
+  user.lastLogin = new Date();
+
+  // Issue token pair
+  const tokens = generateTokenPair(user);
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+  user.refreshTokenHashes = (user.refreshTokenHashes || []).filter(
+    (item) => item.expiresAt > new Date()
+  );
+
+  user.refreshTokenHashes.push({
+    hash: tokens.tokenHash,
+    createdAt: new Date(),
+    expiresAt,
+  });
+
+  await user.save();
+
+  logger.info(`User authenticated via Dev Auth: ${user._id} (${user.phone})`);
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: 'Development authentication successful',
     data: {
       user: user.toProfileJSON(),
       tokens: {
@@ -191,6 +271,7 @@ const getMe = asyncHandler(async (req, res) => {
 
 module.exports = {
   firebaseLogin,
+  devLogin,
   refreshToken,
   logout,
   getMe,

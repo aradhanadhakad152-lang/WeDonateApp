@@ -4,7 +4,7 @@ const express = require('express');
 const router = express.Router();
 const { authLimiter } = require('../middleware/rateLimiter');
 const authenticate = require('../middleware/authenticate');
-const { firebaseLogin, refreshToken, logout } = require('../controllers/authController');
+const { firebaseLogin, devLogin, refreshToken, logout } = require('../controllers/authController');
 
 /**
  * Auth Routes
@@ -14,6 +14,10 @@ const { firebaseLogin, refreshToken, logout } = require('../controllers/authCont
 // POST /api/v1/auth/firebase-login
 // Accepts Firebase ID Token in Authorization header (Bearer <ID_TOKEN>), verifies with Admin SDK, returns JWT pair
 router.post('/firebase-login', authLimiter, firebaseLogin);
+
+// POST /api/v1/auth/dev-login
+// Development-only direct phone/email authentication without requiring SMS OTP
+router.post('/dev-login', authLimiter, devLogin);
 
 // POST /api/v1/auth/refresh
 // Accepts refresh token, verifies signature and SHA-256 hash match, returns rotated token pair
