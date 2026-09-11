@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { requestSMSOTP } from '../../services/authService';
+import { devLogin } from '../../services/authService';
+import { useAuthStore } from '../../store/authStore';
+import { User } from '../../types/user.types';
 import { COLORS, SHADOWS } from '../../theme/colors';
 
 interface PhoneLoginScreenProps {
-  onOTPSent: (phoneNumber: string, confirmation: any) => void;
+  onSuccess: (user: User) => void;
+  // Preserved prop for OTP flow restoration
+  onOTPSent?: (phoneNumber: string, confirmation: any) => void;
 }
 
-export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onOTPSent }) => {
+export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onSuccess }) => {
   const [phoneNumber, setPhoneNumber] = useState('9876512345');
+  const [fullName, setFullName] = useState('Ayush Dhakad');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -25,7 +30,7 @@ export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onOTPSent })
     }
   };
 
-  const handleSendOTP = async () => {
+  const handleDevLogin = async () => {
     setErrorMessage('');
     const trimmed = phoneNumber.trim();
 
@@ -37,12 +42,13 @@ export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onOTPSent })
 
     setIsLoading(true);
     try {
-      const confirmation = await requestSMSOTP(formattedPhone);
+      const user = await devLogin(formattedPhone, fullName.trim() || undefined);
+      useAuthStore.getState().setUser(user);
       setIsLoading(false);
-      onOTPSent(formattedPhone, confirmation);
+      onSuccess(user);
     } catch (error: any) {
       setIsLoading(false);
-      const msg = error?.message || 'Failed to send SMS OTP. Please check your phone number.';
+      const msg = error?.response?.data?.message || error?.message || 'Login failed. Please check backend connection.';
       setErrorMessage(msg);
       Alert.alert('Authentication Error', msg);
     }
@@ -54,12 +60,27 @@ export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onOTPSent })
         {/* Circular Logo Badge Header */}
         <View style={styles.circularBadgeHeader}>
           <Text style={styles.badgeDropIcon}>🩸</Text>
-          <Text style={styles.badgeText}>SAVE LIFE</Text>
+          <Text style={styles.badgeText}>WE DONATE</Text>
         </View>
 
-        <Text style={styles.title}>Enter Mobile Number</Text>
-        <Text style={styles.subtitle}>We will send a real SMS verification code</Text>
+        <Text style={styles.title}>Login or Register</Text>
+        <Text style={styles.subtitle}>Direct Development Authentication (No OTP Required)</Text>
 
+        {/* Full Name for Registration */}
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>FULL NAME (FOR NEW USERS)</Text>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.inputName}
+              placeholder="e.g. Ayush Dhakad"
+              placeholderTextColor="#94A3B8"
+              value={fullName}
+              onChangeText={setFullName}
+            />
+          </View>
+        </View>
+
+        {/* Mobile Number Input */}
         <View style={styles.formGroup}>
           <Text style={styles.label}>MOBILE NUMBER</Text>
           <View style={styles.inputContainer}>
@@ -93,14 +114,14 @@ export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onOTPSent })
 
         <TouchableOpacity
           style={[styles.btnCoralWide, isLoading && styles.btnDisabled]}
-          onPress={handleSendOTP}
+          onPress={handleDevLogin}
           disabled={isLoading}
           activeOpacity={0.85}
         >
           {isLoading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.btnCoralWideText}>Send OTP Code  ➔</Text>
+            <Text style={styles.btnCoralWideText}>Login / Register  ➔</Text>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -115,7 +136,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 24,
-    paddingTop: 50,
+    paddingTop: 45,
     flexGrow: 1,
     justifyContent: 'space-between',
   },
@@ -127,7 +148,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
     borderWidth: 3,
     borderColor: COLORS.primaryLight,
     ...SHADOWS.md,
@@ -147,22 +168,22 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: COLORS.secondary,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.textMuted,
     textAlign: 'center',
-    marginBottom: 20,
-  },
-  formGroup: {
     marginBottom: 16,
   },
+  formGroup: {
+    marginBottom: 12,
+  },
   label: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: COLORS.secondary,
-    marginBottom: 6,
+    marginBottom: 4,
     letterSpacing: 0.5,
   },
   inputContainer: {
@@ -173,7 +194,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.borderColor,
     borderRadius: 12,
     paddingHorizontal: 16,
-    height: 52,
+    height: 48,
   },
   countryCode: {
     fontSize: 16,
@@ -183,32 +204,38 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
+    color: COLORS.textMain,
+  },
+  inputName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
     color: COLORS.textMain,
   },
   errorText: {
     fontSize: 12,
     color: COLORS.danger,
-    marginTop: 6,
+    marginTop: 4,
     textAlign: 'center',
   },
   keypadGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginVertical: 12,
+    marginVertical: 8,
   },
   keypadBtn: {
     width: '30%',
-    height: 48,
+    height: 46,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: COLORS.borderColor,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   keypadBtnText: {
     fontSize: 18,
@@ -217,12 +244,12 @@ const styles = StyleSheet.create({
   },
   btnCoralWide: {
     width: '100%',
-    height: 54,
+    height: 52,
     backgroundColor: COLORS.primary,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
+    marginTop: 6,
     ...SHADOWS.md,
   },
   btnDisabled: {

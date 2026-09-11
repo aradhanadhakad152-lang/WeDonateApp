@@ -1,8 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator, TextInput, Modal } from 'react-native';
 import { useUserStore } from '../../store/userStore';
+import { useRequestStore } from '../../store/requestStore';
 import { logoutUser } from '../../services/authService';
+import { getNearbyHospitals, RealHospital } from '../../services/hospitalService';
 import { BottomNav, TabName } from '../../components/ui/BottomNav';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { StatusBadge } from '../../components/ui/StatusBadge';
+import { BloodGroupBadge } from '../../components/ui/BloodGroupBadge';
 import { COLORS, SHADOWS } from '../../theme/colors';
 
 interface HomeScreenProps {
@@ -18,14 +23,43 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onOpenMap,
   onLogout,
 }) => {
-  const { profile, fetchProfile, toggleAvailability, isLoading } = useUserStore();
+  const { profile, fetchProfile, toggleAvailability, isLoading: isProfileLoading } = useUserStore();
+  const { myRequests, fetchMyRequests, isLoading: isRequestsLoading } = useRequestStore();
+
   const [activeTab, setActiveTab] = useState<TabName>('Home');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSOSModal, setShowSOSModal] = useState(false);
 
+  // Real Nearby Hospitals for Search Tab
+  const [nearbyHospitalsList, setNearbyHospitalsList] = useState<RealHospital[]>([]);
+  const [isSearchingHospitals, setIsSearchingHospitals] = useState(false);
+
   useEffect(() => {
     fetchProfile();
-  }, [fetchProfile]);
+    fetchMyRequests();
+  }, [fetchProfile, fetchMyRequests]);
+
+  useEffect(() => {
+    if (activeTab === 'History') {
+      fetchMyRequests();
+    } else if (activeTab === 'Search') {
+      loadNearbyHospitals();
+    }
+  }, [activeTab]);
+
+  const loadNearbyHospitals = async () => {
+    setIsSearchingHospitals(true);
+    const lat = profile?.location?.coordinates[1] || 28.5672;
+    const lng = profile?.location?.coordinates[0] || 77.2100;
+    try {
+      const list = await getNearbyHospitals(lat, lng, 15);
+      setNearbyHospitalsList(list);
+    } catch {
+      setNearbyHospitalsList([]);
+    } finally {
+      setIsSearchingHospitals(false);
+    }
+  };
 
   const handleToggle = (value: boolean) => {
     toggleAvailability(value);
@@ -45,7 +79,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     ]);
   };
 
-  if (isLoading && !profile) {
+  if (isProfileLoading && !profile) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
@@ -54,10 +88,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     );
   }
 
-  const nameVal = profile?.name || profile?.fullName || 'Ayush Dhakad';
+  const nameVal = profile?.name || profile?.fullName || 'WeDonate Donor';
   const bloodGroupVal = profile?.bloodGroup || 'B+';
   const isAvailable = profile?.isAvailable ?? profile?.donorStatus === 'AVAILABLE';
-  const initials = nameVal.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'AD';
+  const initials = nameVal.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'WD';
+
+  const filteredHospitals = nearbyHospitalsList.filter(
+    (h) =>
+      h.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      h.address.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <View style={styles.mainWrapper}>
@@ -82,7 +122,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
                 <TouchableOpacity style={styles.bellBadge} onPress={() => setActiveTab('History')}>
                   <Text style={styles.bellIcon}>🔔</Text>
-                  <View style={styles.bellDot} />
+                  {myRequests.length > 0 && <View style={styles.bellDot} />}
                 </TouchableOpacity>
               </View>
 
@@ -102,16 +142,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <View style={styles.emergencyBannerCard}>
                 <View style={styles.emergencyBannerTop}>
                   <Text style={styles.emergencyBadge}>EMERGENCY ALERT</Text>
-                  <Text style={styles.emergencyTime}>10 min ago</Text>
+                  <Text style={styles.emergencyTime}>Active</Text>
                 </View>
                 <Text style={styles.emergencyTitle}>CRITICAL {bloodGroupVal} BLOOD REQUIRED</Text>
-                <Text style={styles.emergencySub}>AIIMS Trauma Centre • 3 Units Needed</Text>
+                <Text style={styles.emergencySub}>AIIMS Trauma Centre • Emergency Blood Unit</Text>
                 <TouchableOpacity
                   style={styles.btnRespondDonor}
                   onPress={onRequestBlood}
                   activeOpacity={0.85}
                 >
-                  <Text style={styles.btnRespondDonorText}>Respond as Donor  ❤️</Text>
+                  <Text style={styles.btnRespondDonorText}>Create Emergency Request  🚨</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -199,7 +239,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         {activeTab === 'Search' && (
           <View style={styles.tabSection}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={styles.tabSectionTitle}>Blood Banks & Hospitals</Text>
+              <Text style={styles.tabSectionTitle}>Hospitals & Blood Banks</Text>
               {onOpenMap && (
                 <TouchableOpacity style={styles.btnOpenMapHead} onPress={onOpenMap}>
                   <Text style={styles.btnOpenMapHeadText}>🗺️ Open Map Radar</Text>
@@ -209,53 +249,73 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
             <TextInput
               style={styles.searchInput}
-              placeholder="🔍 Search hospital, city or blood group..."
+              placeholder="🔍 Search hospital, address or category..."
               placeholderTextColor="#94A3B8"
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
 
-            <View style={styles.cardList}>
-              {[
-                { name: 'AIIMS Blood Bank', city: 'Ansari Nagar, New Delhi', distance: '1.2 km', stock: 'A+, B+, O+ Available' },
-                { name: 'Safdarjung Hospital Regional Bank', city: 'Ring Road, Delhi', distance: '2.8 km', stock: 'B+, AB+ Available' },
-                { name: 'Max Super Speciality Blood Unit', city: 'Saket, New Delhi', distance: '4.5 km', stock: 'O-, A- Critical' },
-                { name: 'Apollo Hospitals Blood Centre', city: 'Sarita Vihar, Delhi', distance: '6.1 km', stock: 'All Groups Available' },
-              ].map((h, i) => (
-                <View key={i} style={styles.itemCard}>
-                  <View style={styles.itemCardHeader}>
-                    <Text style={styles.itemCardName}>{h.name}</Text>
-                    <Text style={styles.itemCardDistance}>📍 {h.distance}</Text>
+            {isSearchingHospitals ? (
+              <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
+            ) : filteredHospitals.length === 0 ? (
+              <EmptyState
+                icon="🏥"
+                title="No Nearby Hospitals Found"
+                description="Make sure GPS is enabled to discover medical facilities near your location."
+                actionLabel="Open Map Radar"
+                onAction={onOpenMap}
+              />
+            ) : (
+              <View style={styles.cardList}>
+                {filteredHospitals.map((h) => (
+                  <View key={h.id} style={styles.itemCard}>
+                    <View style={styles.itemCardHeader}>
+                      <Text style={styles.itemCardName}>{h.name}</Text>
+                      <Text style={styles.itemCardDistance}>📍 {h.formattedDistance}</Text>
+                    </View>
+                    <Text style={styles.itemCardSub}>{h.address}</Text>
+                    <Text style={styles.itemCardStock}>🏥 Phone: {h.phone || '+91 11 2658 8500'}</Text>
                   </View>
-                  <Text style={styles.itemCardSub}>{h.city}</Text>
-                  <Text style={styles.itemCardStock}>🩸 Stock: {h.stock}</Text>
-                </View>
-              ))}
-            </View>
+                ))}
+              </View>
+            )}
           </View>
         )}
 
         {/* ================= TAB 3: REQUEST HISTORY ================= */}
         {activeTab === 'History' && (
           <View style={styles.tabSection}>
-            <Text style={styles.tabSectionTitle}>Request History</Text>
-            <View style={styles.cardList}>
-              {[
-                { id: 'REQ-8821', patient: 'Ramesh Kumar', bg: 'B+', units: '3 Units', hospital: 'AIIMS Trauma Centre', status: 'MATCHING', color: COLORS.warning },
-                { id: 'REQ-7612', patient: 'Priya Sharma', bg: 'O+', units: '2 Units', hospital: 'Safdarjung Hospital', status: 'FULFILLED', color: COLORS.success },
-              ].map((r, i) => (
-                <View key={i} style={styles.itemCard}>
-                  <View style={styles.itemCardHeader}>
-                    <Text style={styles.itemCardName}>{r.patient} ({r.bg})</Text>
-                    <View style={[styles.statusBadge, { backgroundColor: r.color }]}>
-                      <Text style={styles.statusBadgeText}>{r.status}</Text>
+            <Text style={styles.tabSectionTitle}>My Requests</Text>
+
+            {isRequestsLoading ? (
+              <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
+            ) : myRequests.length === 0 ? (
+              <EmptyState
+                icon="📋"
+                title="No Blood Requests Found"
+                description="You haven't created any emergency blood requests yet."
+                actionLabel="Request Blood Now ➔"
+                onAction={onRequestBlood}
+              />
+            ) : (
+              <View style={styles.cardList}>
+                {myRequests.map((r) => (
+                  <View key={r.id || r._id} style={styles.itemCard}>
+                    <View style={styles.itemCardHeader}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <BloodGroupBadge bloodGroup={r.bloodGroup} size="sm" />
+                        <Text style={styles.itemCardName}>{r.patientName}</Text>
+                      </View>
+                      <StatusBadge status={r.status} />
                     </View>
+                    <Text style={styles.itemCardSub}>🏥 {r.hospitalName}</Text>
+                    <Text style={styles.itemCardSub}>📍 {r.hospitalAddress}</Text>
+                    <Text style={styles.itemCardSub}>🩸 {r.unitsRequired} Unit(s) • Urgency: {r.urgency}</Text>
+                    <Text style={styles.itemCardId}>ID: {r.id || r._id}</Text>
                   </View>
-                  <Text style={styles.itemCardSub}>{r.hospital} • {r.units}</Text>
-                  <Text style={styles.itemCardSub}>ID: {r.id}</Text>
-                </View>
-              ))}
-            </View>
+                ))}
+              </View>
+            )}
           </View>
         )}
 
@@ -605,21 +665,17 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     marginTop: 2,
   },
+  itemCardId: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginTop: 4,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
   itemCardStock: {
     fontSize: 13,
     color: COLORS.success,
     fontWeight: '600',
     marginTop: 6,
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
   },
 
   /* Profile Tab */

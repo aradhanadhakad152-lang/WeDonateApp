@@ -28,11 +28,13 @@ export const RootNavigator: React.FC = () => {
   const [phoneState, setPhoneState] = useState<{ phoneNumber: string; confirmation: any } | null>(null);
   const [activeRequest, setActiveRequest] = useState<BloodRequest | null>(null);
 
+  // LEGACY FIREBASE OTP HANDLER (PRESERVED FOR RESTORATION)
   const handleOTPSent = (phoneNumber: string, confirmation: any) => {
     setPhoneState({ phoneNumber, confirmation });
     setCurrentScreen('OTPVerification');
   };
 
+  // AUTH SUCCESS HANDLER (DIRECT MONGODB & BACKEND AUTH)
   const handleAuthSuccess = (user: User) => {
     if (!user.isProfileComplete) {
       setCurrentScreen('ProfileRegistration');
@@ -50,9 +52,13 @@ export const RootNavigator: React.FC = () => {
       )}
 
       {currentScreen === 'PhoneLogin' && (
-        <PhoneLoginScreen onOTPSent={handleOTPSent} />
+        <PhoneLoginScreen
+          onSuccess={handleAuthSuccess}
+          onOTPSent={handleOTPSent}
+        />
       )}
 
+      {/* LEGACY OTP SCREEN - PRESERVED SAFELY IN CODE FOR PRODUCTION RESTORATION */}
       {currentScreen === 'OTPVerification' && phoneState && (
         <OTPVerificationScreen
           phoneNumber={phoneState.phoneNumber}

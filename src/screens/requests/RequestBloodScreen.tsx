@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Modal } from 'react-native';
 import { api } from '../../services/api';
 import { useUserStore } from '../../store/userStore';
-import { getNearbyHospitals, RealHospital } from '../../services/hospitalService';
+import { getNearbyHospitals, getHospitalAutocomplete, RealHospital, HospitalSuggestion } from '../../services/hospitalService';
 import { BloodGroup } from '../../types/user.types';
 import { BloodRequest } from '../../types/request.types';
 import { COLORS, SHADOWS } from '../../theme/colors';
@@ -33,10 +33,15 @@ export const RequestBloodScreen: React.FC<RequestBloodScreenProps> = ({ onBack, 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Real Hospital Selection Modal
+  // Real Hospital Picker Modal & Autocomplete
   const [realHospitals, setRealHospitals] = useState<RealHospital[]>([]);
   const [showHospitalPicker, setShowHospitalPicker] = useState(false);
   const [isLoadingHospitals, setIsLoadingHospitals] = useState(false);
+
+  // Live Autocomplete Suggestions
+  const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<HospitalSuggestion[]>([]);
+  const [googleAttribution, setGoogleAttribution] = useState('');
+  const [isSearchingAutocomplete, setIsSearchingAutocomplete] = useState(false);
 
   useEffect(() => {
     fetchHospitals(latitude, longitude);
@@ -52,6 +57,30 @@ export const RequestBloodScreen: React.FC<RequestBloodScreenProps> = ({ onBack, 
     } finally {
       setIsLoadingHospitals(false);
     }
+  };
+
+  const handleHospitalInputChange = async (text: string) => {
+    setHospitalName(text);
+    if (text.trim().length >= 2) {
+      setIsSearchingAutocomplete(true);
+      try {
+        const res = await getHospitalAutocomplete(text, latitude, longitude);
+        setAutocompleteSuggestions(res.suggestions || []);
+        setGoogleAttribution(res.attribution || '');
+      } catch {
+        setAutocompleteSuggestions([]);
+      } finally {
+        setIsSearchingAutocomplete(false);
+      }
+    } else {
+      setAutocompleteSuggestions([]);
+    }
+  };
+
+  const selectSuggestion = (s: HospitalSuggestion) => {
+    setHospitalName(s.name);
+    if (s.address) setHospitalAddress(s.address);
+    setAutocompleteSuggestions([]);
   };
 
   const changeUnits = (delta: number) => {
@@ -181,22 +210,41 @@ export const RequestBloodScreen: React.FC<RequestBloodScreenProps> = ({ onBack, 
           />
         </View>
 
-        {/* Real Hospital Select Button & Input */}
+        {/* Real Hospital Select & Autocomplete */}
         <View style={styles.formGroup}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <Text style={styles.label}>HOSPITAL NAME & LOCATION</Text>
             <TouchableOpacity onPress={() => setShowHospitalPicker(true)}>
-              <Text style={{ fontSize: 12, color: COLORS.primary, fontWeight: '700' }}>🏥 Select Real Hospital</Text>
+              <Text style={{ fontSize: 12, color: COLORS.primary, fontWeight: '700' }}>🏥 Nearby Hospitals</Text>
             </TouchableOpacity>
           </View>
 
           <TextInput
             style={styles.input}
-            placeholder="e.g. AIIMS Trauma Centre"
+            placeholder="Type hospital name (e.g. AIIMS, Fortis, Max)..."
             placeholderTextColor="#94A3B8"
             value={hospitalName}
-            onChangeText={setHospitalName}
+            onChangeText={handleHospitalInputChange}
           />
+
+          {/* Inline Autocomplete Dropdown */}
+          {autocompleteSuggestions.length > 0 && (
+            <View style={styles.autocompleteDropdown}>
+              {autocompleteSuggestions.map((s, idx) => (
+                <TouchableOpacity
+                  key={s.placeId || idx}
+                  style={styles.autocompleteItem}
+                  onPress={() => selectSuggestion(s)}
+                >
+                  <Text style={styles.autocompleteItemName}>🏥 {s.name}</Text>
+                  {!!s.address && <Text style={styles.autocompleteItemAddress}>{s.address}</Text>}
+                </TouchableOpacity>
+              ))}
+              {!!googleAttribution && (
+                <Text style={styles.attributionText}>{googleAttribution}</Text>
+              )}
+            </View>
+          )}
         </View>
 
         <View style={styles.formGroup}>
@@ -357,6 +405,41 @@ const styles = StyleSheet.create({
     height: 48,
     fontSize: 15,
     color: COLORS.textMain,
+  },
+  autocompleteDropdown: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: COLORS.borderColor,
+    borderRadius: 12,
+    marginTop: 4,
+    maxHeight: 180,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+  },
+  autocompleteItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderColor,
+  },
+  autocompleteItemName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.secondary,
+  },
+  autocompleteItemAddress: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  attributionText: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+    textAlign: 'right',
+    padding: 6,
+    fontStyle: 'italic',
   },
   bloodGrid: {
     flexDirection: 'row',

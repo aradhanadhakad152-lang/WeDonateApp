@@ -23,6 +23,7 @@ const requestRoutes = require('./routes/requestRoutes');
 const matchRoutes = require('./routes/matchRoutes');
 const donorRoutes = require('./routes/donorRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const hospitalRoutes = require('./routes/hospitalRoutes');
 
 // ============================================
 // App initialization
@@ -143,6 +144,7 @@ app.use(`/api/${API_VERSION}/requests`, requestRoutes);
 app.use(`/api/${API_VERSION}/matches`, matchRoutes);
 app.use(`/api/${API_VERSION}/donors`, donorRoutes);
 app.use(`/api/${API_VERSION}/notifications`, notificationRoutes);
+app.use(`/api/${API_VERSION}/hospitals`, hospitalRoutes);
 
 // ============================================
 // 404 handler — unknown routes

@@ -7,16 +7,41 @@ import { LoginResponse } from '../types/api.types';
 /**
  * Client Authentication Service
  *
- * Implements real Firebase Phone Authentication (SMS OTP) + backend handshake.
- *
- * Flow:
- * 1. Mobile app requests real SMS OTP via `@react-native-firebase/auth`.
- * 2. User submits 6-digit SMS code.
- * 3. Firebase SDK returns Firebase User & ID Token.
- * 4. App sends ID Token to backend `POST /api/v1/auth/firebase-login`.
- * 5. Backend verifies ID token, upserts User in MongoDB Atlas, returns JWT pair.
- * 6. App saves Access Token & Refresh Token in `expo-secure-store`.
+ * Implements both Development Direct Login (Without OTP)
+ * AND Production Firebase Phone Authentication (SMS OTP) + backend handshake.
  */
+
+// ============================================================================
+// DEVELOPMENT AUTHENTICATION (NO OTP - DIRECT BACKEND & MONGODB LOGIN/REGISTER)
+// ============================================================================
+
+export const devLogin = async (
+  phone: string,
+  fullName?: string,
+  email?: string
+): Promise<User> => {
+  try {
+    const response = await api.post<LoginResponse>('/auth/dev-login', {
+      phone,
+      fullName,
+      email,
+    });
+
+    const { user, tokens } = response.data.data;
+
+    // Save Access Token & Refresh Token securely in expo-secure-store
+    await saveTokens(tokens.accessToken, tokens.refreshToken);
+
+    return user;
+  } catch (error) {
+    console.error('Dev Login failed:', error);
+    throw error;
+  }
+};
+
+// ============================================================================
+// PRODUCTION FIREBASE PHONE AUTHENTICATION (LEGACY PRESERVED FOR RESTORATION)
+// ============================================================================
 
 export const requestSMSOTP = async (phoneNumber: string): Promise<FirebaseAuthTypes.ConfirmationResult> => {
   try {
@@ -73,6 +98,12 @@ export const logoutUser = async (): Promise<void> => {
     console.warn('Backend logout call failed or network unreachable:', error);
   } finally {
     await clearTokens();
-    await auth().signOut();
+    try {
+      if (auth().currentUser) {
+        await auth().signOut();
+      }
+    } catch {
+      // Ignore if Firebase auth is not active in dev mode
+    }
   }
 };

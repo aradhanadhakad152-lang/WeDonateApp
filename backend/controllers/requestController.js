@@ -62,6 +62,14 @@ const createRequest = asyncHandler(async (req, res) => {
 
   logger.info(`Emergency BloodRequest created: ${bloodRequest._id} by user: ${user._id} (${bloodGroup}, ${unitsRequired} units)`);
 
+  // Automatically run nearby donor matching engine and dispatch push alerts
+  try {
+    const { findAndMatchNearbyDonors } = require('../services/donorMatchingService');
+    await findAndMatchNearbyDonors(bloodRequest._id);
+  } catch (matchingError) {
+    logger.warn(`Auto donor matching warning for request ${bloodRequest._id}: ${matchingError.message}`);
+  }
+
   return sendSuccess(res, {
     statusCode: 201,
     message: 'Emergency blood request created successfully',
@@ -98,11 +106,9 @@ const getAllRequests = asyncHandler(async (req, res) => {
     .exec();
 
   // Evaluate expiration for each request
-  let hasChanges = false;
   for (const reqDoc of requests) {
     if (evaluateRequestExpiration(reqDoc)) {
       await reqDoc.save();
-      hasChanges = true;
     }
   }
 

@@ -1,7 +1,16 @@
-import axios from 'axios';
+import { api } from './api';
+import { ApiSuccessResponse } from '../types/api.types';
+
+export interface HospitalSuggestion {
+  placeId: string;
+  name: string;
+  address: string;
+  fullText: string;
+}
 
 export interface RealHospital {
   id: string;
+  placeId?: string;
   name: string;
   address: string;
   latitude: number;
@@ -9,13 +18,13 @@ export interface RealHospital {
   distanceKm: number;
   formattedDistance: string;
   phone?: string;
+  rating?: number;
   isOpenNow?: boolean;
 }
 
 /**
  * Calculates Haversine distance in kilometers between two GPS coordinates.
  */
-
 export const calculateHaversineDistance = (
   lat1: number,
   lon1: number,
@@ -36,7 +45,27 @@ export const calculateHaversineDistance = (
 };
 
 /**
- * Fetches real nearby hospitals from OpenStreetMap Overpass API based on user's GPS coordinates.
+ * Fetches Google Places (New) autocomplete suggestions via backend proxy.
+ */
+export const getHospitalAutocomplete = async (
+  input: string,
+  latitude?: number,
+  longitude?: number
+): Promise<{ suggestions: HospitalSuggestion[]; attribution: string }> => {
+  try {
+    const response = await api.get<ApiSuccessResponse<{ suggestions: HospitalSuggestion[]; attribution: string }>>(
+      '/hospitals/autocomplete',
+      { params: { input, latitude, longitude } }
+    );
+    return response.data.data!;
+  } catch (error) {
+    console.error('Failed to autocomplete hospitals:', error);
+    return { suggestions: [], attribution: 'Places Service' };
+  }
+};
+
+/**
+ * Fetches real nearby hospitals via backend Google Places API proxy based on user's GPS coordinates.
  */
 export const getNearbyHospitals = async (
   latitude: number,
@@ -44,76 +73,13 @@ export const getNearbyHospitals = async (
   radiusKm = 10
 ): Promise<RealHospital[]> => {
   try {
-    const radiusMeters = radiusKm * 1000;
-    const query = `
-      [out:json][timeout:15];
-      (
-        node["amenity"="hospital"](around:${radiusMeters},${latitude},${longitude});
-        way["amenity"="hospital"](around:${radiusMeters},${latitude},${longitude});
-      );
-      out center 15;
-    `;
-
-    const response = await axios.post('https://overpass-api.de/api/interpreter', query, {
-      headers: { 'Content-Type': 'text/plain' },
-      timeout: 10000,
-    });
-
-    const elements = response.data?.elements || [];
-    const hospitals: RealHospital[] = [];
-
-    for (const elem of elements) {
-      const lat = elem.lat || elem.center?.lat;
-      const lon = elem.lon || elem.center?.lon;
-      const tags = elem.tags || {};
-      const name = tags.name || tags['name:en'] || 'Community Health Center & Hospital';
-
-      if (lat && lon && name) {
-        const dist = calculateHaversineDistance(latitude, longitude, lat, lon);
-        const street = tags['addr:street'] || tags['addr:full'] || tags['addr:suburb'] || '';
-        const city = tags['addr:city'] || tags['addr:district'] || '';
-        const address = [street, city].filter(Boolean).join(', ') || 'Medical District';
-
-        hospitals.push({
-          id: String(elem.id),
-          name,
-          address,
-          latitude: lat,
-          longitude: lon,
-          distanceKm: dist,
-          formattedDistance: `${dist.toFixed(1)} km`,
-          phone: tags.phone || tags['contact:phone'] || '+91 11 2658 8500',
-          isOpenNow: true,
-        });
-      }
-    }
-
-    // Sort by distance ascending
-    return hospitals.sort((a, b) => a.distanceKm - b.distanceKm);
+    const response = await api.get<ApiSuccessResponse<{ hospitals: RealHospital[]; attribution: string }>>(
+      '/hospitals/nearby',
+      { params: { latitude, longitude, radius: radiusKm } }
+    );
+    return response.data.data!.hospitals;
   } catch (error) {
-    console.warn('Overpass API fetch error, returning location-anchored facilities:', error);
-    // Fallback real facilities anchored to user's real GPS coordinates
-    const defaultFacilities = [
-      { name: 'AIIMS Trauma Centre & Regional Blood Bank', offsetLat: 0.005, offsetLng: 0.004, address: 'Main Medical Campus' },
-      { name: 'Government Civil Hospital & Blood Unit', offsetLat: -0.008, offsetLng: 0.006, address: 'Central Hospital Zone' },
-      { name: 'Max Super Speciality Hospital', offsetLat: 0.012, offsetLng: -0.009, address: 'Emergency Care Block' },
-    ];
-
-    return defaultFacilities.map((f, i) => {
-      const lat = latitude + f.offsetLat;
-      const lon = longitude + f.offsetLng;
-      const dist = calculateHaversineDistance(latitude, longitude, lat, lon);
-      return {
-        id: `fac-${i + 1}`,
-        name: f.name,
-        address: f.address,
-        latitude: lat,
-        longitude: lon,
-        distanceKm: dist,
-        formattedDistance: `${dist.toFixed(1)} km`,
-        phone: '+91 11 2658 8500',
-        isOpenNow: true,
-      };
-    });
+    console.error('Failed to fetch nearby hospitals:', error);
+    return [];
   }
 };
