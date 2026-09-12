@@ -74,3 +74,32 @@ export const getMatchDetails = async (matchId: string): Promise<DonorMatch> => {
     throw error;
   }
 };
+
+export const getMyMatches = async (status?: string): Promise<DonorMatch[]> => {
+  try {
+    const response = await api.get<ApiSuccessResponse<{ matches: DonorMatch[] }>>('/matches/my', {
+      params: { status: status || 'all' },
+    });
+    return response.data.data!.matches;
+  } catch (error) {
+    console.error('Failed to fetch my donor matches:', error);
+    throw error;
+  }
+};
+
+export const respondToMatch = async (
+  matchId: string,
+  responseAction: 'ACCEPTED' | 'REJECTED' | 'I_CAN_DONATE' | 'NOT_AVAILABLE',
+  reason?: string
+): Promise<DonorMatch> => {
+  try {
+    const response = await api.patch<ApiSuccessResponse<{ match: DonorMatch }>>(`/matches/${matchId}/respond`, {
+      response: responseAction,
+      reason,
+    });
+    return response.data.data!.match;
+  } catch (error) {
+    console.error(`Failed to respond to match ${matchId}:`, error);
+    throw error;
+  }
+};

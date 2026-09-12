@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Linking } from 'react-native';
 import { useRequestStore } from '../../store/requestStore';
 import { useUserStore } from '../../store/userStore';
 import { useMatchStore } from '../../store/matchStore';
@@ -138,21 +138,35 @@ export const RequestDetailsScreen: React.FC<RequestDetailsScreenProps> = ({ requ
       {/* Matched Donors Section */}
       {matches.length > 0 && (
         <View style={styles.matchedSection}>
-          <Text style={styles.sectionHeader}>Matched Donors ({matches.length})</Text>
-          {matches.map((m) => (
-            <View key={m.id} style={styles.matchItem}>
-              <View style={styles.matchAvatar}>
-                <Text style={styles.matchAvatarText}>{(m.donor?.fullName || m.donor?.name || 'D').charAt(0).toUpperCase()}</Text>
+          <Text style={styles.sectionHeader}>Donor Responses ({matches.length})</Text>
+          {matches.map((m) => {
+            const isAccepted = m.status === 'ACCEPTED';
+            const donorPhone = m.donor?.phone;
+            return (
+              <View key={m.id || (m as any)._id} style={[styles.matchItem, isAccepted && styles.matchItemAccepted]}>
+                <View style={[styles.matchAvatar, isAccepted && { backgroundColor: COLORS.success }]}>
+                  <Text style={styles.matchAvatarText}>{(m.donor?.fullName || m.donor?.name || 'D').charAt(0).toUpperCase()}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.matchDonorName}>{m.donor?.fullName || m.donor?.name || 'Compatible Donor'}</Text>
+                  <Text style={styles.matchDistance}>📍 {m.formattedDistance} ({m.donorBloodGroup})</Text>
+                  {isAccepted && donorPhone && (
+                    <TouchableOpacity
+                      style={styles.callDonorBtn}
+                      onPress={() => Linking.openURL(`tel:${donorPhone}`)}
+                    >
+                      <Text style={styles.callDonorBtnText}>📞 Call Donor ({donorPhone})</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <View style={[styles.matchStatusBadge, isAccepted ? { backgroundColor: '#E8F5E9' } : { backgroundColor: COLORS.secondary }]}>
+                  <Text style={[styles.matchStatusText, isAccepted && { color: '#2E7D32' }]}>
+                    {isAccepted ? '✅ ACCEPTED' : m.status}
+                  </Text>
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.matchDonorName}>{m.donor?.fullName || m.donor?.name || 'Donor'}</Text>
-                <Text style={styles.matchDistance}>📍 {m.formattedDistance} ({m.donorBloodGroup})</Text>
-              </View>
-              <View style={[styles.matchStatusBadge, m.status === 'ACCEPTED' && { backgroundColor: COLORS.success }]}>
-                <Text style={styles.matchStatusText}>{m.status}</Text>
-              </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
       )}
 
@@ -194,10 +208,13 @@ const styles = StyleSheet.create({
   matchedSection: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: COLORS.borderColor, marginBottom: 20, ...SHADOWS.sm },
   sectionHeader: { fontSize: 13, fontWeight: '700', color: COLORS.textMuted, marginBottom: 12, textTransform: 'uppercase' },
   matchItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.bgMain, padding: 12, borderRadius: 10, marginBottom: 8 },
+  matchItemAccepted: { backgroundColor: '#F1F8E9', borderWidth: 1, borderColor: '#C8E6C9' },
   matchAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   matchAvatarText: { color: '#FFF', fontWeight: '700', fontSize: 16 },
   matchDonorName: { color: COLORS.secondary, fontWeight: '700', fontSize: 14 },
   matchDistance: { color: COLORS.info, fontSize: 12, marginTop: 2 },
+  callDonorBtn: { backgroundColor: '#2E7D32', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, marginTop: 6, alignSelf: 'flex-start' },
+  callDonorBtnText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
   matchStatusBadge: { backgroundColor: COLORS.secondary, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
   matchStatusText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
   cancelButton: { backgroundColor: COLORS.primaryLight, borderWidth: 1, borderColor: COLORS.danger, borderRadius: 12, height: 50, alignItems: 'center', justifyContent: 'center', marginBottom: 30 },

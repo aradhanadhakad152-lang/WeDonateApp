@@ -105,6 +105,43 @@ const assignMatchesForRequest = asyncHandler(async (req, res) => {
   });
 });
 
+// GET /api/v1/matches/my — Get all matched opportunities for the authenticated donor
+const getMyMatches = asyncHandler(async (req, res) => {
+  const donorId = req.user._id;
+  const { status } = req.query;
+
+  const filter = { donor: donorId };
+  if (status && status !== 'all') {
+    filter.status = status.toUpperCase();
+  }
+
+  const matches = await DonorMatch.find(filter)
+    .populate('bloodRequest')
+    .populate('requester', 'fullName name phone bloodGroup')
+    .sort({ createdAt: -1 })
+    .exec();
+
+  const formattedMatches = matches.map((m) => {
+    const json = m.toJSON();
+    json.formattedDistance = formatDistance(m.distanceKm);
+
+    // SECURITY: Omit requester phone number unless donor has ACCEPTED the match
+    if (json.requester && m.status !== 'ACCEPTED') {
+      delete json.requester.phone;
+    }
+    return json;
+  });
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: `Retrieved ${formattedMatches.length} match(es) for donor`,
+    data: {
+      matches: formattedMatches,
+      total: formattedMatches.length,
+    },
+  });
+});
+
 // POST /api/v1/matches/:matchId/accept — Accept assigned blood donation match
 const acceptMatch = asyncHandler(async (req, res) => {
   const { matchId } = req.params;
@@ -130,6 +167,19 @@ const acceptMatch = asyncHandler(async (req, res) => {
     return sendError(res, {
       statusCode: 403,
       message: 'You are not authorized to accept this donor match',
+    });
+  }
+
+  // Idempotency check: If already accepted by this donor, return 200 OK gracefully
+  if (match.status === 'ACCEPTED') {
+    const bloodRequest = await BloodRequest.findById(match.bloodRequest);
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Match is already accepted',
+      data: {
+        match,
+        request: bloodRequest,
+      },
     });
   }
 
@@ -170,8 +220,12 @@ const acceptMatch = asyncHandler(async (req, res) => {
   await match.save();
 
   // Atomic Update BloodRequest Status
-  bloodRequest.status = 'ACCEPTED';
-  bloodRequest.acceptedDonorId = donorUser._id;
+  if (['OPEN', 'HOSPITAL_VERIFIED', 'ADMIN_VERIFIED', 'MATCHING'].includes(bloodRequest.status)) {
+    bloodRequest.status = 'DONOR_RESPONDED';
+  }
+  if (!bloodRequest.acceptedDonorId) {
+    bloodRequest.acceptedDonorId = donorUser._id;
+  }
   await bloodRequest.save();
 
   // Trigger FCM Notification to Requester
@@ -232,6 +286,17 @@ const rejectMatch = asyncHandler(async (req, res) => {
     });
   }
 
+  // Idempotency check: If already rejected, return 200 OK gracefully
+  if (match.status === 'REJECTED') {
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Match is already declined',
+      data: {
+        match,
+      },
+    });
+  }
+
   if (!['PENDING', 'NOTIFIED'].includes(match.status)) {
     return sendError(res, {
       statusCode: 400,
@@ -271,6 +336,24 @@ const rejectMatch = asyncHandler(async (req, res) => {
       match,
     },
   });
+});
+
+// PATCH /api/v1/matches/:matchId/respond — Standardized response action handler
+const respondToMatch = asyncHandler(async (req, res) => {
+  const { response, status, reason } = req.body;
+  const action = (response || status || '').toUpperCase();
+
+  if (['ACCEPTED', 'I_CAN_DONATE', 'YES', 'ACCEPT'].includes(action)) {
+    return acceptMatch(req, res);
+  } else if (['REJECTED', 'NOT_AVAILABLE', 'NO', 'DECLINE', 'REJECT'].includes(action)) {
+    req.body.reason = reason;
+    return rejectMatch(req, res);
+  } else {
+    return sendError(res, {
+      statusCode: 400,
+      message: "Invalid response action. Must be 'ACCEPTED' ('I_CAN_DONATE') or 'REJECTED' ('NOT_AVAILABLE')",
+    });
+  }
 });
 
 // GET /api/v1/matches/:matchId — Get single match details
@@ -335,5 +418,7 @@ module.exports = {
   assignMatchesForRequest,
   acceptMatch,
   rejectMatch,
+  getMyMatches,
+  respondToMatch,
   getMatchById,
 };

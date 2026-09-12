@@ -8,6 +8,8 @@ const {
   assignMatchesForRequest,
   acceptMatch,
   rejectMatch,
+  getMyMatches,
+  respondToMatch,
   getMatchById,
 } = require('../controllers/matchController');
 
@@ -15,6 +17,9 @@ const {
  * Match Routes
  * Base path: /api/v1/matches
  */
+
+// GET /api/v1/matches/my — Get matched opportunities for authenticated donor
+router.get('/my', authenticate, getMyMatches);
 
 // GET /api/v1/matches/nearby/:requestId — Get nearby matches for blood request
 router.get('/nearby/:requestId', authenticate, getNearbyMatchesForRequest);
@@ -27,6 +32,9 @@ router.post('/:matchId/accept', authenticate, acceptMatch);
 
 // POST /api/v1/matches/:matchId/reject — Reject donor match
 router.post('/:matchId/reject', authenticate, rejectMatch);
+
+// PATCH /api/v1/matches/:matchId/respond — Respond to donor match (ACCEPT / REJECT)
+router.patch('/:matchId/respond', authenticate, respondToMatch);
 
 // GET /api/v1/matches/:matchId — Get details of single match
 router.get('/:matchId', authenticate, getMatchById);

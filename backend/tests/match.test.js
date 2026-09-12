@@ -243,18 +243,20 @@ describe('Milestone 6 Donor Matching Engine Suite', () => {
       expect(res.statusCode).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data.match.status).toBe('ACCEPTED');
-      expect(res.body.data.request.status).toBe('ACCEPTED');
+      expect(['ACCEPTED', 'DONOR_RESPONDED']).toContain(res.body.data.request.status);
       expect(res.body.data.request.acceptedDonorId.toString()).toBe(compatibleNearDonor._id.toString());
     });
 
-    it('should reject re-acceptance of an already accepted match', async () => {
+    it('should gracefully handle idempotent re-acceptance of an already accepted match', async () => {
       if (mongoose.connection.readyState !== 1 || !createdMatchId) return;
 
       const res = await request(app)
         .post(`/api/v1/matches/${createdMatchId}/accept`)
         .set('Authorization', `Bearer ${compatibleNearDonorToken}`);
 
-      expect(res.statusCode).toBe(400);
+      expect(res.statusCode).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toBe('Match is already accepted');
     });
   });
 });

@@ -34,7 +34,7 @@ const findAndMatchNearbyDonors = async (requestId, radiusKmOverride) => {
     throw err;
   }
 
-  if (['CANCELLED', 'FULFILLED', 'EXPIRED'].includes(bloodRequest.status)) {
+  if (['VERIFICATION_PENDING', 'REJECTED', 'CANCELLED', 'FULFILLED', 'EXPIRED'].includes(bloodRequest.status)) {
     const err = new Error(`Cannot run matching on a blood request with status '${bloodRequest.status}'`);
     err.statusCode = 400;
     throw err;
@@ -131,7 +131,7 @@ const findAndMatchNearbyDonors = async (requestId, radiusKmOverride) => {
   }
 
   // 6. Update BloodRequest status to MATCHING if matches exist
-  if (resultingMatches.length > 0 && bloodRequest.status === 'OPEN') {
+  if (resultingMatches.length > 0 && ['OPEN', 'HOSPITAL_VERIFIED', 'ADMIN_VERIFIED'].includes(bloodRequest.status)) {
     bloodRequest.status = 'MATCHING';
     await bloodRequest.save();
   }

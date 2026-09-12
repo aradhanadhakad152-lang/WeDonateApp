@@ -19,6 +19,7 @@ interface HomeScreenProps {
   onOpenMap?: () => void;
   onNavigateToCamps?: () => void;
   onNavigateToFunding?: () => void;
+  onNavigateToOpportunities?: () => void;
   onLogout: () => void;
 }
 
@@ -30,6 +31,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onOpenMap,
   onNavigateToCamps,
   onNavigateToFunding,
+  onNavigateToOpportunities,
   onLogout,
 }) => {
   const { profile, fetchProfile, toggleAvailability, isLoading: isProfileLoading } = useUserStore();
@@ -287,11 +289,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 <Text style={styles.actionLabel}>Find Nearby</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.actionCardBtn} onPress={onNavigateToProfile} activeOpacity={0.85}>
+              <TouchableOpacity style={styles.actionCardBtn} onPress={onNavigateToOpportunities || onNavigateToProfile} activeOpacity={0.85}>
                 <View style={[styles.actionIconBox, styles.iconGreen]}>
                   <Text style={styles.actionIconText}>💓</Text>
                 </View>
-                <Text style={styles.actionLabel}>Donate Blood</Text>
+                <Text style={styles.actionLabel}>Donation Opportunities</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.actionCardBtn} onPress={onNavigateToCamps || (() => Alert.alert('Blood Camps', 'Opening Camps Drive...'))} activeOpacity={0.85}>

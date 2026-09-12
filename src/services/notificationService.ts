@@ -148,3 +148,36 @@ export const markNotificationAsRead = async (
     throw error;
   }
 };
+
+/**
+ * Setup FCM notification click handlers for deep-linking
+ */
+export const setupNotificationListeners = (
+  onOpenMatch: (matchId: string) => void,
+  onOpenRequest: (requestId: string) => void
+) => {
+  try {
+    messaging()
+      .getInitialNotification()
+      .then((remoteMessage) => {
+        if (remoteMessage?.data) {
+          const { matchId, bloodRequestId } = remoteMessage.data;
+          if (matchId) onOpenMatch(String(matchId));
+          else if (bloodRequestId) onOpenRequest(String(bloodRequestId));
+        }
+      });
+
+    const unsubscribeOnNotificationOpened = messaging().onNotificationOpenedApp((remoteMessage) => {
+      if (remoteMessage?.data) {
+        const { matchId, bloodRequestId } = remoteMessage.data;
+        if (matchId) onOpenMatch(String(matchId));
+        else if (bloodRequestId) onOpenRequest(String(bloodRequestId));
+      }
+    });
+
+    return unsubscribeOnNotificationOpened;
+  } catch (error) {
+    console.error('Failed to setup FCM notification listeners:', error);
+    return () => {};
+  }
+};
