@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WE DONATE — System Admin Portal</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background-color: #F8FAFC; font-family: 'Segoe UI', system-ui, sans-serif; }
+    .sidebar { min-height: 100vh; background-color: #0F172A; color: white; }
+    .sidebar .nav-link { color: #94A3B8; font-weight: 600; padding: 12px 20px; }
+    .sidebar .nav-link.active { color: white; background-color: #E11D48; }
+    .stat-card { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+  </style>
+</head>
+<body>
+  <div class="d-flex">
+    <!-- Sidebar -->
+    <div class="sidebar p-3" style="width: 260px;">
+      <h4 class="fw-bold text-danger mb-4">🩸 Admin Portal</h4>
+      <div class="nav flex-column nav-pills">
+        <button class="nav-link active text-start mb-2" data-bs-toggle="pill" data-bs-target="#dashboard" onclick="loadDashboard()">📊 Dashboard</button>
+        <button class="nav-link text-start mb-2" data-bs-toggle="pill" data-bs-target="#orgs" onclick="loadOrgs()">🏥 Hospitals & Blood Banks</button>
+        <button class="nav-link text-start mb-2" data-bs-toggle="pill" data-bs-target="#fallback" onclick="loadPendingRequests()">⚡ Fallback Verification Queue</button>
+        <button class="nav-link text-start mb-2" data-bs-toggle="pill" data-bs-target="#audit" onclick="loadAuditLogs()">📜 Audit Logs</button>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-grow-1 p-4">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="fw-bold mb-0">System Operations</h3>
+        <div>
+          <button id="adminLoginBtn" class="btn btn-danger btn-sm fw-bold" onclick="loginAdmin()">Dev Admin Login</button>
+        </div>
+      </div>
+
+      <div class="tab-content">
+        <!-- Dashboard Tab -->
+        <div class="tab-pane fade show active" id="dashboard">
+          <div class="row g-3 mb-4">
+            <div class="col-md-3"><div class="card stat-card p-3 bg-white"><div class="text-muted small">TOTAL USERS</div><h2 id="mUsers" class="fw-bold">0</h2></div></div>
+            <div class="col-md-3"><div class="card stat-card p-3 bg-white border-start border-danger border-4"><div class="text-muted small">ACTIVE DONORS</div><h2 id="mDonors" class="fw-bold text-danger">0</h2></div></div>
+            <div class="col-md-3"><div class="card stat-card p-3 bg-white border-start border-primary border-4"><div class="text-muted small">REGISTERED HOSPITALS</div><h2 id="mHospitals" class="fw-bold text-primary">0</h2></div></div>
+            <div class="col-md-3"><div class="card stat-card p-3 bg-white border-start border-warning border-4"><div class="text-muted small">PENDING ORG APPROVALS</div><h2 id="mPendingOrgs" class="fw-bold text-warning">0</h2></div></div>
+          </div>
+        </div>
+
+        <!-- Organizations Tab -->
+        <div class="tab-pane fade" id="orgs">
+          <div class="card border-0 shadow-sm p-3">
+            <h5 class="fw-bold mb-3">Organization Registration Approvals</h5>
+            <div class="table-responsive">
+              <table class="table table-hover align-middle">
+                <thead class="table-light">
+                  <tr><th>Organization</th><th>Type</th><th>City</th><th>License</th><th>Status</th><th>Action</th></tr>
+                </thead>
+                <tbody id="orgsTableBody">
+                  <tr><td colspan="6" class="text-muted">Loading organizations...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fallback Verification Queue Tab -->
+        <div class="tab-pane fade" id="fallback">
+          <div class="card border-0 shadow-sm p-3">
+            <h5 class="fw-bold mb-3">WE DONATE Admin Fallback Request Verification</h5>
+            <p class="text-muted small">Requests that hospitals did not verify within the timeout appear here for manual Admin phone verification.</p>
+            <div class="table-responsive">
+              <table class="table table-hover align-middle">
+                <thead class="table-light">
+                  <tr><th>Group</th><th>Patient</th><th>Hospital</th><th>Requester Phone</th><th>Status</th><th>Action</th></tr>
+                </thead>
+                <tbody id="fallbackTableBody">
+                  <tr><td colspan="6" class="text-muted">Loading pending verification requests...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Audit Logs Tab -->
+        <div class="tab-pane fade" id="audit">
+          <div class="card border-0 shadow-sm p-3">
+            <h5 class="fw-bold mb-3">System Security & Administrative Audit Trail</h5>
+            <div class="table-responsive">
+              <table class="table table-sm table-striped">
+                <thead><tr><th>Timestamp</th><th>Action</th><th>User Role</th><th>Entity</th><th>Reason</th></tr></thead>
+                <tbody id="auditTableBody"><tr><td colspan="5" class="text-muted">Loading audit logs...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let adminToken = localStorage.getItem('admin_jwt') || '';
+
+    async function loginAdmin() {
+      const phone = prompt('Enter Admin Phone:', '+919876543210');
+      if (!phone) return;
+      try {
+        const res = await fetch('/api/v1/auth/dev-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, devPassword: 'DevPassword123!' })
+        });
+        const data = await res.json();
+        if (data.success) {
+          adminToken = data.data.tokens.accessToken;
+          localStorage.setItem('admin_jwt', adminToken);
+          alert('Admin Authenticated!');
+          loadDashboard();
+        }
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function loadDashboard() {
+      if (!adminToken) return;
+      try {
+        const res = await fetch('/api/v1/admin/dashboard', {
+          headers: { 'Authorization': 'Bearer ' + adminToken }
+        });
+        const data = await res.json();
+        if (data.success) {
+          const m = data.data.metrics;
+          document.getElementById('mUsers').innerText = m.totalUsers || 0;
+          document.getElementById('mDonors').innerText = m.activeDonors || 0;
+          document.getElementById('mHospitals').innerText = m.totalHospitals || 0;
+          document.getElementById('mPendingOrgs').innerText = m.pendingOrgVerifications || 0;
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function loadOrgs() {
+      if (!adminToken) return;
+      try {
+        const res = await fetch('/api/v1/admin/organizations', {
+          headers: { 'Authorization': 'Bearer ' + adminToken }
+        });
+        const data = await res.json();
+        const tbody = document.getElementById('orgsTableBody');
+        tbody.innerHTML = '';
+        if (data.success && data.data.organizations.length > 0) {
+          data.data.organizations.forEach(o => {
+            const isPending = o.status === 'PENDING_VERIFICATION';
+            tbody.innerHTML += `
+              <tr>
+                <td><strong>${o.name}</strong></td>
+                <td><span class="badge bg-secondary">${o.type}</span></td>
+                <td>${o.address?.city || ''}</td>
+                <td>${o.registrationLicense || 'N/A'}</td>
+                <td><span class="badge ${isPending ? 'bg-warning text-dark' : 'bg-success'}">${o.status}</span></td>
+                <td>
+                  ${isPending ? `<button class="btn btn-sm btn-success me-1" onclick="approveOrg('${o._id}')">Approve</button><button class="btn btn-sm btn-danger" onclick="rejectOrg('${o._id}')">Reject</button>` : `<span class="text-muted small">Approved</span>`}
+                </td>
+              </tr>
+            `;
+          });
+        } else {
+          tbody.innerHTML = '<tr><td colspan="6" class="text-muted">No organizations registered yet.</td></tr>';
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function approveOrg(id) {
+      try {
+        const res = await fetch(`/api/v1/admin/organizations/${id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+          body: JSON.stringify({ status: 'APPROVED' })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('Organization Approved!');
+          loadOrgs();
+        }
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function loadPendingRequests() {
+      if (!adminToken) return;
+      try {
+        const res = await fetch('/api/v1/admin/requests/pending', {
+          headers: { 'Authorization': 'Bearer ' + adminToken }
+        });
+        const data = await res.json();
+        const tbody = document.getElementById('fallbackTableBody');
+        tbody.innerHTML = '';
+        if (data.success && data.data.requests.length > 0) {
+          data.data.requests.forEach(r => {
+            tbody.innerHTML += `
+              <tr>
+                <td><span class="badge bg-danger">${r.bloodGroup}</span></td>
+                <td><strong>${r.patientName}</strong></td>
+                <td>${r.hospitalName}</td>
+                <td>📞 <a href="tel:${r.contactPhone}">${r.contactPhone}</a></td>
+                <td><span class="badge bg-warning text-dark">${r.status}</span></td>
+                <td>
+                  <button class="btn btn-sm btn-success me-1" onclick="verifyAdminReq('${r._id}', 'APPROVE')">✓ Admin Verify</button>
+                  <button class="btn btn-sm btn-outline-danger" onclick="verifyAdminReq('${r._id}', 'REJECT')">✕ Reject</button>
+                </td>
+              </tr>
+            `;
+          });
+        } else {
+          tbody.innerHTML = '<tr><td colspan="6" class="text-muted">No requests currently pending admin fallback verification.</td></tr>';
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function verifyAdminReq(id, action) {
+      const reason = prompt(`Enter reason for ${action}:`, 'Admin manual phone verification');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/v1/admin/requests/${id}/verify`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+          body: JSON.stringify({ action, reason })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert(`Request ${action === 'APPROVE' ? 'ADMIN_VERIFIED' : 'REJECTED'}. Audit log created.`);
+          loadPendingRequests();
+        }
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function loadAuditLogs() {
+      if (!adminToken) return;
+      try {
+        const res = await fetch('/api/v1/admin/audit-logs', {
+          headers: { 'Authorization': 'Bearer ' + adminToken }
+        });
+        const data = await res.json();
+        const tbody = document.getElementById('auditTableBody');
+        tbody.innerHTML = '';
+        if (data.success && data.data.logs.length > 0) {
+          data.data.logs.forEach(l => {
+            tbody.innerHTML += `
+              <tr>
+                <td><small>${new Date(l.createdAt).toLocaleString()}</small></td>
+                <td><span class="badge bg-dark">${l.action}</span></td>
+                <td>${l.userRole || 'USER'}</td>
+                <td>${l.entityType} (${l.entityId})</td>
+                <td>${l.reason || ''}</td>
+              </tr>
+            `;
+          });
+        } else {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-muted">No audit logs recorded yet.</td></tr>';
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>

@@ -10,6 +10,7 @@ import { BottomNav, TabName } from '../../components/ui/BottomNav';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { BloodGroupBadge } from '../../components/ui/BloodGroupBadge';
+import { BloodRequestsFeedScreen } from '../requests/BloodRequestsFeedScreen';
 import { COLORS, SHADOWS } from '../../theme/colors';
 
 interface HomeScreenProps {
@@ -170,80 +171,101 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   return (
     <View style={styles.mainWrapper}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {/* ================= TAB 1: HOME DASHBOARD ================= */}
-        {activeTab === 'Home' && (
-          <>
-            {/* Top Coral Header Bar */}
-            <View style={styles.dashHeaderBg}>
-              <View style={styles.dashTopBar}>
-                <View style={styles.userAvatarBadge}>
-                  <View style={styles.avatarCircle}>
-                    <Text style={styles.avatarText}>{initials}</Text>
+      {activeTab === 'Requests' ? (
+        <BloodRequestsFeedScreen onRequestBlood={onRequestBlood} />
+      ) : (
+        <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          {/* ================= TAB 1: HOME DASHBOARD ================= */}
+          {activeTab === 'Home' && (
+            <>
+              {/* Top Coral Header Bar */}
+              <View style={styles.dashHeaderBg}>
+                <View style={styles.dashTopBar}>
+                  <View style={styles.userAvatarBadge}>
+                    <View style={styles.avatarCircle}>
+                      <Text style={styles.avatarText}>{initials}</Text>
+                    </View>
+                    <View>
+                      <Text style={styles.dashUserName}>{nameVal}</Text>
+                      <Text style={styles.dashUserLocation}>
+                        📍 {userLocation?.city || profile?.location?.city || 'GPS Position'}
+                      </Text>
+                    </View>
                   </View>
-                  <View>
-                    <Text style={styles.dashUserName}>{nameVal}</Text>
-                    <Text style={styles.dashUserLocation}>
-                      📍 {userLocation?.city || profile?.location?.city || 'GPS Position'}
+
+                  <TouchableOpacity style={styles.bellBadge} onPress={() => setActiveTab('History')}>
+                    <Text style={styles.bellIcon}>🔔</Text>
+                    {myRequests.length > 0 && <View style={styles.bellDot} />}
+                  </TouchableOpacity>
+                </View>
+
+                {/* Stats Pills Row */}
+                <View style={styles.dashStatsRow}>
+                  <View style={styles.statPillBadge}>
+                    <Text style={styles.statPillText}>BLOOD GROUP: {bloodGroupVal}</Text>
+                  </View>
+                  <View style={[styles.statPillBadge, styles.statPillGreen]}>
+                    <Text style={styles.statPillText}>🛡️ VERIFIED DONOR</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Live Emergency Alert Banner Card */}
+              <View style={styles.emergencyCardWrapper}>
+                {activeEmergencyRequest ? (
+                  <View style={styles.emergencyBannerCard}>
+                    <View style={styles.emergencyBannerTop}>
+                      <Text style={styles.emergencyBadge}>LIVE EMERGENCY</Text>
+                      <StatusBadge status={activeEmergencyRequest.status} />
+                    </View>
+                    <Text style={styles.emergencyTitle}>
+                      {activeEmergencyRequest.bloodGroup} BLOOD REQUIRED FOR {activeEmergencyRequest.patientName.toUpperCase()}
                     </Text>
+                    <Text style={styles.emergencySub}>
+                      🏥 {activeEmergencyRequest.hospitalName} • {activeEmergencyRequest.unitsRequired} Unit(s) Needed
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                      <TouchableOpacity
+                        style={[styles.btnRespondDonor, { flex: 1 }]}
+                        onPress={onRequestBlood}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.btnRespondDonorText}>Create Request  🚨</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.btnRespondDonor, { flex: 1, backgroundColor: COLORS.secondary }]}
+                        onPress={() => setActiveTab('Requests')}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.btnRespondDonorText}>View Feed ➔</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                </View>
-
-                <TouchableOpacity style={styles.bellBadge} onPress={() => setActiveTab('History')}>
-                  <Text style={styles.bellIcon}>🔔</Text>
-                  {myRequests.length > 0 && <View style={styles.bellDot} />}
-                </TouchableOpacity>
-              </View>
-
-              {/* Stats Pills Row */}
-              <View style={styles.dashStatsRow}>
-                <View style={styles.statPillBadge}>
-                  <Text style={styles.statPillText}>BLOOD GROUP: {bloodGroupVal}</Text>
-                </View>
-                <View style={[styles.statPillBadge, styles.statPillGreen]}>
-                  <Text style={styles.statPillText}>🛡️ VERIFIED DONOR</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Live Emergency Alert Banner Card */}
-            <View style={styles.emergencyCardWrapper}>
-              {activeEmergencyRequest ? (
-                <View style={styles.emergencyBannerCard}>
-                  <View style={styles.emergencyBannerTop}>
-                    <Text style={styles.emergencyBadge}>LIVE EMERGENCY</Text>
-                    <StatusBadge status={activeEmergencyRequest.status} />
+                ) : (
+                  <View style={[styles.emergencyBannerCard, { backgroundColor: COLORS.bgMain, borderColor: COLORS.borderColor }]}>
+                    <Text style={[styles.emergencyTitle, { color: COLORS.secondary }]}>No Active Emergency Requests</Text>
+                    <Text style={styles.availabilitySub}>
+                      Create an emergency blood request whenever blood is urgently required.
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                      <TouchableOpacity
+                        style={[styles.btnRespondDonor, { flex: 1, backgroundColor: COLORS.primary }]}
+                        onPress={onRequestBlood}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.btnRespondDonorText}>Request Blood 📋</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.btnRespondDonor, { flex: 1, backgroundColor: COLORS.secondary }]}
+                        onPress={() => setActiveTab('Requests')}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.btnRespondDonorText}>View Feed ➔</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                  <Text style={styles.emergencyTitle}>
-                    {activeEmergencyRequest.bloodGroup} BLOOD REQUIRED FOR {activeEmergencyRequest.patientName.toUpperCase()}
-                  </Text>
-                  <Text style={styles.emergencySub}>
-                    🏥 {activeEmergencyRequest.hospitalName} • {activeEmergencyRequest.unitsRequired} Unit(s) Needed
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.btnRespondDonor}
-                    onPress={onRequestBlood}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.btnRespondDonorText}>Respond or Create Request  🚨</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <View style={[styles.emergencyBannerCard, { backgroundColor: COLORS.bgMain, borderColor: COLORS.borderColor }]}>
-                  <Text style={[styles.emergencyTitle, { color: COLORS.secondary }]}>No Active Emergency Requests</Text>
-                  <Text style={styles.availabilitySub}>
-                    Create an emergency blood request whenever blood is urgently required.
-                  </Text>
-                  <TouchableOpacity
-                    style={[styles.btnRespondDonor, { backgroundColor: COLORS.primary }]}
-                    onPress={onRequestBlood}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.btnRespondDonorText}>Request Emergency Blood  📋</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
+                )}
+              </View>
 
             {/* Core Action Grid */}
             <View style={styles.coreActionGrid}>
@@ -450,6 +472,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
         )}
       </ScrollView>
+      )}
 
       {/* Emergency SOS Modal */}
       <Modal visible={showSOSModal} transparent animationType="fade">

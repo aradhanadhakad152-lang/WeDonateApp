@@ -9,6 +9,7 @@ import { DonorProfileScreen } from '../screens/profile/DonorProfileScreen';
 import { RequestBloodScreen } from '../screens/requests/RequestBloodScreen';
 import { RequestDetailsScreen } from '../screens/requests/RequestDetailsScreen';
 import { NearbyDonorsMapScreen } from '../screens/map/NearbyDonorsMapScreen';
+import { DonationCampsScreen } from '../screens/camps/DonationCampsScreen';
 import { User } from '../types/user.types';
 import { BloodRequest } from '../types/request.types';
 
@@ -21,7 +22,8 @@ type ScreenState =
   | 'DonorProfile'
   | 'RequestBlood'
   | 'RequestDetails'
-  | 'NearbyDonorsMap';
+  | 'NearbyDonorsMap'
+  | 'DonationCamps';
 
 export const RootNavigator: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<ScreenState>('Splash');
@@ -110,6 +112,12 @@ export const RootNavigator: React.FC = () => {
         <NearbyDonorsMapScreen
           onBack={() => setCurrentScreen('Home')}
           onRequestBlood={() => setCurrentScreen('RequestBlood')}
+        />
+      )}
+
+      {currentScreen === 'DonationCamps' && (
+        <DonationCampsScreen
+          onBack={() => setCurrentScreen('Home')}
         />
       )}
     </View>

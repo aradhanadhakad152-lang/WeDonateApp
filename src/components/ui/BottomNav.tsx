@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { COLORS } from '../../theme/colors';
 
-export type TabName = 'Home' | 'Search' | 'History' | 'Profile';
+export type TabName = 'Home' | 'Requests' | 'Search' | 'History' | 'Profile';
 
 interface BottomNavProps {
   activeTab: TabName;
@@ -12,6 +12,7 @@ interface BottomNavProps {
 export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabPress }) => {
   const tabs: { name: TabName; label: string; icon: string }[] = [
     { name: 'Home', label: 'Home', icon: '🏠' },
+    { name: 'Requests', label: 'Feed', icon: '🩸' },
     { name: 'Search', label: 'Search', icon: '🔍' },
     { name: 'History', label: 'History', icon: '⏱️' },
     { name: 'Profile', label: 'Profile', icon: '👤' },

@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WE DONATE — Organization Portal (Hospitals & Blood Banks)</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --primary-color: #E11D48;
+      --secondary-color: #0F172A;
+      --bg-light: #F8FAFC;
+    }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg-light);
+    }
+    .navbar-brand {
+      font-weight: 800;
+      color: var(--primary-color) !important;
+      letter-spacing: 0.5px;
+    }
+    .metric-card {
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      transition: transform 0.2s;
+    }
+    .metric-card:hover {
+      transform: translateY(-2px);
+    }
+    .status-badge {
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+    }
+    .badge-pending { background-color: #FEF3C7; color: #92400E; }
+    .badge-verified { background-color: #D1FAE5; color: #065F46; }
+    .badge-critical { background-color: #FEE2E2; color: #991B1B; }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid px-4">
+      <a class="navbar-brand fs-4" href="#">🩸 WE DONATE <span class="fs-6 text-white-50">| Organization Portal</span></a>
+      <div class="d-flex align-items-center gap-3">
+        <span id="orgNameBadge" class="badge bg-danger fs-6">Not Logged In</span>
+        <button id="authBtn" class="btn btn-outline-light btn-sm" onclick="toggleAuthModal()">Login / Register</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid px-4 py-4">
+    <!-- Status Alert Bar -->
+    <div id="orgStatusAlert" class="alert alert-warning d-none" role="alert">
+      ⚠️ <strong>Verification Pending:</strong> Your organization registration is awaiting WE DONATE admin review. Verification features will activate upon approval.
+    </div>
+
+    <!-- Analytics Dashboard Header -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="card metric-card p-3 bg-white">
+          <div class="text-muted small fw-bold">TOTAL REQUESTS</div>
+          <div id="metricTotalReq" class="fs-2 fw-bold text-dark">0</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card metric-card p-3 bg-white border-start border-warning border-4">
+          <div class="text-muted small fw-bold">PENDING VERIFICATION</div>
+          <div id="metricPendingReq" class="fs-2 fw-bold text-warning">0</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card metric-card p-3 bg-white border-start border-success border-4">
+          <div class="text-muted small fw-bold">VERIFIED REQUESTS</div>
+          <div id="metricVerifiedReq" class="fs-2 fw-bold text-success">0</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card metric-card p-3 bg-white border-start border-danger border-4">
+          <div class="text-muted small fw-bold">CRITICAL LOW GROUPS</div>
+          <div id="metricCriticalGroups" class="fs-2 fw-bold text-danger">None</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Tabs -->
+    <ul class="nav nav-tabs mb-3" id="portalTabs" role="tablist">
+      <li class="nav-item">
+        <button class="nav-link active fw-bold" id="queue-tab" data-bs-toggle="tab" data-bs-target="#queue">📋 Request Verification Queue</button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link fw-bold" id="inventory-tab" data-bs-toggle="tab" data-bs-target="#inventory">🏥 Blood Inventory</button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link fw-bold" id="camps-tab" data-bs-toggle="tab" data-bs-target="#camps">⛺ Donation Camps</button>
+      </li>
+    </ul>
+
+    <div class="tab-content" id="portalTabContent">
+      <!-- Queue Tab -->
+      <div class="tab-pane fade show active" id="queue">
+        <div class="card border-0 shadow-sm p-3">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0">Incoming Blood Requests</h5>
+            <button class="btn btn-sm btn-outline-secondary" onclick="loadQueue()">🔄 Refresh Queue</button>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Blood Group</th>
+                  <th>Patient</th>
+                  <th>Units</th>
+                  <th>Urgency</th>
+                  <th>Requester Phone</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="queueTableBody">
+                <tr><td colspan="7" class="text-center text-muted">Please log in to view organization requests queue.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Inventory Tab -->
+      <div class="tab-pane fade" id="inventory">
+        <div class="card border-0 shadow-sm p-3">
+          <h5 class="fw-bold mb-3">Real-Time Blood Stock Level Tracker</h5>
+          <div class="row g-3" id="inventoryGrid">
+            <div class="text-muted">Loading inventory data...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Camps Tab -->
+      <div class="tab-pane fade" id="camps">
+        <div class="card border-0 shadow-sm p-3">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0">Organized Blood Donation Camps</h5>
+            <button class="btn btn-danger btn-sm" onclick="openCreateCampModal()">+ Create New Camp</button>
+          </div>
+          <div id="campsList" class="row g-3">
+            <div class="text-muted">Loading donation camps...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Login/Register Modal -->
+  <div class="modal fade" id="authModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold">Organization Login / Registration</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <ul class="nav nav-pills nav-fill mb-3">
+            <li class="nav-item"><button class="nav-link active" onclick="switchAuthTab('login')">Login</button></li>
+            <li class="nav-item"><button class="nav-link" onclick="switchAuthTab('register')">Register New</button></li>
+          </ul>
+
+          <div id="loginForm">
+            <div class="mb-3">
+              <label class="form-label">Official Email</label>
+              <input type="email" id="loginEmail" class="form-control" placeholder="hospital@domain.com">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Contact Phone</label>
+              <input type="text" id="loginPhone" class="form-control" placeholder="+919876543210">
+            </div>
+            <button class="btn btn-danger w-100 fw-bold" onclick="handleLogin()">Login to Organization Portal</button>
+          </div>
+
+          <div id="registerForm" class="d-none">
+            <div class="mb-2"><label class="form-label">Organization Name</label><input type="text" id="regName" class="form-control" placeholder="PGI Hospital Chandigarh"></div>
+            <div class="mb-2"><label class="form-label">Type</label>
+              <select id="regType" class="form-select"><option value="HOSPITAL">HOSPITAL</option><option value="BLOOD_BANK">BLOOD BANK</option></select>
+            </div>
+            <div class="mb-2"><label class="form-label">License Number</label><input type="text" id="regLicense" class="form-control" placeholder="REG-2026-981"></div>
+            <div class="mb-2"><label class="form-label">City</label><input type="text" id="regCity" class="form-control" placeholder="Chandigarh"></div>
+            <div class="mb-2"><label class="form-label">State</label><input type="text" id="regState" class="form-control" placeholder="Punjab"></div>
+            <div class="mb-2"><label class="form-label">Official Email</label><input type="email" id="regEmail" class="form-control" placeholder="admin@pgi.org"></div>
+            <div class="mb-2"><label class="form-label">Contact Phone</label><input type="text" id="regPhone" class="form-control" placeholder="+919876543210"></div>
+            <div class="mb-3"><label class="form-label">Authorized Contact Person</label><input type="text" id="regPerson" class="form-control" placeholder="Dr. Rajesh Sharma"></div>
+            <button class="btn btn-success w-100 fw-bold" onclick="handleRegister()">Submit Registration</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let authToken = localStorage.getItem('org_jwt') || '';
+    let currentOrg = null;
+
+    async function init() {
+      if (authToken) {
+        await fetchProfile();
+      }
+    }
+
+    function toggleAuthModal() {
+      const modal = new bootstrap.Modal(document.getElementById('authModal'));
+      modal.show();
+    }
+
+    function switchAuthTab(tab) {
+      if (tab === 'login') {
+        document.getElementById('loginForm').classList.remove('d-none');
+        document.getElementById('registerForm').classList.add('d-none');
+      } else {
+        document.getElementById('loginForm').classList.add('d-none');
+        document.getElementById('registerForm').classList.remove('d-none');
+      }
+    }
+
+    async function handleLogin() {
+      const email = document.getElementById('loginEmail').value;
+      const phone = document.getElementById('loginPhone').value;
+      try {
+        const res = await fetch('/api/v1/organizations/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, phone })
+        });
+        const data = await res.json();
+        if (data.success) {
+          authToken = data.data.tokens.accessToken;
+          localStorage.setItem('org_jwt', authToken);
+          alert('Login Successful!');
+          location.reload();
+        } else {
+          alert('Error: ' + data.message);
+        }
+      } catch (err) {
+        alert('Login Error: ' + err.message);
+      }
+    }
+
+    async function handleRegister() {
+      const name = document.getElementById('regName').value;
+      const type = document.getElementById('regType').value;
+      const registrationLicense = document.getElementById('regLicense').value;
+      const city = document.getElementById('regCity').value;
+      const state = document.getElementById('regState').value;
+      const officialEmail = document.getElementById('regEmail').value;
+      const contactPhone = document.getElementById('regPhone').value;
+      const authorizedPersonName = document.getElementById('regPerson').value;
+
+      try {
+        const res = await fetch('/api/v1/organizations/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, type, registrationLicense, city, state, officialEmail, contactPhone, authorizedPersonName, authorizedPersonPhone: contactPhone })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('Registration Submitted! Pending Admin Approval.');
+          location.reload();
+        } else {
+          alert('Registration Failed: ' + data.message);
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    async function fetchProfile() {
+      try {
+        const res = await fetch('/api/v1/organizations/me', {
+          headers: { 'Authorization': 'Bearer ' + authToken }
+        });
+        const data = await res.json();
+        if (data.success) {
+          currentOrg = data.data.organization;
+          document.getElementById('orgNameBadge').innerText = currentOrg.name + ' (' + currentOrg.type + ')';
+          document.getElementById('authBtn').innerText = 'Logout';
+          document.getElementById('authBtn').onclick = () => { localStorage.clear(); location.reload(); };
+
+          if (currentOrg.status === 'PENDING_VERIFICATION') {
+            document.getElementById('orgStatusAlert').classList.remove('d-none');
+          }
+
+          // Populate Dashboard Metrics
+          const m = data.data.metrics;
+          document.getElementById('metricTotalReq').innerText = m.totalRequests || 0;
+          document.getElementById('metricPendingReq').innerText = m.pendingVerificationRequests || 0;
+          document.getElementById('metricVerifiedReq').innerText = m.verifiedRequests || 0;
+          document.getElementById('metricCriticalGroups').innerText = m.criticalLowGroups?.length > 0 ? m.criticalLowGroups.join(', ') : 'None';
+
+          loadQueue();
+          renderInventory(data.data.inventory);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function loadQueue() {
+      if (!authToken) return;
+      try {
+        const res = await fetch('/api/v1/organizations/requests', {
+          headers: { 'Authorization': 'Bearer ' + authToken }
+        });
+        const data = await res.json();
+        const tbody = document.getElementById('queueTableBody');
+        tbody.innerHTML = '';
+        if (data.success && data.data.requests.length > 0) {
+          data.data.requests.forEach(r => {
+            const isPending = r.status === 'VERIFICATION_PENDING';
+            tbody.innerHTML += `
+              <tr>
+                <td><span class="badge bg-danger fs-6">${r.bloodGroup}</span></td>
+                <td><strong>${r.patientName}</strong></td>
+                <td>${r.unitsRequired} Unit(s)</td>
+                <td><span class="badge ${r.urgency === 'CRITICAL' ? 'bg-danger' : 'bg-warning text-dark'}">${r.urgency}</span></td>
+                <td>📞 <a href="tel:${r.contactPhone}">${r.contactPhone}</a></td>
+                <td><span class="status-badge ${isPending ? 'badge-pending' : 'badge-verified'}">${r.status}</span></td>
+                <td>
+                  ${isPending ? `
+                    <button class="btn btn-sm btn-success me-1" onclick="verifyRequest('${r._id}')">✓ Verify & Approve</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="rejectRequest('${r._id}')">✕ Reject</button>
+                  ` : `<span class="text-muted small">Verified</span>`}
+                </td>
+              </tr>
+            `;
+          });
+        } else {
+          tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No requests currently in organization verification queue.</td></tr>';
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function verifyRequest(id) {
+      if (!confirm('Call user and verify emergency blood requirement? Click OK to approve request for targeted donor matching.')) return;
+      try {
+        const res = await fetch(`/api/v1/organizations/requests/${id}/verify`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+          body: JSON.stringify({ notes: 'Verified by hospital staff via telephone' })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('Request Verified! Targeted donor matching engine activated.');
+          loadQueue();
+        } else {
+          alert('Error: ' + data.message);
+        }
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function rejectRequest(id) {
+      const reason = prompt('Enter rejection reason:');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/v1/organizations/requests/${id}/reject`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+          body: JSON.stringify({ rejectionReason: reason })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('Request Rejected.');
+          loadQueue();
+        }
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    function renderInventory(items) {
+      const grid = document.getElementById('inventoryGrid');
+      grid.innerHTML = '';
+      if (!items || items.length === 0) {
+        grid.innerHTML = '<div class="text-muted">No inventory records available.</div>';
+        return;
+      }
+      items.forEach(item => {
+        grid.innerHTML += `
+          <div class="col-md-3">
+            <div class="card p-3 border-0 shadow-sm text-center">
+              <span class="badge bg-danger fs-5 mb-2 mx-auto" style="width: 60px;">${item.bloodGroup}</span>
+              <h3 class="fw-bold">${item.availableUnits} <span class="fs-6 text-muted">Units</span></h3>
+              <button class="btn btn-sm btn-outline-primary mt-2" onclick="updateStock('${item.bloodGroup}', ${item.availableUnits})">Update Stock</button>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    async function updateStock(bg, current) {
+      const newUnits = prompt(`Update available units for ${bg}:`, current);
+      if (newUnits === null) return;
+      try {
+        const res = await fetch(`/api/v1/inventory/${currentOrg._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+          body: JSON.stringify({ bloodGroup: bg, availableUnits: parseInt(newUnits, 10) })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('Stock updated successfully!');
+          fetchProfile();
+        }
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

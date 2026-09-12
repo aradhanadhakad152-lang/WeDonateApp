@@ -32,6 +32,8 @@ export interface BloodRequest {
   cancelledAt?: string;
   createdAt: string;
   updatedAt: string;
+  distanceKm?: number;
+  formattedDistance?: string;
 }
 
 export interface CreateBloodRequestPayload {

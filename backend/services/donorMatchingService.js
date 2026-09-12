@@ -131,7 +131,7 @@ const findAndMatchNearbyDonors = async (requestId, radiusKmOverride) => {
   }
 
   // 6. Update BloodRequest status to MATCHING if matches exist
-  if (resultingMatches.length > 0 && bloodRequest.status === 'OPEN') {
+  if (resultingMatches.length > 0 && ['OPEN', 'HOSPITAL_VERIFIED', 'ADMIN_VERIFIED'].includes(bloodRequest.status)) {
     bloodRequest.status = 'MATCHING';
     await bloodRequest.save();
   }

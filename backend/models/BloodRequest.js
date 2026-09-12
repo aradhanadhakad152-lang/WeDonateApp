@@ -4,7 +4,21 @@ const mongoose = require('mongoose');
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const URGENCY_LEVELS = ['CRITICAL', 'URGENT', 'NORMAL'];
-const REQUEST_STATUSES = ['OPEN', 'MATCHING', 'ACCEPTED', 'FULFILLED', 'CANCELLED', 'EXPIRED'];
+const REQUEST_STATUSES = [
+  'DRAFT',
+  'VERIFICATION_PENDING',
+  'HOSPITAL_VERIFIED',
+  'ADMIN_VERIFIED',
+  'MATCHING',
+  'DONOR_RESPONDED',
+  'DONOR_CONFIRMED',
+  'FULFILLED',
+  'REJECTED',
+  'CANCELLED',
+  'EXPIRED',
+  'OPEN',
+  'ACCEPTED',
+];
 
 /**
  * BloodRequest Model — Production Grade
@@ -120,6 +134,34 @@ const bloodRequestSchema = new mongoose.Schema(
       maxlength: [500, 'Additional notes cannot exceed 500 characters'],
     },
 
+    // Target Organization & Verification Workflow
+    targetOrganizationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Organization',
+      default: null,
+      index: true,
+    },
+    verifiedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    verificationSource: {
+      type: String,
+      enum: ['HOSPITAL', 'ADMIN', null],
+      default: null,
+    },
+    rejectionReason: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    verificationNotes: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+
     // Lifecycle Status
     status: {
       type: String,
@@ -127,7 +169,7 @@ const bloodRequestSchema = new mongoose.Schema(
         values: REQUEST_STATUSES,
         message: `Status must be one of: ${REQUEST_STATUSES.join(', ')}`,
       },
-      default: 'OPEN',
+      default: 'VERIFICATION_PENDING',
       index: true,
     },
     acceptedDonorId: {

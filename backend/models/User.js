@@ -3,7 +3,7 @@
 const mongoose = require('mongoose');
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-const ROLES = ['CITIZEN', 'HOSPITAL_STAFF', 'ADMIN'];
+const ROLES = ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'CAMP_ORGANIZER', 'SUPPORT_STAFF', 'CITIZEN', 'HOSPITAL_STAFF'];
 const ACCOUNT_STATUSES = ['ACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'];
 const DONOR_STATUSES = ['AVAILABLE', 'UNAVAILABLE', 'INELIGIBLE'];
 const GENDERS = ['MALE', 'FEMALE', 'OTHER'];
@@ -157,6 +157,12 @@ const userSchema = new mongoose.Schema(
         message: `Role must be one of: ${ROLES.join(', ')}`,
       },
       default: 'CITIZEN',
+    },
+    organizationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Organization',
+      default: null,
+      index: true,
     },
     isActive: {
       type: Boolean,

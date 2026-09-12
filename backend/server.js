@@ -24,6 +24,11 @@ const matchRoutes = require('./routes/matchRoutes');
 const donorRoutes = require('./routes/donorRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const hospitalRoutes = require('./routes/hospitalRoutes');
+const organizationRoutes = require('./routes/organizationRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const campRoutes = require('./routes/campRoutes');
+const inventoryRoutes = require('./routes/inventoryRoutes');
+const fundingRoutes = require('./routes/fundingRoutes');
 
 // ============================================
 // App initialization
@@ -134,9 +139,12 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// ============================================
+const path = require('path');
+
+// Static Web Portals (Organization, Admin & Funding Dashboards)
+app.use(express.static(path.join(__dirname, 'public')));
+
 // API Routes
-// ============================================
 app.use(`/api/${API_VERSION}/auth`, authRoutes);
 app.use(`/api/${API_VERSION}/users`, userRoutes);
 app.use(`/api/${API_VERSION}/blood-requests`, requestRoutes);
@@ -145,6 +153,11 @@ app.use(`/api/${API_VERSION}/matches`, matchRoutes);
 app.use(`/api/${API_VERSION}/donors`, donorRoutes);
 app.use(`/api/${API_VERSION}/notifications`, notificationRoutes);
 app.use(`/api/${API_VERSION}/hospitals`, hospitalRoutes);
+app.use(`/api/${API_VERSION}/organizations`, organizationRoutes);
+app.use(`/api/${API_VERSION}/admin`, adminRoutes);
+app.use(`/api/${API_VERSION}/camps`, campRoutes);
+app.use(`/api/${API_VERSION}/inventory`, inventoryRoutes);
+app.use(`/api/${API_VERSION}/funding`, fundingRoutes);
 
 // ============================================
 // 404 handler — unknown routes
