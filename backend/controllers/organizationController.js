@@ -72,21 +72,40 @@ const registerOrganization = asyncHandler(async (req, res) => {
 
   await organization.save();
 
-  // Create initial staff user account linked to this organization
+  // Create or update initial staff user account linked to this organization
   const role = type === 'HOSPITAL' ? 'HOSPITAL_MANAGER' : 'BLOOD_BANK_MANAGER';
-  const staffUser = new User({
-    firebaseUid: `org_${organization._id}_${Date.now()}`,
-    phone: authorizedPersonPhone.startsWith('+') ? authorizedPersonPhone : `+91${authorizedPersonPhone.replace(/\D/g, '').slice(-10)}`,
-    fullName: authorizedPersonName,
-    name: authorizedPersonName,
-    email: officialEmail.toLowerCase(),
-    role,
-    organizationId: organization._id,
-    accountStatus: 'ACTIVE',
-    isVerified: true,
+  const cleanPhone = (authorizedPersonPhone || contactPhone || '').replace(/\D/g, '');
+  const formattedPhone = (authorizedPersonPhone || contactPhone || '').startsWith('+')
+    ? (authorizedPersonPhone || contactPhone)
+    : cleanPhone.length >= 10 ? `+91${cleanPhone.slice(-10)}` : `+${cleanPhone}`;
+
+  let staffUser = await User.findOne({
+    $or: [
+      { phone: formattedPhone },
+      { email: officialEmail.toLowerCase() },
+    ],
   });
 
-  await staffUser.save();
+  if (staffUser) {
+    staffUser.role = role;
+    staffUser.organizationId = organization._id;
+    staffUser.accountStatus = 'ACTIVE';
+    staffUser.isVerified = true;
+    await staffUser.save();
+  } else {
+    staffUser = new User({
+      firebaseUid: `org_${organization._id}_${Date.now()}`,
+      phone: formattedPhone,
+      fullName: authorizedPersonName || name,
+      name: authorizedPersonName || name,
+      email: officialEmail.toLowerCase(),
+      role,
+      organizationId: organization._id,
+      accountStatus: 'ACTIVE',
+      isVerified: true,
+    });
+    await staffUser.save();
+  }
 
   // Create initial empty blood inventory records for all 8 blood groups
   const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -115,9 +134,13 @@ const loginOrganization = asyncHandler(async (req, res) => {
   const { email, phone } = req.body;
 
   let query = {};
-  if (email) query.email = email.toLowerCase();
-  else if (phone) query.phone = phone;
-  else {
+  if (email) {
+    query.email = email.toLowerCase();
+  } else if (phone) {
+    const cleanPhone = phone.replace(/\D/g, '');
+    const e164Phone = phone.startsWith('+') ? phone : cleanPhone.length >= 10 ? `+91${cleanPhone.slice(-10)}` : `+${cleanPhone}`;
+    query = { $or: [{ phone: e164Phone }, { phone }] };
+  } else {
     return sendError(res, {
       statusCode: 400,
       message: 'Official email or contact phone is required',

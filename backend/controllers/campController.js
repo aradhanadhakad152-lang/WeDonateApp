@@ -43,20 +43,20 @@ const createCamp = asyncHandler(async (req, res) => {
 
   const camp = new DonationCamp({
     title,
-    description,
+    description: description || title,
     organizationId: orgId,
     date: new Date(date),
-    startTime,
-    endTime,
-    address,
+    startTime: startTime || '09:00 AM',
+    endTime: endTime || '05:00 PM',
+    address: address || city || 'Main Center',
     city,
-    state,
+    state: state || 'Delhi',
     location: {
       type: 'Point',
       coordinates: [lng, lat],
     },
-    contactPhone,
-    contactEmail,
+    contactPhone: contactPhone || req.user.phone || '+919876543210',
+    contactEmail: contactEmail || req.user.email || 'camp@wedonate.org',
     supportedBloodGroups: supportedBloodGroups || ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
     registrationLimit: registrationLimit || 200,
     status: initialStatus,
@@ -222,6 +222,14 @@ const updateCampStatus = asyncHandler(async (req, res) => {
 
   const previousStatus = camp.status;
   camp.status = status;
+  if (!camp.startTime) camp.startTime = '09:00 AM';
+  if (!camp.endTime) camp.endTime = '05:00 PM';
+  if (!camp.address) camp.address = camp.city || 'Main Center';
+  if (!camp.state) camp.state = 'Delhi';
+  if (!camp.contactPhone) camp.contactPhone = '+919876543210';
+  if (!camp.contactEmail) camp.contactEmail = 'camp@wedonate.org';
+  if (!camp.description) camp.description = camp.title;
+
   await camp.save();
 
   await AuditLog.create({

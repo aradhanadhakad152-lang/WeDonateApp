@@ -462,6 +462,7 @@
 
       try {
         const res = await fetch(API_BASE + endpoint, opts);
+        console.log('[PORTAL API]', method, API_BASE + endpoint, res.status);
         const data = await res.json();
 
         if (res.status === 401) {
