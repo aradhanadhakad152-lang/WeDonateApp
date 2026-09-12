@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { devLogin } from '../../services/authService';
+import { phoneLogin } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
 import { User } from '../../types/user.types';
 import { COLORS, SHADOWS } from '../../theme/colors';
@@ -30,7 +30,7 @@ export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onSuccess })
     }
   };
 
-  const handleDevLogin = async () => {
+  const handlePhoneLogin = async () => {
     setErrorMessage('');
     const trimmed = phoneNumber.trim();
 
@@ -42,7 +42,7 @@ export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onSuccess })
 
     setIsLoading(true);
     try {
-      const user = await devLogin(formattedPhone, fullName.trim() || undefined);
+      const user = await phoneLogin(formattedPhone, fullName.trim() || undefined);
       useAuthStore.getState().setUser(user);
       setIsLoading(false);
       onSuccess(user);
@@ -114,7 +114,7 @@ export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onSuccess })
 
         <TouchableOpacity
           style={[styles.btnCoralWide, isLoading && styles.btnDisabled]}
-          onPress={handleDevLogin}
+          onPress={handlePhoneLogin}
           disabled={isLoading}
           activeOpacity={0.85}
         >

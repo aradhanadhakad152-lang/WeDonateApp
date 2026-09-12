@@ -17,6 +17,43 @@ import { initializeNotifications } from './notificationService';
 // DEVELOPMENT AUTHENTICATION
 // ============================================================================
 
+export const phoneLogin = async (
+  phone: string,
+  fullName?: string,
+  email?: string
+): Promise<User> => {
+  try {
+    const response = await api.post<ApiSuccessResponse<LoginResponse>>(
+      '/auth/phone-login',
+      {
+        phone,
+        fullName,
+        email,
+      }
+    );
+
+    const { user, tokens } = response.data.data!;
+
+    // Save JWT access + refresh tokens
+    await saveTokens(tokens.accessToken, tokens.refreshToken);
+
+    // Initialize FCM after successful backend login
+    try {
+      await initializeNotifications();
+    } catch (notificationError) {
+      console.warn(
+        'FCM initialization failed, login will continue:',
+        notificationError
+      );
+    }
+
+    return user;
+  } catch (error) {
+    console.error('Phone Login failed:', error);
+    throw error;
+  }
+};
+
 export const devLogin = async (
   phone: string,
   fullName?: string,

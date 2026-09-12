@@ -4,7 +4,7 @@ const express = require('express');
 const router = express.Router();
 const { authLimiter } = require('../middleware/rateLimiter');
 const authenticate = require('../middleware/authenticate');
-const { firebaseLogin, refreshToken, logout, adminLogin, devLogin } = require('../controllers/authController');
+const { firebaseLogin, phoneLogin, refreshToken, logout, adminLogin, devLogin } = require('../controllers/authController');
 
 /**
  * Auth Routes
@@ -14,6 +14,9 @@ const { firebaseLogin, refreshToken, logout, adminLogin, devLogin } = require('.
 // POST /api/v1/auth/firebase-login
 // Accepts Firebase ID Token in Authorization header (Bearer <ID_TOKEN>), verifies with Admin SDK, returns JWT pair
 router.post('/firebase-login', authLimiter, firebaseLogin);
+
+// POST /api/v1/auth/phone-login — Citizen Phone Authentication
+router.post('/phone-login', authLimiter, phoneLogin);
 
 // POST /api/v1/auth/admin-login
 router.post('/admin-login', authLimiter, adminLogin);

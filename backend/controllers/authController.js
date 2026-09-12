@@ -267,8 +267,92 @@ const devLogin = asyncHandler(async (req, res) => {
   });
 });
 
+// POST /api/v1/auth/phone-login — Citizen Mobile Phone Login & Registration
+const phoneLogin = asyncHandler(async (req, res) => {
+  const { phone, fullName, email, deviceToken } = req.body;
+
+  if (!phone) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'Phone number is required',
+    });
+  }
+
+  const formattedPhone = phone.trim().startsWith('+') ? phone.trim() : `+91${phone.trim()}`;
+  if (!/^\+[1-9]\d{7,14}$/.test(formattedPhone)) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'Phone must be in valid E.164 format (e.g. +919876543210)',
+    });
+  }
+
+  let user = await User.findOne({ phone: formattedPhone });
+
+  if (!user) {
+    const timestamp = Date.now();
+    user = new User({
+      firebaseUid: `phone_${timestamp}_${Math.random().toString(36).substring(2, 7)}`,
+      phone: formattedPhone,
+      fullName: fullName || 'Citizen User',
+      name: fullName || 'Citizen User',
+      email: email ? email.toLowerCase() : undefined,
+      role: 'CITIZEN',
+      accountStatus: 'ACTIVE',
+      isVerified: true,
+    });
+  } else {
+    if (fullName && (!user.fullName || !user.name)) {
+      user.fullName = fullName;
+      user.name = fullName;
+    }
+  }
+
+  if (user.accountStatus === 'SUSPENDED') {
+    logger.warn(`[PHONE-LOGIN REJECTION 403] User ${user._id} account status is SUSPENDED`);
+    return sendError(res, {
+      statusCode: 403,
+      message: 'Account has been suspended. Please contact support.',
+    });
+  }
+
+  user.lastLogin = new Date();
+  if (deviceToken) {
+    user.deviceToken = deviceToken;
+  }
+
+  const tokens = generateTokenPair(user);
+
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  user.refreshTokenHashes = (user.refreshTokenHashes || []).filter(
+    (item) => item.expiresAt > new Date()
+  );
+  user.refreshTokenHashes.push({
+    hash: tokens.tokenHash,
+    createdAt: new Date(),
+    expiresAt,
+  });
+
+  await user.save();
+
+  logger.info(`Citizen logged in via phone-login: ${user._id} (${user.phone})`);
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: 'Authentication successful',
+    data: {
+      user: user.toProfileJSON(),
+      tokens: {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresIn: tokens.expiresIn,
+      },
+    },
+  });
+});
+
 module.exports = {
   firebaseLogin,
+  phoneLogin,
   refreshToken,
   logout,
   getMe,
