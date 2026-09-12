@@ -3,21 +3,21 @@
 const mongoose = require('mongoose');
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-const ROLES = ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'CAMP_ORGANIZER', 'SUPPORT_STAFF', 'CITIZEN', 'HOSPITAL_STAFF'];
+const ROLES = [
+  'CITIZEN',
+  'HOSPITAL_STAFF',
+  'HOSPITAL_MANAGER',
+  'BLOOD_BANK_MANAGER',
+  'CAMP_ORGANIZER',
+  'ADMIN',
+  'SUPER_ADMIN',
+];
 const ACCOUNT_STATUSES = ['ACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'];
 const DONOR_STATUSES = ['AVAILABLE', 'UNAVAILABLE', 'INELIGIBLE'];
 const GENDERS = ['MALE', 'FEMALE', 'OTHER'];
 
 /**
- * User Model — Production Grade
- *
- * Represents citizens, donors, hospital staff, and admins.
- *
- * SECURITY & GEOSPATIAL RULES:
- * - firebaseUid is unique and indexed for fast lookup.
- * - Location uses GeoJSON Point format + 2dsphere index for MongoDB geospatial queries.
- * - No passwords or OTPs stored in MongoDB.
- * - isEligible and nextEligibleDonationDate are calculated server-side.
+ * User Model — Production Grade Multi-Portal RBAC
  */
 const userSchema = new mongoose.Schema(
   {
@@ -59,7 +59,7 @@ const userSchema = new mongoose.Schema(
       sparse: true,
     },
     profilePhoto: {
-      type: String, // URL to stored photo
+      type: String,
       default: null,
     },
     gender: {
@@ -208,18 +208,12 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// =============================================
 // Indexes
-// =============================================
 userSchema.index({ 'location': '2dsphere' });
 userSchema.index({ bloodGroup: 1, isEligible: 1, isAvailable: 1, accountStatus: 1, isActive: 1 });
 userSchema.index({ role: 1, accountStatus: 1 });
 
-// =============================================
-// Virtuals & Middleware
-// =============================================
-
-// Check if user has completed minimum required profile fields
+// Virtuals
 userSchema.virtual('isProfileComplete').get(function () {
   const nameVal = this.fullName || this.name;
   const hasName = !!(nameVal && nameVal.trim().length > 0);
@@ -228,7 +222,7 @@ userSchema.virtual('isProfileComplete').get(function () {
   return hasName && hasBlood && hasLoc;
 });
 
-// Pre-save hook: sync name/fullName, calculate eligibility
+// Middleware
 userSchema.pre('save', function (next) {
   if (this.fullName && !this.name) {
     this.name = this.fullName;
@@ -236,7 +230,6 @@ userSchema.pre('save', function (next) {
     this.fullName = this.name;
   }
 
-  // Calculate nextEligibleDonationDate (90 days after last donation)
   if (this.lastDonationDate) {
     const nextDate = new Date(this.lastDonationDate);
     nextDate.setDate(nextDate.getDate() + 90);
@@ -251,7 +244,6 @@ userSchema.pre('save', function (next) {
     }
   }
 
-  // Sync isActive with accountStatus
   if (this.accountStatus === 'SUSPENDED') {
     this.isActive = false;
   } else if (this.accountStatus === 'ACTIVE') {
@@ -261,9 +253,7 @@ userSchema.pre('save', function (next) {
   next();
 });
 
-// =============================================
 // Methods
-// =============================================
 userSchema.methods.toPublicJSON = function () {
   const nameVal = this.fullName || this.name;
   return {
@@ -315,6 +305,7 @@ userSchema.methods.toProfileJSON = function () {
       updatedAt: this.location?.updatedAt || null,
     },
     role: this.role,
+    organizationId: this.organizationId || null,
     isActive: this.isActive,
     accountStatus: this.accountStatus,
     isVerified: this.isVerified,

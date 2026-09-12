@@ -26,8 +26,8 @@ describe('GET /api/health', () => {
   it('should respond to GET /api/health with status info', async () => {
     const res = await request(app).get('/api/health');
     expect([200, 503]).toContain(res.statusCode);
-    const statusVal = res.body.status || (res.body.data && res.body.data.status);
-    expect(statusVal).toBeDefined();
+    const bodyObj = res.body.data || res.body;
+    expect(bodyObj).toHaveProperty('status');
     expect(res.body).toHaveProperty('timestamp');
   });
 });

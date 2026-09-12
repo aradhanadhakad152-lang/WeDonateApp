@@ -3,7 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const authenticate = require('../middleware/authenticate');
-const { authorizeRoles, authorizeOrganizationAccess } = require('../middleware/rbacMiddleware');
+const { authorizeRoles } = require('../middleware/rbacMiddleware');
 const {
   registerOrganization,
   loginOrganization,
@@ -14,20 +14,18 @@ const {
 } = require('../controllers/organizationController');
 
 /**
- * Organization Routes
+ * Organization (Hospital / Blood Bank) Portal Routes
  * Base path: /api/v1/organizations
  */
 
-// Public Registration & Login
+// Public Registration & Staff Login
 router.post('/register', registerOrganization);
 router.post('/login', loginOrganization);
 
-// Protected Staff Portal Routes
-router.get('/me', authenticate, getMyOrganization);
-router.get('/requests', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'ADMIN', 'SUPER_ADMIN'), getOrganizationRequestsQueue);
-
-// Request Verification Workflow
-router.patch('/requests/:id/verify', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'ADMIN', 'SUPER_ADMIN'), verifyRequestByHospital);
-router.patch('/requests/:id/reject', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'ADMIN', 'SUPER_ADMIN'), rejectRequestByHospital);
+// Authenticated Organization Staff Operations
+router.get('/me', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'HOSPITAL_STAFF', 'ADMIN', 'SUPER_ADMIN'), getMyOrganization);
+router.get('/requests', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'HOSPITAL_STAFF', 'ADMIN', 'SUPER_ADMIN'), getOrganizationRequestsQueue);
+router.patch('/requests/:id/verify', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'HOSPITAL_STAFF', 'ADMIN', 'SUPER_ADMIN'), verifyRequestByHospital);
+router.patch('/requests/:id/reject', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'HOSPITAL_STAFF', 'ADMIN', 'SUPER_ADMIN'), rejectRequestByHospital);
 
 module.exports = router;

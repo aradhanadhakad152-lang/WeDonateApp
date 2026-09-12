@@ -244,4 +244,84 @@ describe('Milestone 5 Blood Request Suite', () => {
       expect(res.body.success).toBe(false);
     });
   });
+
+  describe('Duplicate Active Request Prevention', () => {
+    let activeReqId;
+
+    it('should create initial active request for user A', async () => {
+      if (mongoose.connection.readyState !== 1) return;
+
+      const res = await request(app)
+        .post('/api/v1/blood-requests')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({
+          patientName: 'Test Patient Duplicate Check',
+          bloodGroup: 'B+',
+          unitsRequired: 2,
+          hospitalName: 'Apollo Hospital',
+          hospitalAddress: 'Delhi',
+          hospitalLatitude: 28.56,
+          hospitalLongitude: 77.21,
+          urgency: 'URGENT',
+          contactPhone: '+919876543210',
+        });
+
+      expect(res.statusCode).toBe(201);
+      expect(res.body.success).toBe(true);
+      activeReqId = res.body.data.request._id;
+    });
+
+    it('should reject second active request attempt for user A', async () => {
+      if (mongoose.connection.readyState !== 1) return;
+
+      const res = await request(app)
+        .post('/api/v1/blood-requests')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({
+          patientName: 'Second Patient Attempt',
+          bloodGroup: 'O+',
+          unitsRequired: 1,
+          hospitalName: 'Max Hospital',
+          hospitalAddress: 'Delhi',
+          hospitalLatitude: 28.57,
+          hospitalLongitude: 77.22,
+          urgency: 'CRITICAL',
+          contactPhone: '+919876543210',
+        });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toBe('You already have an active blood request.');
+      expect(res.body.existingRequest).toBeDefined();
+      expect(res.body.existingRequestId).toBe(activeReqId);
+    });
+
+    it('should allow new request after cancelling existing request', async () => {
+      if (mongoose.connection.readyState !== 1) return;
+
+      // Cancel active request
+      await request(app)
+        .post(`/api/v1/blood-requests/${activeReqId}/cancel`)
+        .set('Authorization', `Bearer ${tokenA}`);
+
+      // Now create new request
+      const res = await request(app)
+        .post('/api/v1/blood-requests')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({
+          patientName: 'New Patient After Cancellation',
+          bloodGroup: 'A+',
+          unitsRequired: 1,
+          hospitalName: 'Fortis Hospital',
+          hospitalAddress: 'Noida',
+          hospitalLatitude: 28.58,
+          hospitalLongitude: 77.23,
+          urgency: 'NORMAL',
+          contactPhone: '+919876543210',
+        });
+
+      expect(res.statusCode).toBe(201);
+      expect(res.body.success).toBe(true);
+    });
+  });
 });

@@ -30,7 +30,7 @@ const registerOrganization = asyncHandler(async (req, res) => {
     authorizedPersonDesignation,
     authorizedPersonPhone,
     authorizedPersonEmail,
-    password, // Organization admin initial password
+    password,
   } = req.body;
 
   const existingOrg = await Organization.findOne({ officialEmail: officialEmail.toLowerCase() });
@@ -93,7 +93,7 @@ const registerOrganization = asyncHandler(async (req, res) => {
   const inventoryDocs = BLOOD_GROUPS.map((bg) => ({
     organizationId: organization._id,
     bloodGroup: bg,
-    availableUnits: 10, // Initial default stock
+    availableUnits: 10,
     reservedUnits: 0,
     lowStockThreshold: 5,
   }));
@@ -166,7 +166,7 @@ const getMyOrganization = asyncHandler(async (req, res) => {
   const organization = await Organization.findById(user.organizationId);
   if (!organization) {
     return sendError(res, {
-      statusCode: 44,
+      statusCode: 404,
       message: 'Organization record not found',
     });
   }
@@ -258,6 +258,14 @@ const verifyRequestByHospital = asyncHandler(async (req, res) => {
     return sendError(res, {
       statusCode: 404,
       message: 'Blood request not found',
+    });
+  }
+
+  // Security Check: Hospital staff can only verify requests targeting their hospital
+  if (bloodRequest.targetOrganizationId && user.organizationId && bloodRequest.targetOrganizationId.toString() !== user.organizationId.toString()) {
+    return sendError(res, {
+      statusCode: 403,
+      message: 'You can only verify blood requests targeted to your own hospital',
     });
   }
 

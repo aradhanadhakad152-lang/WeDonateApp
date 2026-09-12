@@ -18,7 +18,6 @@ const {
  */
 
 router.get('/', getCamps);
-
 router.post('/', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'CAMP_ORGANIZER', 'ADMIN', 'SUPER_ADMIN'), createCamp);
 router.post('/:id/register', authenticate, registerForCamp);
 router.get('/:id/registrations', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'CAMP_ORGANIZER', 'ADMIN', 'SUPER_ADMIN'), getCampRegistrations);

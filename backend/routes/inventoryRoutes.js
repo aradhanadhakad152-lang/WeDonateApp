@@ -14,7 +14,7 @@ const {
  * Base path: /api/v1/inventory
  */
 
-router.get('/:organizationId', getOrganizationInventory);
+router.get('/:organizationId', authenticate, authorizeOrganizationAccess, getOrganizationInventory);
 router.put('/:organizationId', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'ADMIN', 'SUPER_ADMIN'), authorizeOrganizationAccess, updateOrganizationInventory);
 
 module.exports = router;

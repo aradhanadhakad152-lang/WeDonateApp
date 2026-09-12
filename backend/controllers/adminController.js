@@ -7,6 +7,7 @@ const DonationCamp = require('../models/DonationCamp');
 const CampRegistration = require('../models/CampRegistration');
 const BloodInventory = require('../models/BloodInventory');
 const FinancialDonation = require('../models/FinancialDonation');
+const FundingCampaign = require('../models/FundingCampaign');
 const AuditLog = require('../models/AuditLog');
 const { sendSuccess, sendError } = require('../utils/apiResponse');
 const asyncHandler = require('../utils/asyncHandler');
@@ -32,10 +33,16 @@ const getAdminDashboardMetrics = asyncHandler(async (req, res) => {
   const totalCampRegistrations = await CampRegistration.countDocuments();
 
   const fundingAggregation = await FinancialDonation.aggregate([
-    { $match: { transactionStatus: 'SUCCESS' } },
     { $group: { _id: null, totalAmount: { $sum: '$amount' } } },
   ]);
   const totalDonationFunding = fundingAggregation.length > 0 ? fundingAggregation[0].totalAmount : 0;
+  const totalCampaigns = await FundingCampaign.countDocuments();
+
+  const recentAuditActivity = await AuditLog.find()
+    .populate('performedBy', 'fullName name role email')
+    .sort({ createdAt: -1 })
+    .limit(10)
+    .exec();
 
   return sendSuccess(res, {
     statusCode: 200,
@@ -56,12 +63,121 @@ const getAdminDashboardMetrics = asyncHandler(async (req, res) => {
         activeCamps,
         totalCampRegistrations,
         totalDonationFunding,
+        totalCampaigns,
       },
+      recentActivity: recentAuditActivity,
     },
   });
 });
 
-// GET /api/v1/admin/organizations — List Organizations with status filter
+// GET /api/v1/admin/users — List Users & Donors for Operational Admin View
+const getUsersList = asyncHandler(async (req, res) => {
+  const { role, isDonor, bloodGroup, status, city } = req.query;
+  const filter = {};
+  if (role) filter.role = role;
+  if (isDonor !== undefined) filter.isDonor = isDonor === 'true';
+  if (bloodGroup) filter.bloodGroup = bloodGroup;
+  if (status) filter.accountStatus = status;
+  if (city) filter['location.city'] = new RegExp(city, 'i');
+
+  const users = await User.find(filter)
+    .select('-refreshTokenHashes -password')
+    .sort({ createdAt: -1 })
+    .exec();
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: `Retrieved ${users.length} user record(s)`,
+    data: { users },
+  });
+});
+
+// PATCH /api/v1/admin/users/:id/status — Activate / Deactivate User Account
+const updateUserStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { accountStatus, reason } = req.body;
+  const adminUser = req.user;
+
+  if (!['ACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'].includes(accountStatus)) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'Account status must be ACTIVE, SUSPENDED, or PENDING_VERIFICATION',
+    });
+  }
+
+  const userDoc = await User.findById(id);
+  if (!userDoc) {
+    return sendError(res, {
+      statusCode: 404,
+      message: 'User account not found',
+    });
+  }
+
+  const previousState = userDoc.accountStatus;
+  userDoc.accountStatus = accountStatus;
+  userDoc.isActive = accountStatus === 'ACTIVE';
+
+  await userDoc.save();
+
+  // Audit Log
+  await AuditLog.create({
+    performedBy: adminUser._id,
+    userRole: adminUser.role,
+    action: 'USER_STATUS_CHANGED',
+    entityType: 'User',
+    entityId: userDoc._id.toString(),
+    previousState: { accountStatus: previousState },
+    newState: { accountStatus },
+    reason: reason || `Admin updated account status to ${accountStatus}`,
+  });
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: `User account status updated to ${accountStatus}`,
+    data: { user: userDoc.toProfileJSON() },
+  });
+});
+
+// PATCH /api/v1/admin/users/:id/availability — Update Donor Availability
+const updateUserAvailability = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { isAvailable, donorStatus, reason } = req.body;
+  const adminUser = req.user;
+
+  const userDoc = await User.findById(id);
+  if (!userDoc) {
+    return sendError(res, {
+      statusCode: 404,
+      message: 'User not found',
+    });
+  }
+
+  const previousState = { isAvailable: userDoc.isAvailable, donorStatus: userDoc.donorStatus };
+  if (isAvailable !== undefined) userDoc.isAvailable = isAvailable;
+  if (donorStatus !== undefined) userDoc.donorStatus = donorStatus;
+
+  await userDoc.save();
+
+  // Audit Log
+  await AuditLog.create({
+    performedBy: adminUser._id,
+    userRole: adminUser.role,
+    action: 'USER_AVAILABILITY_CHANGED',
+    entityType: 'User',
+    entityId: userDoc._id.toString(),
+    previousState,
+    newState: { isAvailable: userDoc.isAvailable, donorStatus: userDoc.donorStatus },
+    reason: reason || 'Admin updated donor availability',
+  });
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: 'Donor availability updated',
+    data: { user: userDoc.toProfileJSON() },
+  });
+});
+
+// GET /api/v1/admin/organizations — List Organizations
 const getOrganizationsList = asyncHandler(async (req, res) => {
   const { status, type } = req.query;
   const filter = {};
@@ -139,7 +255,7 @@ const getPendingRequestsForAdmin = asyncHandler(async (req, res) => {
   const pendingRequests = await BloodRequest.find({ status: 'VERIFICATION_PENDING' })
     .populate('requesterId', 'fullName name phone bloodGroup email')
     .populate('targetOrganizationId', 'name contactPhone officialEmail')
-    .sort({ createdAt: 1 }) // Oldest unverified requests first
+    .sort({ createdAt: 1 })
     .exec();
 
   return sendSuccess(res, {
@@ -151,10 +267,31 @@ const getPendingRequestsForAdmin = asyncHandler(async (req, res) => {
   });
 });
 
+// GET /api/v1/admin/requests — Get All Blood Requests with Filters
+const getAllRequestsForAdmin = asyncHandler(async (req, res) => {
+  const { status, bloodGroup, urgency } = req.query;
+  const filter = {};
+  if (status) filter.status = status;
+  if (bloodGroup) filter.bloodGroup = bloodGroup;
+  if (urgency) filter.urgency = urgency;
+
+  const requests = await BloodRequest.find(filter)
+    .populate('requesterId', 'fullName name phone bloodGroup email')
+    .populate('targetOrganizationId', 'name contactPhone officialEmail')
+    .sort({ createdAt: -1 })
+    .exec();
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: `Retrieved ${requests.length} blood request(s)`,
+    data: { requests },
+  });
+});
+
 // PATCH /api/v1/admin/requests/:id/verify — Admin Fallback Request Verification
 const verifyRequestByAdmin = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { reason, action } = req.body; // action: 'APPROVE' or 'REJECT'
+  const { reason, action } = req.body;
   const adminUser = req.user;
 
   const bloodRequest = await BloodRequest.findById(id);
@@ -232,7 +369,7 @@ const verifyRequestByAdmin = asyncHandler(async (req, res) => {
 
 // GET /api/v1/admin/audit-logs — Query System Audit Trail
 const getAuditLogs = asyncHandler(async (req, res) => {
-  const { entityType, action, limit = 50 } = req.query;
+  const { entityType, action, limit = 100 } = req.query;
   const filter = {};
   if (entityType) filter.entityType = entityType;
   if (action) filter.action = action;
@@ -254,9 +391,13 @@ const getAuditLogs = asyncHandler(async (req, res) => {
 
 module.exports = {
   getAdminDashboardMetrics,
+  getUsersList,
+  updateUserStatus,
+  updateUserAvailability,
   getOrganizationsList,
   updateOrganizationStatus,
   getPendingRequestsForAdmin,
+  getAllRequestsForAdmin,
   verifyRequestByAdmin,
   getAuditLogs,
 };

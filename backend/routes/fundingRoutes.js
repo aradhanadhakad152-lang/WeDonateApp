@@ -2,14 +2,16 @@
 
 const express = require('express');
 const router = express.Router();
-const { getCampaigns, processFinancialContribution } = require('../controllers/fundingController');
+const { getCampaigns, createDonation, getMyDonations } = require('../controllers/fundingController');
+const authenticate = require('../middleware/authenticate');
 
-/**
- * Funding & Donation Portal Routes
- * Base path: /api/v1/funding
- */
-
+// GET /api/v1/funding/campaigns
 router.get('/campaigns', getCampaigns);
-router.post('/donate', processFinancialContribution);
+
+// POST /api/v1/funding/donate — Requires Authentication
+router.post('/donate', authenticate, createDonation);
+
+// GET /api/v1/funding/my-donations — Requires Authentication
+router.get('/my-donations', authenticate, getMyDonations);
 
 module.exports = router;

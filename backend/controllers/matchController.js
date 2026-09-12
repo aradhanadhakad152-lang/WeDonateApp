@@ -38,15 +38,21 @@ const getNearbyMatchesForRequest = asyncHandler(async (req, res) => {
   }
 
   const matches = await DonorMatch.find({ bloodRequest: requestId })
-    .populate('donor', 'fullName name phone bloodGroup isEligible isAvailable location')
+    .populate('donor', 'fullName name bloodGroup isEligible isAvailable location')
     .sort({ distanceKm: 1 })
     .exec();
 
   const formattedMatches = matches.map((m) => {
     const json = m.toJSON();
     json.formattedDistance = formatDistance(m.distanceKm);
-    if (json.donor && json.donor.location) {
-      delete json.donor.location.coordinates; // Protect exact coordinates
+    if (json.donor) {
+      if (json.donor.location) {
+        delete json.donor.location.coordinates; // Protect exact coordinates
+        delete json.donor.location.address;     // Protect exact address
+      }
+      if (m.status !== 'ACCEPTED') {
+        delete json.donor.phone; // Never expose phone number unless donor has accepted
+      }
     }
     return json;
   });
@@ -304,6 +310,16 @@ const getMatchById = asyncHandler(async (req, res) => {
 
   const json = match.toJSON();
   json.formattedDistance = formatDistance(match.distanceKm);
+
+  // SECURITY: Only expose donor phone number if donor has ACCEPTED the request, or if user is admin/staff
+  const isStaffOrAdmin = req.user.role && ['ADMIN', 'HOSPITAL_STAFF'].includes(req.user.role);
+  if (json.donor && match.status !== 'ACCEPTED' && !isStaffOrAdmin) {
+    delete json.donor.phone;
+  }
+  if (json.donor && json.donor.location) {
+    delete json.donor.location.coordinates;
+    delete json.donor.location.address;
+  }
 
   return sendSuccess(res, {
     statusCode: 200,

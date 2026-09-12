@@ -2,11 +2,27 @@
 
 const mongoose = require('mongoose');
 
+const AUDIT_ACTIONS = [
+  'ORGANIZATION_REGISTERED',
+  'ADMIN_APPROVED_ORGANIZATION',
+  'ADMIN_REJECTED_ORGANIZATION',
+  'ADMIN_SUSPENDED_ORGANIZATION',
+  'HOSPITAL_VERIFIED_REQUEST',
+  'HOSPITAL_REJECTED_REQUEST',
+  'ADMIN_VERIFIED_REQUEST',
+  'ADMIN_REJECTED_REQUEST',
+  'DONOR_MATCH_NOTIFIED',
+  'DONOR_CONFIRMED_MATCH',
+  'INVENTORY_UPDATED',
+  'CAMP_CREATED',
+  'CAMP_UPDATED',
+  'CAMP_COMPLETED_RESULTS_SUBMITTED',
+  'USER_STATUS_CHANGED',
+  'USER_AVAILABILITY_CHANGED',
+];
+
 /**
- * AuditLog Model — Production Security Audit Trail
- *
- * Tracks every sensitive administrative action, hospital verification, inventory change,
- * user status modification, and system override for compliance and transparency.
+ * AuditLog Model — Security & Regulatory Compliance Trail
  */
 const auditLogSchema = new mongoose.Schema(
   {
@@ -19,18 +35,17 @@ const auditLogSchema = new mongoose.Schema(
     userRole: {
       type: String,
       required: true,
-      index: true,
     },
     action: {
       type: String,
       required: true,
-      trim: true,
+      enum: AUDIT_ACTIONS,
       index: true,
     },
     entityType: {
       type: String,
       required: true,
-      trim: true,
+      enum: ['BloodRequest', 'Organization', 'BloodInventory', 'DonationCamp', 'User', 'DonorMatch'],
       index: true,
     },
     entityId: {
@@ -49,11 +64,10 @@ const auditLogSchema = new mongoose.Schema(
     reason: {
       type: String,
       trim: true,
-      default: 'Routine action',
+      default: null,
     },
     ipAddress: {
       type: String,
-      trim: true,
       default: null,
     },
   },
@@ -63,7 +77,6 @@ const auditLogSchema = new mongoose.Schema(
 );
 
 auditLogSchema.index({ createdAt: -1 });
-auditLogSchema.index({ entityType: 1, entityId: 1, createdAt: -1 });
 
 const AuditLog = mongoose.model('AuditLog', auditLogSchema);
 

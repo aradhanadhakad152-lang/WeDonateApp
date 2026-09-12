@@ -2,10 +2,10 @@
 
 const mongoose = require('mongoose');
 
-const REGISTRATION_STATUSES = ['REGISTERED', 'ATTENDED', 'DONATED', 'DEFERRED', 'CANCELLED'];
+const REGISTRATION_STATUSES = ['REGISTERED', 'ATTENDED', 'DONATED', 'CANCELLED'];
 
 /**
- * CampRegistration Model — Citizen Registrations for Donation Drives
+ * CampRegistration Model — User Registrations for Donation Drives
  */
 const campRegistrationSchema = new mongoose.Schema(
   {
@@ -29,15 +29,9 @@ const campRegistrationSchema = new mongoose.Schema(
       type: String,
       enum: REGISTRATION_STATUSES,
       default: 'REGISTERED',
-      index: true,
     },
-    donatedUnits: {
-      type: Number,
-      default: 0,
-    },
-    notes: {
-      type: String,
-      trim: true,
+    attendedAt: {
+      type: Date,
       default: null,
     },
   },
@@ -46,7 +40,6 @@ const campRegistrationSchema = new mongoose.Schema(
   }
 );
 
-// Prevent duplicate user registration per camp
 campRegistrationSchema.index({ campId: 1, userId: 1 }, { unique: true });
 
 const CampRegistration = mongoose.model('CampRegistration', campRegistrationSchema);

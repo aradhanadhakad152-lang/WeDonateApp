@@ -3,32 +3,24 @@
 const mongoose = require('mongoose');
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-const URGENCY_LEVELS = ['CRITICAL', 'URGENT', 'NORMAL'];
+const URGENCY_LEVELS = ['CRITICAL', 'HIGH', 'URGENT', 'NORMAL'];
 const REQUEST_STATUSES = [
-  'DRAFT',
+  'OPEN',
   'VERIFICATION_PENDING',
   'HOSPITAL_VERIFIED',
   'ADMIN_VERIFIED',
   'MATCHING',
   'DONOR_RESPONDED',
   'DONOR_CONFIRMED',
+  'ACCEPTED',
   'FULFILLED',
   'REJECTED',
   'CANCELLED',
   'EXPIRED',
-  'OPEN',
-  'ACCEPTED',
 ];
 
 /**
- * BloodRequest Model — Production Grade
- *
- * Represents an emergency blood donation request created by a patient or hospital staff.
- *
- * SECURITY & GEOSPATIAL RULES:
- * - requesterId is strictly derived from the authenticated JWT user.
- * - location uses GeoJSON Point [longitude, latitude] order for 2dsphere geospatial indexing.
- * - Status transitions are validated server-side.
+ * BloodRequest Model — Production Grade Multi-Portal Verification Workflow
  */
 const bloodRequestSchema = new mongoose.Schema(
   {
@@ -148,15 +140,15 @@ const bloodRequestSchema = new mongoose.Schema(
     },
     verificationSource: {
       type: String,
-      enum: ['HOSPITAL', 'ADMIN', null],
+      enum: ['HOSPITAL', 'ADMIN', 'SYSTEM'],
       default: null,
     },
-    rejectionReason: {
+    verificationNotes: {
       type: String,
       trim: true,
       default: null,
     },
-    verificationNotes: {
+    rejectionReason: {
       type: String,
       trim: true,
       default: null,
@@ -193,18 +185,14 @@ const bloodRequestSchema = new mongoose.Schema(
   }
 );
 
-// =============================================
 // Indexes
-// =============================================
 bloodRequestSchema.index({ location: '2dsphere' });
 bloodRequestSchema.index({ status: 1, bloodGroup: 1, urgency: 1, createdAt: -1 });
 bloodRequestSchema.index({ requesterId: 1, createdAt: -1 });
+bloodRequestSchema.index({ targetOrganizationId: 1, status: 1 });
 
-// =============================================
 // Middleware
-// =============================================
 bloodRequestSchema.pre('validate', function (next) {
-  // Sync GeoJSON coordinates with hospitalLongitude & hospitalLatitude
   if (this.hospitalLongitude !== undefined && this.hospitalLatitude !== undefined) {
     this.location = {
       type: 'Point',
@@ -219,7 +207,7 @@ bloodRequestSchema.pre('save', function (next) {
   if (
     this.requiredBy &&
     new Date() > new Date(this.requiredBy) &&
-    ['OPEN', 'MATCHING'].includes(this.status)
+    ['OPEN', 'VERIFICATION_PENDING', 'MATCHING'].includes(this.status)
   ) {
     this.status = 'EXPIRED';
   }

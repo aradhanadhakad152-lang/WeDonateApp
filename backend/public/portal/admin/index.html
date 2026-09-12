@@ -3,35 +3,46 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WE DONATE — System Admin Portal</title>
+  <title>WE DONATE — Production System Admin Portal</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body { background-color: #F8FAFC; font-family: 'Segoe UI', system-ui, sans-serif; }
-    .sidebar { min-height: 100vh; background-color: #0F172A; color: white; }
-    .sidebar .nav-link { color: #94A3B8; font-weight: 600; padding: 12px 20px; }
-    .sidebar .nav-link.active { color: white; background-color: #E11D48; }
+    :root { --primary: #E11D48; --dark: #0F172A; --bg-light: #F8FAFC; }
+    body { background-color: var(--bg-light); font-family: 'Segoe UI', system-ui, sans-serif; }
+    .sidebar { min-height: 100vh; background-color: var(--dark); color: white; }
+    .sidebar .nav-link { color: #94A3B8; font-weight: 600; padding: 12px 20px; border-radius: 8px; margin-bottom: 4px; }
+    .sidebar .nav-link.active, .sidebar .nav-link:hover { color: white; background-color: var(--primary); }
     .stat-card { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .badge-status { font-size: 0.75rem; padding: 4px 8px; border-radius: 6px; font-weight: 700; }
   </style>
 </head>
 <body>
   <div class="d-flex">
     <!-- Sidebar -->
-    <div class="sidebar p-3" style="width: 260px;">
-      <h4 class="fw-bold text-danger mb-4">🩸 Admin Portal</h4>
+    <div class="sidebar p-3" style="width: 280px; flex-shrink: 0;">
+      <h4 class="fw-bold text-danger mb-4 px-2">🩸 WE DONATE Admin</h4>
       <div class="nav flex-column nav-pills">
-        <button class="nav-link active text-start mb-2" data-bs-toggle="pill" data-bs-target="#dashboard" onclick="loadDashboard()">📊 Dashboard</button>
-        <button class="nav-link text-start mb-2" data-bs-toggle="pill" data-bs-target="#orgs" onclick="loadOrgs()">🏥 Hospitals & Blood Banks</button>
-        <button class="nav-link text-start mb-2" data-bs-toggle="pill" data-bs-target="#fallback" onclick="loadPendingRequests()">⚡ Fallback Verification Queue</button>
-        <button class="nav-link text-start mb-2" data-bs-toggle="pill" data-bs-target="#audit" onclick="loadAuditLogs()">📜 Audit Logs</button>
+        <button class="nav-link active text-start" data-bs-toggle="pill" data-bs-target="#dashboard" onclick="loadDashboard()">📊 Dashboard</button>
+        <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#requests" onclick="loadRequests()">📋 Blood Requests</button>
+        <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#users" onclick="loadUsers()">👥 Users & Donors</button>
+        <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#orgs" onclick="loadOrgs()">🏥 Organizations</button>
+        <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#camps" onclick="loadCamps()">⛺ Donation Camps</button>
+        <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#inventory" onclick="loadInventory()">🩸 Blood Inventory</button>
+        <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#funding" onclick="loadFunding()">💰 Funding</button>
+        <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#audit" onclick="loadAuditLogs()">📜 Audit Logs</button>
       </div>
     </div>
 
     <!-- Main Content -->
-    <div class="flex-grow-1 p-4">
-      <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3 class="fw-bold mb-0">System Operations</h3>
+    <div class="flex-grow-1 p-4 overflow-auto">
+      <!-- Top Bar -->
+      <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
         <div>
-          <button id="adminLoginBtn" class="btn btn-danger btn-sm fw-bold" onclick="loginAdmin()">Dev Admin Login</button>
+          <h3 class="fw-bold mb-0" id="pageTitle">System Operations Dashboard</h3>
+          <small class="text-muted">WE DONATE Multi-Portal Central Management</small>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+          <span id="adminBadge" class="badge bg-danger fs-6">Not Authenticated</span>
+          <button id="authBtn" class="btn btn-dark btn-sm fw-bold" onclick="loginAdmin()">Admin Login</button>
         </div>
       </div>
 
@@ -39,21 +50,97 @@
         <!-- Dashboard Tab -->
         <div class="tab-pane fade show active" id="dashboard">
           <div class="row g-3 mb-4">
-            <div class="col-md-3"><div class="card stat-card p-3 bg-white"><div class="text-muted small">TOTAL USERS</div><h2 id="mUsers" class="fw-bold">0</h2></div></div>
-            <div class="col-md-3"><div class="card stat-card p-3 bg-white border-start border-danger border-4"><div class="text-muted small">ACTIVE DONORS</div><h2 id="mDonors" class="fw-bold text-danger">0</h2></div></div>
-            <div class="col-md-3"><div class="card stat-card p-3 bg-white border-start border-primary border-4"><div class="text-muted small">REGISTERED HOSPITALS</div><h2 id="mHospitals" class="fw-bold text-primary">0</h2></div></div>
-            <div class="col-md-3"><div class="card stat-card p-3 bg-white border-start border-warning border-4"><div class="text-muted small">PENDING ORG APPROVALS</div><h2 id="mPendingOrgs" class="fw-bold text-warning">0</h2></div></div>
+            <div class="col-md-3"><div class="card stat-card p-3 bg-white border-start border-dark border-4"><div class="text-muted small fw-bold">TOTAL USERS</div><h2 id="mUsers" class="fw-bold text-dark">0</h2></div></div>
+            <div class="col-md-3"><div class="card stat-card p-3 bg-white border-start border-danger border-4"><div class="text-muted small fw-bold">ACTIVE DONORS</div><h2 id="mDonors" class="fw-bold text-danger">0</h2></div></div>
+            <div class="col-md-3"><div class="card stat-card p-3 bg-white border-start border-primary border-4"><div class="text-muted small fw-bold">HOSPITALS & BANKS</div><h2 id="mHospitals" class="fw-bold text-primary">0</h2></div></div>
+            <div class="col-md-3"><div class="card stat-card p-3 bg-white border-start border-warning border-4"><div class="text-muted small fw-bold">PENDING VERIFICATIONS</div><h2 id="mPendingReqs" class="fw-bold text-warning">0</h2></div></div>
+          </div>
+          
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="card border-0 shadow-sm p-3">
+                <h5 class="fw-bold mb-3">Live Blood Requests Metrics</h5>
+                <ul class="list-group list-group-flush">
+                  <li class="list-group-item d-flex justify-content-between"><span>Total Requests:</span> <strong id="mTotalReq">0</strong></li>
+                  <li class="list-group-item d-flex justify-content-between"><span>Verified Requests:</span> <strong id="mVerifiedReq" class="text-success">0</strong></li>
+                  <li class="list-group-item d-flex justify-content-between"><span>Fulfilled Requests:</span> <strong id="mFulfilledReq" class="text-primary">0</strong></li>
+                  <li class="list-group-item d-flex justify-content-between"><span>Expired / Cancelled:</span> <strong id="mExpiredReq" class="text-muted">0</strong></li>
+                </ul>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="card border-0 shadow-sm p-3">
+                <h5 class="fw-bold mb-3">Campaigns & Funding Overview</h5>
+                <ul class="list-group list-group-flush">
+                  <li class="list-group-item d-flex justify-content-between"><span>Active Donation Camps:</span> <strong id="mActiveCamps">0</strong></li>
+                  <li class="list-group-item d-flex justify-content-between"><span>Camp Registrations:</span> <strong id="mCampRegs">0</strong></li>
+                  <li class="list-group-item d-flex justify-content-between"><span>Total Contributions:</span> <strong id="mFundingTotal">₹0</strong></li>
+                  <li class="list-group-item d-flex justify-content-between"><span>Status Integrity:</span> <span class="badge bg-info">RECORDED</span></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Blood Requests Tab -->
+        <div class="tab-pane fade" id="requests">
+          <div class="card border-0 shadow-sm p-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="fw-bold mb-0">Emergency Blood Requests Management</h5>
+              <div class="d-flex gap-2">
+                <select id="reqStatusFilter" class="form-select form-select-sm" onchange="loadRequests()">
+                  <option value="">All Statuses</option>
+                  <option value="VERIFICATION_PENDING">VERIFICATION_PENDING</option>
+                  <option value="HOSPITAL_VERIFIED">HOSPITAL_VERIFIED</option>
+                  <option value="ADMIN_VERIFIED">ADMIN_VERIFIED</option>
+                  <option value="MATCHING">MATCHING</option>
+                  <option value="FULFILLED">FULFILLED</option>
+                  <option value="CANCELLED">CANCELLED</option>
+                </select>
+                <button class="btn btn-sm btn-outline-secondary" onclick="loadRequests()">🔄 Refresh</button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-hover align-middle">
+                <thead class="table-light">
+                  <tr><th>Group</th><th>Patient</th><th>Hospital</th><th>Urgency</th><th>Date</th><th>Status</th><th>Actions</th></tr>
+                </thead>
+                <tbody id="requestsTableBody">
+                  <tr><td colspan="7" class="text-muted">Loading requests...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Users & Donors Tab -->
+        <div class="tab-pane fade" id="users">
+          <div class="card border-0 shadow-sm p-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="fw-bold mb-0">Platform Users & Registered Donors</h5>
+              <button class="btn btn-sm btn-outline-secondary" onclick="loadUsers()">🔄 Refresh Users</button>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-hover align-middle">
+                <thead class="table-light">
+                  <tr><th>Name</th><th>Blood Group</th><th>Availability</th><th>Eligibility</th><th>City</th><th>Role</th><th>Status</th><th>Actions</th></tr>
+                </thead>
+                <tbody id="usersTableBody">
+                  <tr><td colspan="8" class="text-muted">Loading users...</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
         <!-- Organizations Tab -->
         <div class="tab-pane fade" id="orgs">
           <div class="card border-0 shadow-sm p-3">
-            <h5 class="fw-bold mb-3">Organization Registration Approvals</h5>
+            <h5 class="fw-bold mb-3">Hospitals & Blood Banks Approval Queue</h5>
             <div class="table-responsive">
               <table class="table table-hover align-middle">
                 <thead class="table-light">
-                  <tr><th>Organization</th><th>Type</th><th>City</th><th>License</th><th>Status</th><th>Action</th></tr>
+                  <tr><th>Organization</th><th>Type</th><th>City</th><th>License</th><th>Status</th><th>Actions</th></tr>
                 </thead>
                 <tbody id="orgsTableBody">
                   <tr><td colspan="6" class="text-muted">Loading organizations...</td></tr>
@@ -63,18 +150,47 @@
           </div>
         </div>
 
-        <!-- Fallback Verification Queue Tab -->
-        <div class="tab-pane fade" id="fallback">
+        <!-- Donation Camps Tab -->
+        <div class="tab-pane fade" id="camps">
           <div class="card border-0 shadow-sm p-3">
-            <h5 class="fw-bold mb-3">WE DONATE Admin Fallback Request Verification</h5>
-            <p class="text-muted small">Requests that hospitals did not verify within the timeout appear here for manual Admin phone verification.</p>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="fw-bold mb-0">Donation Drives & Camps</h5>
+              <button class="btn btn-sm btn-danger" onclick="createCampModal()">+ Create New Camp</button>
+            </div>
             <div class="table-responsive">
               <table class="table table-hover align-middle">
                 <thead class="table-light">
-                  <tr><th>Group</th><th>Patient</th><th>Hospital</th><th>Requester Phone</th><th>Status</th><th>Action</th></tr>
+                  <tr><th>Title</th><th>City</th><th>Date</th><th>Registrations</th><th>Status</th><th>Actions</th></tr>
                 </thead>
-                <tbody id="fallbackTableBody">
-                  <tr><td colspan="6" class="text-muted">Loading pending verification requests...</td></tr>
+                <tbody id="campsTableBody">
+                  <tr><td colspan="6" class="text-muted">Loading camps...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Inventory Tab -->
+        <div class="tab-pane fade" id="inventory">
+          <div class="card border-0 shadow-sm p-3">
+            <h5 class="fw-bold mb-3">Network Blood Stock Inventory</h5>
+            <div id="inventoryContainer" class="row g-3">
+              <div class="text-muted">Loading inventory data...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Funding Tab -->
+        <div class="tab-pane fade" id="funding">
+          <div class="card border-0 shadow-sm p-3 mb-4">
+            <h5 class="fw-bold mb-3">Financial Donation Campaigns</h5>
+            <div class="table-responsive">
+              <table class="table table-hover align-middle">
+                <thead class="table-light">
+                  <tr><th>Campaign Title</th><th>Beneficiary</th><th>Target</th><th>Raised</th><th>Progress</th><th>Status</th></tr>
+                </thead>
+                <tbody id="fundingTableBody">
+                  <tr><td colspan="6" class="text-muted">Loading campaigns...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -84,7 +200,7 @@
         <!-- Audit Logs Tab -->
         <div class="tab-pane fade" id="audit">
           <div class="card border-0 shadow-sm p-3">
-            <h5 class="fw-bold mb-3">System Security & Administrative Audit Trail</h5>
+            <h5 class="fw-bold mb-3">System Administrative Audit Log</h5>
             <div class="table-responsive">
               <table class="table table-sm table-striped">
                 <thead><tr><th>Timestamp</th><th>Action</th><th>User Role</th><th>Entity</th><th>Reason</th></tr></thead>
@@ -102,7 +218,7 @@
     let adminToken = localStorage.getItem('admin_jwt') || '';
 
     async function loginAdmin() {
-      const phone = prompt('Enter Admin Phone:', '+919876543210');
+      const phone = prompt('Enter Admin Phone (+919876543210):', '+919876543210');
       if (!phone) return;
       try {
         const res = await fetch('/api/v1/auth/dev-login', {
@@ -114,8 +230,11 @@
         if (data.success) {
           adminToken = data.data.tokens.accessToken;
           localStorage.setItem('admin_jwt', adminToken);
-          alert('Admin Authenticated!');
+          document.getElementById('adminBadge').innerText = data.data.user.fullName + ' (' + data.data.user.role + ')';
+          alert('Admin Authenticated Successfully!');
           loadDashboard();
+        } else {
+          alert('Login Error: ' + data.message);
         }
       } catch (err) {
         alert(err.message);
@@ -133,11 +252,128 @@
           const m = data.data.metrics;
           document.getElementById('mUsers').innerText = m.totalUsers || 0;
           document.getElementById('mDonors').innerText = m.activeDonors || 0;
-          document.getElementById('mHospitals').innerText = m.totalHospitals || 0;
-          document.getElementById('mPendingOrgs').innerText = m.pendingOrgVerifications || 0;
+          document.getElementById('mHospitals').innerText = (m.totalHospitals || 0) + (m.totalBloodBanks || 0);
+          document.getElementById('mPendingReqs').innerText = m.pendingRequestVerifications || 0;
+          document.getElementById('mTotalReq').innerText = m.totalBloodRequests || 0;
+          document.getElementById('mVerifiedReq').innerText = m.verifiedRequests || 0;
+          document.getElementById('mFulfilledReq').innerText = m.fulfilledRequests || 0;
+          document.getElementById('mExpiredReq').innerText = m.expiredRequests || 0;
+          document.getElementById('mActiveCamps').innerText = m.activeCamps || 0;
+          document.getElementById('mCampRegs').innerText = m.totalCampRegistrations || 0;
+          document.getElementById('mFundingTotal').innerText = '₹' + (m.totalDonationFunding || 0).toLocaleString();
         }
       } catch (err) {
         console.error(err);
+      }
+    }
+
+    async function loadRequests() {
+      if (!adminToken) return;
+      const statusFilter = document.getElementById('reqStatusFilter').value;
+      try {
+        const url = statusFilter ? `/api/v1/admin/requests?status=${statusFilter}` : '/api/v1/admin/requests';
+        const res = await fetch(url, {
+          headers: { 'Authorization': 'Bearer ' + adminToken }
+        });
+        const data = await res.json();
+        const tbody = document.getElementById('requestsTableBody');
+        tbody.innerHTML = '';
+        if (data.success && data.data.requests.length > 0) {
+          data.data.requests.forEach(r => {
+            const isPending = r.status === 'VERIFICATION_PENDING';
+            tbody.innerHTML += `
+              <tr>
+                <td><span class="badge bg-danger fs-6">${r.bloodGroup}</span></td>
+                <td><strong>${r.patientName}</strong></td>
+                <td>${r.hospitalName}</td>
+                <td><span class="badge ${r.urgency === 'CRITICAL' ? 'bg-danger' : 'bg-warning text-dark'}">${r.urgency}</span></td>
+                <td><small>${new Date(r.createdAt).toLocaleDateString()}</small></td>
+                <td><span class="badge bg-secondary">${r.status}</span></td>
+                <td>
+                  ${isPending ? `<button class="btn btn-sm btn-success me-1" onclick="verifyAdminReq('${r._id}', 'APPROVE')">✓ Verify</button><button class="btn btn-sm btn-outline-danger" onclick="verifyAdminReq('${r._id}', 'REJECT')">✕ Reject</button>` : `<span class="text-muted small">Processed</span>`}
+                </td>
+              </tr>
+            `;
+          });
+        } else {
+          tbody.innerHTML = '<tr><td colspan="7" class="text-muted text-center">No blood requests found.</td></tr>';
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function verifyAdminReq(id, action) {
+      const reason = prompt(`Enter reason for ${action}:`, 'Admin manual verification');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/v1/admin/requests/${id}/verify`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+          body: JSON.stringify({ action, reason })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert(`Request ${action === 'APPROVE' ? 'ADMIN_VERIFIED' : 'REJECTED'}. Audit log created.`);
+          loadRequests();
+        }
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function loadUsers() {
+      if (!adminToken) return;
+      try {
+        const res = await fetch('/api/v1/admin/users', {
+          headers: { 'Authorization': 'Bearer ' + adminToken }
+        });
+        const data = await res.json();
+        const tbody = document.getElementById('usersTableBody');
+        tbody.innerHTML = '';
+        if (data.success && data.data.users.length > 0) {
+          data.data.users.forEach(u => {
+            tbody.innerHTML += `
+              <tr>
+                <td><strong>${u.fullName || u.name || 'Anonymous User'}</strong></td>
+                <td><span class="badge bg-danger">${u.bloodGroup || 'N/A'}</span></td>
+                <td><span class="badge ${u.isAvailable ? 'bg-success' : 'bg-secondary'}">${u.isAvailable ? 'Available' : 'Unavailable'}</span></td>
+                <td><span class="badge ${u.isEligible ? 'bg-success' : 'bg-warning text-dark'}">${u.isEligible ? 'Eligible' : 'Ineligible'}</span></td>
+                <td>${u.location?.city || 'N/A'}</td>
+                <td><span class="badge bg-dark">${u.role}</span></td>
+                <td><span class="badge ${u.accountStatus === 'ACTIVE' ? 'bg-success' : 'bg-danger'}">${u.accountStatus}</span></td>
+                <td>
+                  <button class="btn btn-sm ${u.accountStatus === 'ACTIVE' ? 'btn-outline-danger' : 'btn-outline-success'}" onclick="toggleUserStatus('${u._id}', '${u.accountStatus === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE'}')">
+                    ${u.accountStatus === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                  </button>
+                </td>
+              </tr>
+            `;
+          });
+        } else {
+          tbody.innerHTML = '<tr><td colspan="8" class="text-muted text-center">No user records found.</td></tr>';
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function toggleUserStatus(id, newStatus) {
+      const reason = prompt(`Enter reason for setting account status to ${newStatus}:`, 'Administrative action');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/v1/admin/users/${id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+          body: JSON.stringify({ accountStatus: newStatus, reason })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert(`User status updated to ${newStatus}`);
+          loadUsers();
+        }
+      } catch (err) {
+        alert(err.message);
       }
     }
 
@@ -167,7 +403,7 @@
             `;
           });
         } else {
-          tbody.innerHTML = '<tr><td colspan="6" class="text-muted">No organizations registered yet.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6" class="text-muted text-center">No organizations found.</td></tr>';
         }
       } catch (err) {
         console.error(err);
@@ -191,55 +427,57 @@
       }
     }
 
-    async function loadPendingRequests() {
-      if (!adminToken) return;
+    async function loadCamps() {
       try {
-        const res = await fetch('/api/v1/admin/requests/pending', {
-          headers: { 'Authorization': 'Bearer ' + adminToken }
-        });
+        const res = await fetch('/api/v1/camps');
         const data = await res.json();
-        const tbody = document.getElementById('fallbackTableBody');
+        const tbody = document.getElementById('campsTableBody');
         tbody.innerHTML = '';
-        if (data.success && data.data.requests.length > 0) {
-          data.data.requests.forEach(r => {
+        if (data.success && data.data.camps.length > 0) {
+          data.data.camps.forEach(c => {
             tbody.innerHTML += `
               <tr>
-                <td><span class="badge bg-danger">${r.bloodGroup}</span></td>
-                <td><strong>${r.patientName}</strong></td>
-                <td>${r.hospitalName}</td>
-                <td>📞 <a href="tel:${r.contactPhone}">${r.contactPhone}</a></td>
-                <td><span class="badge bg-warning text-dark">${r.status}</span></td>
-                <td>
-                  <button class="btn btn-sm btn-success me-1" onclick="verifyAdminReq('${r._id}', 'APPROVE')">✓ Admin Verify</button>
-                  <button class="btn btn-sm btn-outline-danger" onclick="verifyAdminReq('${r._id}', 'REJECT')">✕ Reject</button>
-                </td>
+                <td><strong>${c.title}</strong></td>
+                <td>${c.city}</td>
+                <td>${new Date(c.date).toLocaleDateString()}</td>
+                <td>${c.registeredCount || 0} / ${c.registrationLimit}</td>
+                <td><span class="badge bg-primary">${c.status}</span></td>
+                <td><span class="text-muted small">Active</span></td>
               </tr>
             `;
           });
         } else {
-          tbody.innerHTML = '<tr><td colspan="6" class="text-muted">No requests currently pending admin fallback verification.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6" class="text-muted text-center">No donation camps registered.</td></tr>';
         }
       } catch (err) {
         console.error(err);
       }
     }
 
-    async function verifyAdminReq(id, action) {
-      const reason = prompt(`Enter reason for ${action}:`, 'Admin manual phone verification');
-      if (!reason) return;
+    async function loadFunding() {
       try {
-        const res = await fetch(`/api/v1/admin/requests/${id}/verify`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
-          body: JSON.stringify({ action, reason })
-        });
+        const res = await fetch('/api/v1/funding/campaigns');
         const data = await res.json();
-        if (data.success) {
-          alert(`Request ${action === 'APPROVE' ? 'ADMIN_VERIFIED' : 'REJECTED'}. Audit log created.`);
-          loadPendingRequests();
+        const tbody = document.getElementById('fundingTableBody');
+        tbody.innerHTML = '';
+        if (data.success && data.data.length > 0) {
+          data.data.forEach(c => {
+            tbody.innerHTML += `
+              <tr>
+                <td><strong>${c.title}</strong></td>
+                <td>${c.beneficiary}</td>
+                <td>₹${(c.targetAmount || 0).toLocaleString()}</td>
+                <td>₹${(c.raisedAmount || 0).toLocaleString()}</td>
+                <td><div class="progress" style="height: 15px;"><div class="progress-bar bg-success" style="width: ${c.progressPercentage}%">${c.progressPercentage}%</div></div></td>
+                <td><span class="badge bg-success">${c.status}</span></td>
+              </tr>
+            `;
+          });
+        } else {
+          tbody.innerHTML = '<tr><td colspan="6" class="text-muted text-center">No funding campaigns found.</td></tr>';
         }
       } catch (err) {
-        alert(err.message);
+        console.error(err);
       }
     }
 
@@ -265,7 +503,7 @@
             `;
           });
         } else {
-          tbody.innerHTML = '<tr><td colspan="5" class="text-muted">No audit logs recorded yet.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="5" class="text-muted text-center">No audit logs recorded yet.</td></tr>';
         }
       } catch (err) {
         console.error(err);

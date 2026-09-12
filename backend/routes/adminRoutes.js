@@ -6,28 +6,34 @@ const authenticate = require('../middleware/authenticate');
 const { authorizeRoles } = require('../middleware/rbacMiddleware');
 const {
   getAdminDashboardMetrics,
+  getUsersList,
+  updateUserStatus,
+  updateUserAvailability,
   getOrganizationsList,
   updateOrganizationStatus,
   getPendingRequestsForAdmin,
+  getAllRequestsForAdmin,
   verifyRequestByAdmin,
   getAuditLogs,
 } = require('../controllers/adminController');
 
 /**
- * Admin Portal Routes
+ * System Admin Portal Routes
  * Base path: /api/v1/admin
+ * All routes require authentication and SUPER_ADMIN or ADMIN role.
  */
-
 router.use(authenticate);
-router.use(authorizeRoles('ADMIN', 'SUPER_ADMIN'));
+router.use(authorizeRoles('SUPER_ADMIN', 'ADMIN'));
 
 router.get('/dashboard', getAdminDashboardMetrics);
+router.get('/users', getUsersList);
+router.patch('/users/:id/status', updateUserStatus);
+router.patch('/users/:id/availability', updateUserAvailability);
 router.get('/organizations', getOrganizationsList);
 router.patch('/organizations/:id/status', updateOrganizationStatus);
-
 router.get('/requests/pending', getPendingRequestsForAdmin);
+router.get('/requests', getAllRequestsForAdmin);
 router.patch('/requests/:id/verify', verifyRequestByAdmin);
-
 router.get('/audit-logs', getAuditLogs);
 
 module.exports = router;

@@ -7,14 +7,7 @@ const { calculateDistanceKm, formatDistance } = require('../utils/distance');
 const logger = require('../utils/logger');
 
 /**
- * Hospital Controller — Production Grade Google Places API (New) Server Proxy
- *
- * SECURITY & ARCHITECTURE:
- * - Google Places API (New) is the single source of truth for hospital data.
- * - Reads process.env.GOOGLE_MAPS_API_KEY dynamically on every request.
- * - API keys are kept strictly on the backend and never exposed to mobile clients.
- * - Returns structured API error responses if Google API is missing or fails.
- * - No fake or hardcoded mock hospital fallback data.
+ * Hospital Controller — Production Grade Google Places API Proxy
  */
 
 const getApiKey = () => {

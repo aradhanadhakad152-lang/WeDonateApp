@@ -32,28 +32,46 @@ const createRequest = asyncHandler(async (req, res) => {
     reason,
     contactPhone,
     additionalNotes,
-    targetOrganizationId,
   } = req.body;
 
-  const lat = hospitalLatitude ? Number(hospitalLatitude) : 28.6139;
-  const lng = hospitalLongitude ? Number(hospitalLongitude) : 77.2090;
+  const lat = Number(hospitalLatitude);
+  const lng = Number(hospitalLongitude);
 
-  // Find matching organization if targetOrganizationId not specified explicitly
-  const Organization = require('../models/Organization');
-  let targetOrg = null;
-  if (targetOrganizationId) {
-    targetOrg = await Organization.findById(targetOrganizationId);
-  } else if (hospitalName) {
-    targetOrg = await Organization.findOne({ name: new RegExp(hospitalName, 'i') });
+  // SECURITY & BUSINESS RULE: Prevent multiple active blood requests per user
+  const activeStatuses = [
+    'OPEN',
+    'MATCHING',
+    'ACCEPTED',
+    'VERIFICATION_PENDING',
+    'HOSPITAL_VERIFIED',
+    'ADMIN_VERIFIED',
+    'DONOR_RESPONDED',
+    'DONOR_CONFIRMED',
+  ];
+
+  const existingActiveRequest = await BloodRequest.findOne({
+    requesterId: user._id,
+    status: { $in: activeStatuses },
+  }).sort({ createdAt: -1 });
+
+  if (existingActiveRequest) {
+    logger.warn(`User ${user._id} attempted to create duplicate active blood request while request ${existingActiveRequest._id} is active (${existingActiveRequest.status}).`);
+    return res.status(400).json({
+      success: false,
+      message: 'You already have an active blood request.',
+      existingRequest: existingActiveRequest,
+      existingRequestId: existingActiveRequest._id,
+      data: {
+        existingRequest: existingActiveRequest,
+        existingRequestId: existingActiveRequest._id,
+        request: existingActiveRequest,
+      },
+      timestamp: new Date().toISOString(),
+    });
   }
-
-  // Hospital staff / Admin created requests are pre-verified
-  const isStaff = ['HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(user.role);
-  const initialStatus = isStaff ? 'HOSPITAL_VERIFIED' : 'VERIFICATION_PENDING';
 
   const bloodRequest = new BloodRequest({
     requesterId: user._id,
-    targetOrganizationId: targetOrg ? targetOrg._id : null,
     patientName,
     bloodGroup,
     unitsRequired,
@@ -63,200 +81,70 @@ const createRequest = asyncHandler(async (req, res) => {
     hospitalLongitude: lng,
     location: {
       type: 'Point',
-      coordinates: [lng, lat],
+      coordinates: [lng, lat], // GeoJSON order: [longitude, latitude]
     },
     urgency: urgency || 'NORMAL',
     requiredBy: requiredBy ? new Date(requiredBy) : undefined,
     reason,
     contactPhone,
     additionalNotes,
-    status: initialStatus,
-    verificationSource: isStaff ? 'HOSPITAL' : null,
-    verifiedBy: isStaff ? user._id : null,
+    status: 'OPEN',
   });
 
   await bloodRequest.save();
 
-  logger.info(`Emergency BloodRequest created: ${bloodRequest._id} by user: ${user._id} (${bloodGroup}, ${unitsRequired} units, status: ${initialStatus})`);
-
-  // ONLY run donor matching engine AFTER request is verified
-  if (initialStatus === 'HOSPITAL_VERIFIED' || initialStatus === 'ADMIN_VERIFIED') {
-    try {
-      const { findAndMatchNearbyDonors } = require('../services/donorMatchingService');
-      await findAndMatchNearbyDonors(bloodRequest._id);
-    } catch (matchingError) {
-      logger.warn(`Auto donor matching warning for request ${bloodRequest._id}: ${matchingError.message}`);
-    }
-  }
+  logger.info(`Emergency BloodRequest created: ${bloodRequest._id} by user: ${user._id} (${bloodGroup}, ${unitsRequired} units)`);
 
   return sendSuccess(res, {
     statusCode: 201,
-    message: isStaff
-      ? 'Emergency blood request created and verified'
-      : 'Emergency blood request created successfully. Pending hospital/admin verification before donor notification.',
+    message: 'Emergency blood request created successfully',
     data: {
       request: bloodRequest,
     },
   });
 });
 
-// GET /api/v1/blood-requests — List active & filtered blood requests (Feed)
+// GET /api/v1/blood-requests — List all active blood requests (with filters)
 const getAllRequests = asyncHandler(async (req, res) => {
-  const {
-    page = 1,
-    limit = 20,
-    mode = 'ALL',
-    status,
-    bloodGroup,
-    urgency,
-    latitude,
-    longitude,
-    radius,
-    dateRange,
-    sort = 'newest',
-  } = req.query;
+  const { status, bloodGroup, urgency } = req.query;
 
-  const user = req.user;
   const queryFilter = {};
 
-  // 1. Quick Filter Modes
-  if (mode === 'MY_REQUESTS') {
-    queryFilter.requesterId = user._id;
-  } else if (mode === 'URGENT') {
-    queryFilter.urgency = { $in: ['CRITICAL', 'URGENT'] };
-  } else if (mode === 'MATCHING' && user.bloodGroup) {
-    // Recipient blood groups that current user (donor) can donate to
-    const recipientGroupsForDonor = {
-      'O-': ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'],
-      'O+': ['O+', 'A+', 'B+', 'AB+'],
-      'A-': ['A+', 'A-', 'AB+', 'AB-'],
-      'A+': ['A+', 'AB+'],
-      'B-': ['B+', 'B-', 'AB+', 'AB-'],
-      'B+': ['B+', 'AB+'],
-      'AB-': ['AB+', 'AB-'],
-      'AB+': ['AB+'],
-    };
-    const compatibleRecipientGroups = recipientGroupsForDonor[user.bloodGroup.toUpperCase()] || [user.bloodGroup];
-    queryFilter.bloodGroup = { $in: compatibleRecipientGroups };
-  }
-
-  // 2. Status Filter
-  if (status && status !== 'ALL') {
+  if (status) {
     queryFilter.status = status;
-  } else if (!status && mode !== 'MY_REQUESTS') {
-    // Default: show active requests for feed
-    queryFilter.status = { $in: ['OPEN', 'MATCHING', 'ACCEPTED', 'VERIFICATION_PENDING', 'HOSPITAL_VERIFIED', 'ADMIN_VERIFIED', 'DONOR_RESPONDED', 'DONOR_CONFIRMED'] };
+  } else {
+    // Default to active requests if status filter not specified
+    queryFilter.status = { $in: ['OPEN', 'MATCHING', 'ACCEPTED'] };
   }
 
-  // 3. Blood Group Filter (Explicit override)
-  if (bloodGroup && bloodGroup !== 'ALL') {
+  if (bloodGroup) {
     queryFilter.bloodGroup = bloodGroup;
   }
 
-  // 4. Urgency Filter (Explicit override)
-  if (urgency && urgency !== 'ALL') {
+  if (urgency) {
     queryFilter.urgency = urgency;
   }
 
-  // 5. Date Range Filter
-  if (dateRange && dateRange !== 'all') {
-    const now = new Date();
-    if (dateRange === 'today') {
-      const startOfDay = new Date(now.setHours(0, 0, 0, 0));
-      queryFilter.createdAt = { $gte: startOfDay };
-    } else if (dateRange === 'last7days') {
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      queryFilter.createdAt = { $gte: sevenDaysAgo };
-    } else if (dateRange === 'last30days') {
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      queryFilter.createdAt = { $gte: thirtyDaysAgo };
-    }
-  }
+  const requests = await BloodRequest.find(queryFilter)
+    .populate('requesterId', 'fullName name phone bloodGroup')
+    .sort({ createdAt: -1 })
+    .exec();
 
-  // 6. Geospatial Radius Filter
-  const lat = latitude ? parseFloat(latitude) : null;
-  const lng = longitude ? parseFloat(longitude) : null;
-  const maxRadiusKm = radius ? parseFloat(radius) : null;
-
-  if (lat !== null && lng !== null && maxRadiusKm !== null && !isNaN(lat) && !isNaN(lng) && !isNaN(maxRadiusKm)) {
-    queryFilter.location = {
-      $near: {
-        $geometry: {
-          type: 'Point',
-          coordinates: [lng, lat],
-        },
-        $maxDistance: maxRadiusKm * 1000,
-      },
-    };
-  }
-
-  // 7. Pagination
-  const pageNum = Math.max(1, parseInt(page, 10) || 1);
-  const limitNum = Math.min(50, Math.max(1, parseInt(limit, 10) || 20));
-  const skip = (pageNum - 1) * limitNum;
-
-  // 8. Sorting
-  let sortOption = { createdAt: -1 };
-  if (sort === 'urgency') {
-    sortOption = { urgency: 1, createdAt: -1 };
-  } else if (sort === 'expiring') {
-    sortOption = { requiredBy: 1 };
-  } else if (sort === 'newest') {
-    sortOption = { createdAt: -1 };
-  }
-
-  // Count total matching
-  const total = await BloodRequest.countDocuments(queryFilter);
-
-  let query = BloodRequest.find(queryFilter)
-    .populate('requesterId', 'fullName name bloodGroup')
-    .skip(skip)
-    .limit(limitNum);
-
-  if (!queryFilter.location || sort !== 'nearest') {
-    query = query.sort(sortOption);
-  }
-
-  const requests = await query.exec();
-
-  const { calculateDistanceKm } = require('../utils/distance');
-
-  // Evaluate expiration & compute distance
-  const processedRequests = [];
+  // Evaluate expiration for each request
+  let hasChanges = false;
   for (const reqDoc of requests) {
     if (evaluateRequestExpiration(reqDoc)) {
       await reqDoc.save();
+      hasChanges = true;
     }
-    const plainObj = reqDoc.toObject();
-
-    // Attach distance if user GPS coordinates provided
-    if (lat !== null && lng !== null && reqDoc.hospitalLatitude && reqDoc.hospitalLongitude) {
-      try {
-        const distance = calculateDistanceKm(lat, lng, reqDoc.hospitalLatitude, reqDoc.hospitalLongitude);
-        plainObj.distanceKm = distance;
-        plainObj.formattedDistance = `${distance} km`;
-      } catch (distErr) {
-        // Ignore distance error
-      }
-    }
-
-    processedRequests.push(plainObj);
-  }
-
-  // In-memory sort by distance if requested explicitly
-  if (sort === 'nearest' && lat !== null && lng !== null) {
-    processedRequests.sort((a, b) => (a.distanceKm || 9999) - (b.distanceKm || 9999));
   }
 
   return sendSuccess(res, {
     statusCode: 200,
-    message: `Retrieved ${processedRequests.length} blood request(s)`,
+    message: `Retrieved ${requests.length} blood request(s)`,
     data: {
-      requests: processedRequests,
-      total,
-      page: pageNum,
-      totalPages: Math.ceil(total / limitNum),
-      hasMore: pageNum * limitNum < total,
+      requests,
+      total: requests.length,
     },
   });
 });
@@ -314,11 +202,23 @@ const getRequestById = asyncHandler(async (req, res) => {
     await bloodRequest.save();
   }
 
+  const json = bloodRequest.toJSON();
+  const userIdStr = req.user._id.toString();
+  const isRequester = bloodRequest.requesterId && (bloodRequest.requesterId._id?.toString() === userIdStr || bloodRequest.requesterId.toString() === userIdStr);
+  const isAcceptedDonor = bloodRequest.acceptedDonorId && (bloodRequest.acceptedDonorId._id?.toString() === userIdStr || bloodRequest.acceptedDonorId.toString() === userIdStr);
+  const isStaffOrAdmin = req.user.role && ['ADMIN', 'HOSPITAL_STAFF'].includes(req.user.role);
+
+  // SECURITY: Omit private phone numbers for unauthorized third-party viewers
+  if (!isRequester && !isAcceptedDonor && !isStaffOrAdmin) {
+    if (json.requesterId && typeof json.requesterId === 'object') delete json.requesterId.phone;
+    if (json.acceptedDonorId && typeof json.acceptedDonorId === 'object') delete json.acceptedDonorId.phone;
+  }
+
   return sendSuccess(res, {
     statusCode: 200,
     message: 'Blood request retrieved successfully',
     data: {
-      request: bloodRequest,
+      request: json,
     },
   });
 });
@@ -438,12 +338,6 @@ const cancelRequest = asyncHandler(async (req, res) => {
   }
 
   // Lifecycle Check: Validate status transition to CANCELLED
-  if (bloodRequest.status === 'CANCELLED') {
-    return sendError(res, {
-      statusCode: 400,
-      message: 'Blood request is already cancelled',
-    });
-  }
   validateStatusTransition(bloodRequest.status, 'CANCELLED');
 
   bloodRequest.status = 'CANCELLED';

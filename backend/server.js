@@ -16,6 +16,8 @@ const { sendSuccess, sendError } = require('./utils/apiResponse');
 const { generalLimiter } = require('./middleware/rateLimiter');
 const { errorHandler } = require('./middleware/errorHandler');
 
+const path = require('path');
+
 // Route modules
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -139,12 +141,48 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-const path = require('path');
+const fs = require('fs');
 
-// Static Web Portals (Organization, Admin & Funding Dashboards)
-app.use(express.static(path.join(__dirname, 'public')));
+console.log('[PORTAL] Unified portal enabled');
+console.log('[PORTAL] __dirname:', __dirname);
+console.log('[PORTAL] portal exists:', fs.existsSync(path.join(__dirname, 'portal', 'index.html')));
 
+// ============================================
+// Static Web Portals (Unified Management Portal & Legacy Redirects)
+// ============================================
+const portalPath = path.join(__dirname, 'portal');
+const publicPortalPath = path.join(__dirname, 'public', 'portal');
+const publicPath = path.join(__dirname, 'public');
+
+// Legacy portal redirects for backwards compatibility
+app.get(['/portal/admin*', '/portal/organization*'], (req, res) => {
+  res.redirect(301, '/portal/');
+});
+
+// Explicit route handlers for unified portal
+app.get(['/portal', '/portal/', '/portal/index.html'], (req, res) => {
+  const targetFile = fs.existsSync(path.join(portalPath, 'index.html'))
+    ? path.join(portalPath, 'index.html')
+    : path.join(publicPortalPath, 'index.html');
+
+  if (!fs.existsSync(targetFile)) {
+    return res.status(500).json({
+      success: false,
+      message: 'Portal index.html missing on deployed server'
+    });
+  }
+
+  return res.sendFile(targetFile);
+});
+
+// Serve static assets for portal
+app.use('/portal', express.static(portalPath));
+app.use('/portal', express.static(publicPortalPath));
+app.use(express.static(publicPath));
+
+// ============================================
 // API Routes
+// ============================================
 app.use(`/api/${API_VERSION}/auth`, authRoutes);
 app.use(`/api/${API_VERSION}/users`, userRoutes);
 app.use(`/api/${API_VERSION}/blood-requests`, requestRoutes);

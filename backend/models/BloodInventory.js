@@ -5,7 +5,7 @@ const mongoose = require('mongoose');
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
 /**
- * BloodInventory Model — Real-Time Stock Tracker per Organization
+ * BloodInventory Model — Real-Time Stock Tracker
  */
 const bloodInventorySchema = new mongoose.Schema(
   {
@@ -19,10 +19,10 @@ const bloodInventorySchema = new mongoose.Schema(
       type: String,
       required: true,
       enum: BLOOD_GROUPS,
-      index: true,
     },
     availableUnits: {
       type: Number,
+      required: true,
       default: 0,
       min: 0,
     },

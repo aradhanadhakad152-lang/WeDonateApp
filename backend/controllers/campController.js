@@ -164,7 +164,7 @@ const getCampRegistrations = asyncHandler(async (req, res) => {
 // POST /api/v1/camps/:id/results — Submit Aggregated Camp Donation Results
 const submitCampResults = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { donationResults } = req.body; // e.g. { "A+": 12, "O+": 21 }
+  const { donationResults } = req.body;
   const user = req.user;
 
   const camp = await DonationCamp.findById(id);
