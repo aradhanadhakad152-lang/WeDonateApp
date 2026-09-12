@@ -269,6 +269,9 @@ const getOrganizationRequestsQueue = asyncHandler(async (req, res) => {
   if (req.query.status) {
     filter.status = req.query.status;
   }
+  if (req.query.bloodGroup) {
+    filter.bloodGroup = req.query.bloodGroup;
+  }
 
   const requests = await BloodRequest.find(filter)
     .populate('requesterId', 'fullName name phone bloodGroup email')

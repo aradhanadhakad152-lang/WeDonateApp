@@ -85,16 +85,15 @@ exports.getOrganizationDonationRegistrations = async (req, res) => {
   try {
     let filter = {};
 
-    if (req.user.role === 'ORGANIZATION') {
-      const org = await Organization.findOne({ officialEmail: req.user.email });
-      if (!org) {
-        return res.status(404).json({
-          success: false,
-          message: 'Organization account not found',
-          timestamp: new Date().toISOString()
-        });
+    if (['HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'HOSPITAL_STAFF'].includes(req.user.role) || (req.user.role === 'ORGANIZATION' && req.user.organizationId)) {
+      if (req.user.organizationId) {
+        filter.organizationId = req.user.organizationId;
+      } else {
+        const org = await Organization.findOne({ officialEmail: req.user.email });
+        if (org) filter.organizationId = org._id;
       }
-      filter.organizationId = org._id;
+    } else if (req.user.organizationId) {
+      filter.organizationId = req.user.organizationId;
     } else if (req.query.organizationId) {
       filter.organizationId = req.query.organizationId;
     }
@@ -118,7 +117,7 @@ exports.getOrganizationDonationRegistrations = async (req, res) => {
     console.error('Error fetching organization donations:', error);
     return res.status(500).json({
       success: false,
-      message: 'Server error while fetching donation registrations',
+      message: 'Server error fetching donation registrations',
       error: error.message,
       timestamp: new Date().toISOString()
     });

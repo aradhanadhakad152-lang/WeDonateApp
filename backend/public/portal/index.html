@@ -471,8 +471,20 @@
       toast.show();
     }
 
+    function getCurrentUserRole() {
+      if (currentUser && currentUser.role) return currentUser.role;
+      if (currentOrg && currentOrg.type) return currentOrg.type;
+      return '';
+    }
+
+    function getModalInstance(modalId) {
+      const el = document.getElementById(modalId);
+      if (!el) return null;
+      return bootstrap.Modal.getInstance(el) || bootstrap.Modal.getOrCreateInstance(el);
+    }
+
     // Common API Helper
-    async function apiCall(endpoint, method = 'GET', body = null) {
+    async function apiCall(endpoint, method = 'GET', body = null, options = {}) {
       const headers = { 'Content-Type': 'application/json' };
       if (jwtToken) headers['Authorization'] = 'Bearer ' + jwtToken;
 
@@ -484,7 +496,7 @@
         const data = await res.json();
 
         if (res.status === 401) {
-          showToast('Session expired or unauthorized. Please log in again.', false);
+          if (!options.suppressToast) showToast('Session expired or unauthorized. Please log in again.', false);
           logout();
           throw new Error('Unauthorized');
         }
@@ -495,7 +507,7 @@
 
         return data;
       } catch (err) {
-        if (err.message !== 'Unauthorized') {
+        if (err.message !== 'Unauthorized' && !options.suppressToast) {
           showToast(err.message, false);
         }
         throw err;
@@ -520,8 +532,7 @@
         document.getElementById('loginInput').value = '';
       }
 
-      const modal = new bootstrap.Modal(document.getElementById('loginModal'));
-      modal.show();
+      getModalInstance('loginModal').show();
     }
 
     function switchAuthTab(tab) {
@@ -566,7 +577,7 @@
         if (data.success) {
           jwtToken = data.data.tokens.accessToken;
           localStorage.setItem('wedonate_jwt', jwtToken);
-          bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+          getModalInstance('loginModal').hide();
           showToast('Authentication successful!');
           verifySession();
         }
@@ -599,17 +610,17 @@
         });
         if (data.success) {
           showToast('Registration submitted successfully! Pending Admin verification approval.');
-          bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+          getModalInstance('loginModal').hide();
         }
       } catch (err) { console.error(err); }
     }
 
     async function verifySession() {
       try {
-        // Try org session first
+        // Try org session first without triggering alert on admin tokens
         let data;
         try {
-          data = await apiCall('/organizations/me', 'GET');
+          data = await apiCall('/organizations/me', 'GET', null, { suppressToast: true });
           if (data.success) {
             currentOrg = data.data.organization;
             setupDashboardForRole(currentOrg.type);
@@ -819,7 +830,7 @@
 
     async function loadDonationsData() {
       try {
-        const endpoint = currentOrg ? '/donations/organization' : '/admin/donations';
+        const endpoint = '/donations/organization';
         const data = await apiCall(endpoint);
         const tbody = document.getElementById('donationsTbody');
         tbody.innerHTML = '';
@@ -917,8 +928,7 @@
     }
 
     function openCampModal() {
-      const modal = new bootstrap.Modal(document.getElementById('createCampModal'));
-      modal.show();
+      getModalInstance('createCampModal').show();
     }
 
     async function submitCreateCamp() {
@@ -937,7 +947,7 @@
         const data = await apiCall('/camps', 'POST', { title, date, city, address, registrationLimit: limit });
         if (data.success) {
           showToast('Donation Drive created successfully!');
-          bootstrap.Modal.getInstance(document.getElementById('createCampModal')).hide();
+          getModalInstance('createCampModal').hide();
           loadCampsData();
         }
       } catch (err) { console.error(err); }
@@ -955,8 +965,7 @@
 
     async function viewCampRegistrations(id, title) {
       document.getElementById('campRegModalTitle').innerText = 'Registered Donors for ' + title;
-      const modal = new bootstrap.Modal(document.getElementById('campRegistrationsModal'));
-      modal.show();
+      getModalInstance('campRegistrationsModal').show();
       try {
         const data = await apiCall(`/camps/${id}/registrations`);
         const tbody = document.getElementById('campRegTbody');
@@ -1003,6 +1012,8 @@
               </tr>
             `;
           });
+        } else {
+          tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No users found.</td></tr>';
         }
       } catch (err) { console.error(err); }
     }
@@ -1041,6 +1052,8 @@
               </tr>
             `;
           });
+        } else {
+          tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No organizations found.</td></tr>';
         }
       } catch (err) { console.error(err); }
     }
@@ -1088,6 +1101,8 @@
               </tr>
             `;
           });
+        } else {
+          tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No funding campaigns found.</td></tr>';
         }
       } catch (err) { console.error(err); }
     }
@@ -1118,7 +1133,8 @@
 
     async function loadAuditData() {
       try {
-        const endpoint = ['ADMIN', 'SUPER_ADMIN'].includes(currentUserRole) ? '/admin/audit-logs' : '/organizations/audit-logs';
+        const role = getCurrentUserRole();
+        const endpoint = ['ADMIN', 'SUPER_ADMIN'].includes(role) ? '/admin/audit-logs' : '/organizations/audit-logs';
         const data = await apiCall(endpoint);
         const tbody = document.getElementById('auditTbody');
         tbody.innerHTML = '';
