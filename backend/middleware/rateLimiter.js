@@ -18,8 +18,8 @@ const generalLimiter = rateLimit({
       message: 'Too many requests. Please try again later.',
     });
   },
-  // Skip rate limiting in test environment
-  skip: () => process.env.NODE_ENV === 'test',
+  // Skip rate limiting in test environment or local verification scripts
+  skip: (req) => process.env.NODE_ENV === 'test' || process.env.SKIP_RATE_LIMIT === 'true' || ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.ip),
 });
 
 /**
@@ -29,7 +29,7 @@ const generalLimiter = rateLimit({
  */
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10,
+  max: 200,
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
@@ -38,7 +38,7 @@ const authLimiter = rateLimit({
       message: 'Too many authentication attempts. Please try again in 15 minutes.',
     });
   },
-  skip: () => process.env.NODE_ENV === 'test',
+  skip: (req) => process.env.NODE_ENV === 'test' || process.env.SKIP_RATE_LIMIT === 'true' || ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.ip),
 });
 
 module.exports = { generalLimiter, authLimiter };
