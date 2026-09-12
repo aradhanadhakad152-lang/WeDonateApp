@@ -72,40 +72,31 @@ const registerOrganization = asyncHandler(async (req, res) => {
 
   await organization.save();
 
-  // Create or update initial staff user account linked to this organization
+  // Create initial staff user account linked to this organization
   const role = type === 'HOSPITAL' ? 'HOSPITAL_MANAGER' : 'BLOOD_BANK_MANAGER';
-  const cleanPhone = (authorizedPersonPhone || contactPhone || '').replace(/\D/g, '');
-  const formattedPhone = (authorizedPersonPhone || contactPhone || '').startsWith('+')
-    ? (authorizedPersonPhone || contactPhone)
-    : cleanPhone.length >= 10 ? `+91${cleanPhone.slice(-10)}` : `+${cleanPhone}`;
-
-  let staffUser = await User.findOne({
-    $or: [
-      { phone: formattedPhone },
-      { email: officialEmail.toLowerCase() },
-    ],
+  const staffUser = new User({
+    firebaseUid: `org_${organization._id}_${Date.now()}`,
+    phone: authorizedPersonPhone.startsWith('+') ? authorizedPersonPhone : `+91${authorizedPersonPhone.replace(/\D/g, '').slice(-10)}`,
+    fullName: authorizedPersonName,
+    name: authorizedPersonName,
+    email: officialEmail.toLowerCase(),
+    role,
+    organizationId: organization._id,
+    accountStatus: 'ACTIVE',
+    isVerified: true,
   });
 
-  if (staffUser) {
-    staffUser.role = role;
-    staffUser.organizationId = organization._id;
-    staffUser.accountStatus = 'ACTIVE';
-    staffUser.isVerified = true;
-    await staffUser.save();
-  } else {
-    staffUser = new User({
-      firebaseUid: `org_${organization._id}_${Date.now()}`,
-      phone: formattedPhone,
-      fullName: authorizedPersonName || name,
-      name: authorizedPersonName || name,
-      email: officialEmail.toLowerCase(),
-      role,
-      organizationId: organization._id,
-      accountStatus: 'ACTIVE',
-      isVerified: true,
-    });
-    await staffUser.save();
+  if (password) {
+    if (password.length < 8) {
+      return sendError(res, {
+        statusCode: 400,
+        message: 'Password must be at least 8 characters long',
+      });
+    }
+    staffUser.password = password;
   }
+
+  await staffUser.save();
 
   // Create initial empty blood inventory records for all 8 blood groups
   const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -131,23 +122,19 @@ const registerOrganization = asyncHandler(async (req, res) => {
 
 // POST /api/v1/organizations/login — Organization Staff Login
 const loginOrganization = asyncHandler(async (req, res) => {
-  const { email, phone } = req.body;
+  const { email, phone, password } = req.body;
 
   let query = {};
-  if (email) {
-    query.email = email.toLowerCase();
-  } else if (phone) {
-    const cleanPhone = phone.replace(/\D/g, '');
-    const e164Phone = phone.startsWith('+') ? phone : cleanPhone.length >= 10 ? `+91${cleanPhone.slice(-10)}` : `+${cleanPhone}`;
-    query = { $or: [{ phone: e164Phone }, { phone }] };
-  } else {
+  if (email) query.email = email.toLowerCase();
+  else if (phone) query.phone = phone;
+  else {
     return sendError(res, {
       statusCode: 400,
       message: 'Official email or contact phone is required',
     });
   }
 
-  const user = await User.findOne(query).populate('organizationId');
+  const user = await User.findOne(query).select('+password').populate('organizationId');
   if (!user || !user.organizationId) {
     return sendError(res, {
       statusCode: 401,
@@ -161,6 +148,33 @@ const loginOrganization = asyncHandler(async (req, res) => {
       statusCode: 403,
       message: 'Organization account is suspended. Contact WE DONATE admin.',
     });
+  }
+
+  // Password verification flow
+  if (user.password) {
+    if (!password) {
+      return sendError(res, {
+        statusCode: 400,
+        message: 'Password is required for organization login',
+      });
+    }
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch) {
+      return sendError(res, {
+        statusCode: 401,
+        message: 'Invalid organization credentials (incorrect password)',
+      });
+    }
+  } else {
+    if (!password) {
+      return sendError(res, {
+        statusCode: 401,
+        message: 'Password has not been set for this organization account. Please request Admin password setup.',
+      });
+    }
+    // Store and hash password on first login attempt if password provided
+    user.password = password;
+    await user.save();
   }
 
   const tokens = await generateTokenPair(user);
@@ -221,18 +235,6 @@ const getMyOrganization = asyncHandler(async (req, res) => {
 
   const inventory = await BloodInventory.find({ organizationId: organization._id });
   const criticalLowGroups = inventory.filter((item) => item.availableUnits <= item.lowStockThreshold).map((item) => item.bloodGroup);
-  const totalStockUnits = inventory.reduce((sum, item) => sum + (item.availableUnits || 0), 0);
-
-  const DonationRegistration = require('../models/DonationRegistration');
-  const pendingDonationsCount = await DonationRegistration.countDocuments({
-    organizationId: organization._id,
-    status: 'PENDING_APPROVAL',
-  });
-
-  const completedDonationsCount = await DonationRegistration.countDocuments({
-    organizationId: organization._id,
-    status: 'COMPLETED',
-  });
 
   return sendSuccess(res, {
     statusCode: 200,
@@ -246,9 +248,6 @@ const getMyOrganization = asyncHandler(async (req, res) => {
         fulfilledRequests,
         activeCamps,
         criticalLowGroups,
-        pendingDonationsCount,
-        completedDonationsCount,
-        totalStockUnits,
       },
       inventory,
     },
@@ -424,6 +423,57 @@ const updateMyOrganization = asyncHandler(async (req, res) => {
   });
 });
 
+// POST /api/v1/admin/organizations/:id/set-password — Admin Set/Reset Organization Password
+const setOrganizationPassword = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { newPassword } = req.body;
+
+  if (!newPassword || newPassword.length < 8) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'New password is required and must be at least 8 characters long',
+    });
+  }
+
+  const organization = await Organization.findById(id);
+  if (!organization) {
+    return sendError(res, {
+      statusCode: 404,
+      message: 'Organization not found',
+    });
+  }
+
+  const staffUser = await User.findOne({ organizationId: organization._id });
+  if (!staffUser) {
+    return sendError(res, {
+      statusCode: 404,
+      message: 'No staff user account linked to this organization',
+    });
+  }
+
+  staffUser.password = newPassword;
+  await staffUser.save();
+
+  await AuditLog.create({
+    performedBy: req.user._id,
+    userRole: req.user.role,
+    action: 'ORGANIZATION_PASSWORD_SET',
+    entityType: 'Organization',
+    entityId: organization._id.toString(),
+    newState: { organizationName: organization.name },
+    reason: 'Admin securely set organization access password'
+  }).catch(err => logger.error('AuditLog error:', err));
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: `Access password set successfully for '${organization.name}'`,
+    data: {
+      organizationId: organization._id,
+      officialEmail: organization.officialEmail,
+    },
+  });
+});
+
 module.exports = {
   registerOrganization,
   loginOrganization,
@@ -432,4 +482,5 @@ module.exports = {
   verifyRequestByHospital,
   rejectRequestByHospital,
   updateMyOrganization,
+  setOrganizationPassword,
 };

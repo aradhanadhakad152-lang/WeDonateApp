@@ -2,119 +2,68 @@
 
 const mongoose = require('mongoose');
 
-const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-const DONATION_STATUSES = ['PENDING_APPROVAL', 'APPROVED', 'COMPLETED', 'REJECTED'];
-const ORG_TYPES = ['HOSPITAL', 'BLOOD_BANK'];
-
-/**
- * DonationRegistration Model — Citizen Blood Donation Registrations & Workflow Lifecycle
- */
 const donationRegistrationSchema = new mongoose.Schema(
   {
     donorId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
-      index: true,
+      required: false,
+      index: true
     },
     donorName: {
       type: String,
-      trim: true,
       required: true,
-    },
-    donorPhone: {
-      type: String,
-      trim: true,
-      default: '',
+      trim: true
     },
     bloodGroup: {
       type: String,
-      enum: {
-        values: BLOOD_GROUPS,
-        message: `Blood group must be one of: ${BLOOD_GROUPS.join(', ')}`,
-      },
       required: true,
+      enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
+      uppercase: true,
+      trim: true
     },
     organizationId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Organization',
       required: true,
-      index: true,
-    },
-    organizationType: {
-      type: String,
-      enum: ORG_TYPES,
-      required: true,
+      index: true
     },
     campId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'DonationCamp',
-      default: null,
-      index: true,
-    },
-    registrationDate: {
-      type: Date,
-      default: Date.now,
+      required: false,
+      index: true
     },
     status: {
       type: String,
-      enum: DONATION_STATUSES,
+      enum: ['PENDING_APPROVAL', 'APPROVED', 'COMPLETED', 'REJECTED'],
       default: 'PENDING_APPROVAL',
-      index: true,
+      index: true
     },
     unitsDonated: {
       type: Number,
       default: 1,
-      min: 1,
-    },
-    approvedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      default: null,
-    },
-    approvedAt: {
-      type: Date,
-      default: null,
-    },
-    completedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      default: null,
-    },
-    completedAt: {
-      type: Date,
-      default: null,
-    },
-    rejectedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      default: null,
-    },
-    rejectedAt: {
-      type: Date,
-      default: null,
+      min: 1
     },
     rejectionReason: {
       type: String,
-      trim: true,
-      default: null,
+      trim: true
     },
-    notes: {
-      type: String,
-      trim: true,
-      default: '',
+    approvedAt: {
+      type: Date
     },
+    completedAt: {
+      type: Date
+    },
+    rejectedAt: {
+      type: Date
+    }
   },
   {
-    timestamps: true,
+    timestamps: true
   }
 );
 
-// Performance Indexes
-donationRegistrationSchema.index({ organizationId: 1, status: 1, createdAt: -1 });
-donationRegistrationSchema.index({ donorId: 1, createdAt: -1 });
-donationRegistrationSchema.index({ campId: 1, status: 1 });
+donationRegistrationSchema.index({ organizationId: 1, status: 1 });
 
-const DonationRegistration = mongoose.model('DonationRegistration', donationRegistrationSchema);
-
-module.exports = DonationRegistration;
+module.exports = mongoose.model('DonationRegistration', donationRegistrationSchema);

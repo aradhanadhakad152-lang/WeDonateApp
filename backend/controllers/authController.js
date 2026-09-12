@@ -189,53 +189,31 @@ const getMe = asyncHandler(async (req, res) => {
   });
 });
 
-// POST /api/v1/auth/dev-login — Development Login (DISABLED IN PRODUCTION)
-const devLogin = asyncHandler(async (req, res) => {
-  // SECURITY: Strictly disable dev-login endpoint in production environments
-  if (process.env.NODE_ENV === 'production') {
+// POST /api/v1/auth/admin-login
+const adminLogin = asyncHandler(async (req, res) => {
+  const { email, phone, password } = req.body;
+
+  let user = null;
+  if (email) {
+    user = await User.findOne({ email: email.toLowerCase() });
+  } else if (phone) {
+    user = await User.findOne({ phone });
+  }
+
+  if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
     return sendError(res, {
-      statusCode: 403,
-      message: 'Development login is disabled in production',
+      statusCode: 401,
+      message: 'Invalid administrative credentials or unauthorized role',
     });
   }
 
-  const { phone, email, devPassword } = req.body;
-
-  const targetEmail = email ? email.toLowerCase() : 'admin@wedonate.org';
-  const cleanDigits = (phone || '9999999999').replace(/\D/g, '');
-  const targetPhone = phone && phone.startsWith('+') ? phone : `+91${cleanDigits.slice(-10)}`;
-
-  let user = await User.findOne({
-    $or: [
-      { email: targetEmail },
-      { phone: targetPhone },
-      { role: { $in: ['ADMIN', 'SUPER_ADMIN'] } },
-    ],
-  });
-
-  if (!user || user.organizationId) {
-    user = new User({
-      firebaseUid: `admin_dev_${Date.now()}`,
-      phone: targetPhone,
-      fullName: 'System Administrator',
-      name: 'System Administrator',
-      email: targetEmail,
-      role: 'SUPER_ADMIN',
-      accountStatus: 'ACTIVE',
-      isVerified: true,
-    });
-    await user.save();
-    logger.info(`Created dev admin user for testing: ${user._id} (${user.phone})`);
-  } else if (!['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
-    user.role = 'SUPER_ADMIN';
-    await user.save();
-  }
-
-  const tokens = await generateTokenPair(user);
+  const tokens = generateTokenPair(user);
+  user.lastLogin = new Date();
+  await user.save();
 
   return sendSuccess(res, {
     statusCode: 200,
-    message: 'Dev admin login successful',
+    message: 'Admin login successful',
     data: {
       user: user.toProfileJSON(),
       tokens: {
@@ -247,55 +225,37 @@ const devLogin = asyncHandler(async (req, res) => {
   });
 });
 
-// POST /api/v1/auth/admin-login — Real Production Admin Authentication
-const adminLogin = asyncHandler(async (req, res) => {
-  const { phone, email, password } = req.body;
-
-  let query = {};
-  if (email) {
-    query.email = email.toLowerCase();
-  } else if (phone) {
-    const cleanDigits = phone.replace(/\D/g, '');
-    const targetPhone = phone.startsWith('+') ? phone : `+91${cleanDigits.slice(-10)}`;
-    query = { $or: [{ phone: targetPhone }, { phone }] };
-  } else {
-    return sendError(res, {
-      statusCode: 400,
-      message: 'Email or contact phone is required for Admin login',
+// POST /api/v1/auth/dev-login
+const devLogin = asyncHandler(async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({
+      success: false,
+      message: 'Development login is disabled in production',
+      timestamp: new Date().toISOString()
     });
   }
 
-  const user = await User.findOne(query);
+  const { phone = '+919999988888' } = req.body;
 
+  let user = await User.findOne({ phone });
   if (!user) {
-    return sendError(res, {
-      statusCode: 401,
-      message: 'No registered Admin account found matching credentials',
+    user = await User.create({
+      fullName: 'System Super Admin',
+      phone,
+      email: 'admin@wedonate.org',
+      role: 'SUPER_ADMIN',
+      accountStatus: 'ACTIVE',
+      isVerified: true
     });
   }
 
-  // Security: Verify user holds ADMIN or SUPER_ADMIN role
-  if (!['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
-    return sendError(res, {
-      statusCode: 403,
-      message: 'Access denied: Account is not authorized for Admin portal',
-    });
-  }
-
-  if (user.accountStatus === 'SUSPENDED') {
-    return sendError(res, {
-      statusCode: 403,
-      message: 'Admin account is suspended. Contact system security.',
-    });
-  }
-
-  const tokens = await generateTokenPair(user);
-
-  logger.info(`Admin user logged in: ${user._id} (${user.email || user.phone}) Role: ${user.role}`);
+  const tokens = generateTokenPair(user);
+  user.lastLogin = new Date();
+  await user.save();
 
   return sendSuccess(res, {
     statusCode: 200,
-    message: 'Admin login successful',
+    message: 'Dev admin login successful',
     data: {
       user: user.toProfileJSON(),
       tokens: {
@@ -312,6 +272,6 @@ module.exports = {
   refreshToken,
   logout,
   getMe,
-  devLogin,
   adminLogin,
+  devLogin,
 };

@@ -174,7 +174,8 @@
             <div class="mb-2"><label class="form-label small fw-bold">City</label><input type="text" id="regCity" class="form-control" placeholder="New Delhi"></div>
             <div class="mb-2"><label class="form-label small fw-bold">Official Email</label><input type="email" id="regEmail" class="form-control" placeholder="admin@hospital.org"></div>
             <div class="mb-2"><label class="form-label small fw-bold">Contact Phone</label><input type="text" id="regPhone" class="form-control" placeholder="+919876543210"></div>
-            <div class="mb-3"><label class="form-label small fw-bold">Authorized Person Name</label><input type="text" id="regPerson" class="form-control" placeholder="Dr. Rajesh Sharma"></div>
+            <div class="mb-2"><label class="form-label small fw-bold">Authorized Person Name</label><input type="text" id="regPerson" class="form-control" placeholder="Dr. Rajesh Sharma"></div>
+            <div class="mb-3"><label class="form-label small fw-bold">Create Access Password</label><input type="password" id="regPassword" class="form-control" placeholder="Minimum 8 characters"></div>
             <button class="btn btn-success w-100 fw-bold py-2 shadow-sm" onclick="submitRegister()">Submit Organization Registration</button>
           </div>
         </div>
@@ -280,6 +281,24 @@
                     <tr><th>Title</th><th>City</th><th>Date</th><th>Registrations</th><th>Status</th><th>Actions</th></tr>
                   </thead>
                   <tbody id="campsTbody"><tr><td colspan="6" class="text-muted text-center py-4">Loading donation drives...</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- DONATIONS REGISTRATION QUEUE TAB -->
+          <div class="tab-pane fade" id="tab-donations">
+            <div class="card border-0 shadow-sm p-4 bg-white rounded-3">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-person-check"></i> Blood Donor Registrations & Approvals Queue</h5>
+                <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="loadDonationsData()"><i class="bi bi-arrow-clockwise"></i> Refresh Queue</button>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                  <thead class="table-light">
+                    <tr><th>Donor Name</th><th>Blood Group</th><th>Units</th><th>Date</th><th>Status</th><th>Actions</th></tr>
+                  </thead>
+                  <tbody id="donationsTbody"><tr><td colspan="6" class="text-muted text-center py-4">Loading donor registrations...</td></tr></tbody>
                 </table>
               </div>
             </div>
@@ -462,7 +481,6 @@
 
       try {
         const res = await fetch(API_BASE + endpoint, opts);
-        console.log('[PORTAL API]', method, API_BASE + endpoint, res.status);
         const data = await res.json();
 
         if (res.status === 401) {
@@ -524,6 +542,10 @@
         showToast('Please enter official email or contact phone', false);
         return;
       }
+      if (!password) {
+        showToast('Please enter your password', false);
+        return;
+      }
 
       document.getElementById('loginSpinner').classList.remove('d-none');
       document.getElementById('btnLoginSubmit').disabled = true;
@@ -537,7 +559,7 @@
           bodyPayload = input.includes('@') ? { email: input, password } : { phone: input, password };
         } else {
           endpoint = '/organizations/login';
-          bodyPayload = input.includes('@') ? { email: input } : { phone: input };
+          bodyPayload = input.includes('@') ? { email: input, password } : { phone: input, password };
         }
 
         const data = await apiCall(endpoint, 'POST', bodyPayload);
@@ -564,10 +586,16 @@
       const officialEmail = document.getElementById('regEmail').value;
       const contactPhone = document.getElementById('regPhone').value;
       const authorizedPersonName = document.getElementById('regPerson').value;
+      const password = document.getElementById('regPassword').value;
+
+      if (password && password.length < 8) {
+        showToast('Password must be at least 8 characters long', false);
+        return;
+      }
 
       try {
         const data = await apiCall('/organizations/register', 'POST', {
-          name, type, registrationLicense, city, state: 'Delhi', officialEmail, contactPhone, authorizedPersonName, authorizedPersonPhone: contactPhone
+          name, type, registrationLicense, city, state: 'Delhi', officialEmail, contactPhone, authorizedPersonName, authorizedPersonPhone: contactPhone, password
         });
         if (data.success) {
           showToast('Registration submitted successfully! Pending Admin verification approval.');
@@ -627,18 +655,31 @@
           <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-orgs" onclick="loadOrgsData()"><i class="bi bi-building me-2"></i> Hospitals & Banks</button>
           <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-camps" onclick="loadCampsData()"><i class="bi bi-geo-alt me-2"></i> Donation Drives</button>
           <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-inventory" onclick="loadInventoryData()"><i class="bi bi-box-seam me-2"></i> Global Stock</button>
+          <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-donations" onclick="loadDonationsData()"><i class="bi bi-person-check me-2"></i> Donor Approvals</button>
           <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-funding" onclick="loadFundingData()"><i class="bi bi-cash-coin me-2"></i> Funding Campaigns</button>
           <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-notifications" onclick="loadNotificationsData()"><i class="bi bi-bell me-2"></i> Push Notifications</button>
           <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-audit" onclick="loadAuditData()"><i class="bi bi-shield-check me-2"></i> Security Audit Logs</button>
         `;
         loadAdminMetrics();
-      } else {
+      } else if (isHospital) {
         menu.innerHTML = `
           <button class="nav-link active text-start" data-bs-toggle="pill" data-bs-target="#tab-dashboard" onclick="loadOrgMetrics()"><i class="bi bi-speedometer2 me-2"></i> Dashboard</button>
           <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-requests" onclick="loadRequestsData()"><i class="bi bi-card-checklist me-2"></i> Verification Queue</button>
-          <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-inventory" onclick="loadInventoryData()"><i class="bi bi-box-seam me-2"></i> Blood Stock Tracker</button>
+          <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-inventory" onclick="loadInventoryData()"><i class="bi bi-box-seam me-2"></i> Hospital Stock</button>
           <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-camps" onclick="loadCampsData()"><i class="bi bi-geo-alt me-2"></i> Donation Drives</button>
           <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-profile" onclick="loadProfileData()"><i class="bi bi-building-gear me-2"></i> Org Profile</button>
+          <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-audit" onclick="loadAuditData()"><i class="bi bi-shield-check me-2"></i> Audit Logs</button>
+        `;
+        loadOrgMetrics();
+      } else {
+        menu.innerHTML = `
+          <button class="nav-link active text-start" data-bs-toggle="pill" data-bs-target="#tab-dashboard" onclick="loadOrgMetrics()"><i class="bi bi-speedometer2 me-2"></i> Dashboard</button>
+          <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-inventory" onclick="loadInventoryData()"><i class="bi bi-box-seam me-2"></i> Blood Stock Tracker</button>
+          <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-donations" onclick="loadDonationsData()"><i class="bi bi-person-check me-2"></i> Pending Donor Approvals</button>
+          <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-camps" onclick="loadCampsData()"><i class="bi bi-geo-alt me-2"></i> Collection Drives</button>
+          <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-requests" onclick="loadRequestsData()"><i class="bi bi-card-checklist me-2"></i> Incoming Requests</button>
+          <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-profile" onclick="loadProfileData()"><i class="bi bi-building-gear me-2"></i> Org Profile</button>
+          <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-audit" onclick="loadAuditData()"><i class="bi bi-shield-check me-2"></i> Audit Logs</button>
         `;
         loadOrgMetrics();
       }
@@ -772,6 +813,77 @@
         if (data.success) {
           showToast(`Stock level updated for ${bg}!`);
           loadInventoryData();
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    async function loadDonationsData() {
+      try {
+        const endpoint = currentOrg ? '/donations/organization' : '/admin/donations';
+        const data = await apiCall(endpoint);
+        const tbody = document.getElementById('donationsTbody');
+        tbody.innerHTML = '';
+        const list = data.success ? (data.data.donations || data.data) : [];
+        if (Array.isArray(list) && list.length > 0) {
+          list.forEach(d => {
+            const isPending = d.status === 'PENDING_APPROVAL';
+            const isApproved = d.status === 'APPROVED';
+            tbody.innerHTML += `
+              <tr>
+                <td><strong>${d.donorName || d.donorId?.fullName || 'Donor'}</strong></td>
+                <td><span class="badge bg-danger blood-badge">${d.bloodGroup}</span></td>
+                <td>${d.unitsDonated || 1} Unit(s)</td>
+                <td>${new Date(d.createdAt).toLocaleDateString()}</td>
+                <td><span class="badge ${d.status === 'COMPLETED' ? 'bg-success' : d.status === 'REJECTED' ? 'bg-danger' : d.status === 'APPROVED' ? 'bg-info text-dark' : 'bg-warning text-dark'}">${d.status}</span></td>
+                <td>
+                  ${isPending ? `<button class="btn btn-sm btn-success me-1 fw-bold" onclick="approveDonation('${d._id}')"><i class="bi bi-check-circle"></i> Approve</button><button class="btn btn-sm btn-outline-danger fw-bold" onclick="rejectDonation('${d._id}')"><i class="bi bi-x-circle"></i> Reject</button>` : ''}
+                  ${isApproved ? `<button class="btn btn-sm btn-primary me-1 fw-bold" onclick="completeDonation('${d._id}')"><i class="bi bi-check2-all"></i> Mark Completed (Add Stock)</button><button class="btn btn-sm btn-outline-danger fw-bold" onclick="rejectDonation('${d._id}')"><i class="bi bi-x-circle"></i> Reject</button>` : ''}
+                  ${d.status === 'COMPLETED' || d.status === 'REJECTED' ? `<span class="text-muted small"><i class="bi bi-info-circle"></i> Finalized</span>` : ''}
+                </td>
+              </tr>
+            `;
+          });
+        } else {
+          tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No donation registrations found.</td></tr>';
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    async function approveDonation(id) {
+      try {
+        const data = await apiCall(`/donations/${id}/approve`, 'PATCH');
+        if (data.success) {
+          showToast('Donation registration approved!');
+          loadDonationsData();
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    async function completeDonation(id) {
+      const unitsStr = prompt('Enter physical units donated (adds to inventory stock):', '1');
+      if (unitsStr === null) return;
+      const units = parseInt(unitsStr, 10);
+      if (isNaN(units) || units <= 0) {
+        showToast('Invalid units donated', false);
+        return;
+      }
+      try {
+        const data = await apiCall(`/donations/${id}/complete`, 'PATCH', { unitsDonated: units });
+        if (data.success) {
+          showToast('Donation marked COMPLETED! Inventory stock updated.');
+          loadDonationsData();
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    async function rejectDonation(id) {
+      const rejectionReason = prompt('Enter rejection reason:');
+      if (!rejectionReason) return;
+      try {
+        const data = await apiCall(`/donations/${id}/reject`, 'PATCH', { rejectionReason });
+        if (data.success) {
+          showToast('Donation registration rejected.');
+          loadDonationsData();
         }
       } catch (err) { console.error(err); }
     }
@@ -923,7 +1035,8 @@
                 <td>${o.registrationLicense || 'N/A'}</td>
                 <td><span class="badge ${isPending ? 'bg-warning text-dark' : 'bg-success'}">${o.status}</span></td>
                 <td>
-                  ${isPending ? `<button class="btn btn-sm btn-success me-1 fw-bold" onclick="approveOrg('${o._id}')"><i class="bi bi-check-circle"></i> Approve</button>` : `<span class="text-muted small"><i class="bi bi-patch-check-fill text-success"></i> Approved</span>`}
+                  ${isPending ? `<button class="btn btn-sm btn-success me-1 fw-bold" onclick="approveOrg('${o._id}')"><i class="bi bi-check-circle"></i> Approve</button>` : `<span class="text-muted small me-1"><i class="bi bi-patch-check-fill text-success"></i> Approved</span>`}
+                  <button class="btn btn-sm btn-outline-primary fw-bold" onclick="setOrgPassword('${o._id}', '${(o.name || '').replace(/'/g, "\\'")}')"><i class="bi bi-key"></i> Set Password</button>
                 </td>
               </tr>
             `;
@@ -938,6 +1051,21 @@
         if (data.success) {
           showToast('Organization Approved!');
           loadOrgsData();
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    async function setOrgPassword(id, name) {
+      const newPassword = prompt(`Set secure access password for organization '${name}':\n(Minimum 8 characters)`);
+      if (!newPassword) return;
+      if (newPassword.length < 8) {
+        showToast('Password must be at least 8 characters long', false);
+        return;
+      }
+      try {
+        const data = await apiCall(`/admin/organizations/${id}/set-password`, 'POST', { newPassword });
+        if (data.success) {
+          showToast(`Access password updated successfully for '${name}'!`);
         }
       } catch (err) { console.error(err); }
     }

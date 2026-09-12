@@ -26,7 +26,10 @@ const initFirebaseAdmin = () => {
   if (!clientEmail || !privateKey) {
     logger.warn('FIREBASE_CLIENT_EMAIL or FIREBASE_PRIVATE_KEY missing from environment — Firebase Admin running in stub/mock mode for local unit tests');
     isInitialized = true;
-    return null;
+    if (admin.apps.length === 0) {
+      admin.initializeApp({ projectId });
+    }
+    return admin.app();
   }
 
   // Handle escaped line breaks in private key string from .env

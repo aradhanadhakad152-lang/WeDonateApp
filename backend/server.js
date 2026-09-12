@@ -31,6 +31,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const campRoutes = require('./routes/campRoutes');
 const inventoryRoutes = require('./routes/inventoryRoutes');
 const fundingRoutes = require('./routes/fundingRoutes');
+const donationRoutes = require('./routes/donationRoutes');
 
 // ============================================
 // App initialization
@@ -43,33 +44,23 @@ const API_VERSION = 'v1';
 // Security middleware
 // ============================================
 
-// Set security HTTP headers (disable strict CSP to allow Bootstrap CDN and portal inline JS)
-app.use(
-  helmet({
-    contentSecurityPolicy: false,
-    crossOriginEmbedderPolicy: false,
-  })
-);
+// Set security HTTP headers
+app.use(helmet());
 
-// CORS — allow specified origins, same-origin, and onrender.com domains
+// CORS — only allow specified origins
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
-  : ['http://localhost:3000', 'http://localhost:8081', 'http://localhost:5000', 'https://wedonateapp.onrender.com'];
+  : ['http://localhost:3000', 'http://localhost:8081', 'https://wedonateapp.onrender.com'];
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, curl, Postman), localhost, and onrender.com domains
-      if (
-        !origin ||
-        allowedOrigins.includes(origin) ||
-        origin.includes('onrender.com') ||
-        origin.includes('localhost') ||
-        origin.includes('127.0.0.1')
-      ) {
-        return callback(null, true);
+      // Allow requests with no origin (mobile apps, curl, Postman in dev)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
       }
-      return callback(null, false);
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

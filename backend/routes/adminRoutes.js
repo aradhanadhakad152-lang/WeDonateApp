@@ -31,6 +31,7 @@ router.patch('/users/:id/status', updateUserStatus);
 router.patch('/users/:id/availability', updateUserAvailability);
 router.get('/organizations', getOrganizationsList);
 router.patch('/organizations/:id/status', updateOrganizationStatus);
+router.post('/organizations/:id/set-password', require('../controllers/organizationController').setOrganizationPassword);
 router.get('/requests/pending', getPendingRequestsForAdmin);
 router.get('/requests', getAllRequestsForAdmin);
 router.patch('/requests/:id/verify', verifyRequestByAdmin);

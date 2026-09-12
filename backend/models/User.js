@@ -1,6 +1,7 @@
 'use strict';
 
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const ROLES = [
@@ -57,6 +58,11 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       match: [/^\S+@\S+\.\S+$/, 'Invalid email format'],
       sparse: true,
+    },
+    password: {
+      type: String,
+      select: false,
+      minlength: [8, 'Password must be at least 8 characters'],
     },
     profilePhoto: {
       type: String,
@@ -223,7 +229,12 @@ userSchema.virtual('isProfileComplete').get(function () {
 });
 
 // Middleware
-userSchema.pre('save', function (next) {
+userSchema.pre('save', async function (next) {
+  if (this.isModified('password') && this.password) {
+    const salt = await bcrypt.genSalt(12);
+    this.password = await bcrypt.hash(this.password, salt);
+  }
+
   if (this.fullName && !this.name) {
     this.name = this.fullName;
   } else if (this.name && !this.fullName) {
@@ -254,6 +265,10 @@ userSchema.pre('save', function (next) {
 });
 
 // Methods
+userSchema.methods.matchPassword = async function (enteredPassword) {
+  if (!this.password || !enteredPassword) return false;
+  return await bcrypt.compare(enteredPassword, this.password);
+};
 userSchema.methods.toPublicJSON = function () {
   const nameVal = this.fullName || this.name;
   return {
