@@ -15,6 +15,7 @@ const {
   getAllRequestsForAdmin,
   verifyRequestByAdmin,
   getAuditLogs,
+  getWhatsAppConfigStatusController,
 } = require('../controllers/adminController');
 
 /**
@@ -36,5 +37,6 @@ router.get('/requests/pending', getPendingRequestsForAdmin);
 router.get('/requests', getAllRequestsForAdmin);
 router.patch('/requests/:id/verify', verifyRequestByAdmin);
 router.get('/audit-logs', getAuditLogs);
+router.get('/whatsapp-config', getWhatsAppConfigStatusController);
 
 module.exports = router;

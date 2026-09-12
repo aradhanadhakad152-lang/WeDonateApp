@@ -389,6 +389,20 @@ const getAuditLogs = asyncHandler(async (req, res) => {
   });
 });
 
+// GET /api/v1/admin/whatsapp-config — Inspect WhatsApp service configuration safely
+const getWhatsAppConfigStatusController = asyncHandler(async (req, res) => {
+  const { getWhatsAppConfigStatus } = require('../services/whatsappService');
+  const status = getWhatsAppConfigStatus();
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: 'WhatsApp service configuration status retrieved',
+    data: {
+      whatsappConfig: status,
+    },
+  });
+});
+
 module.exports = {
   getAdminDashboardMetrics,
   getUsersList,
@@ -400,4 +414,5 @@ module.exports = {
   getAllRequestsForAdmin,
   verifyRequestByAdmin,
   getAuditLogs,
+  getWhatsAppConfigStatusController,
 };
