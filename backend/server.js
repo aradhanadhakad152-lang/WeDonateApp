@@ -44,13 +44,28 @@ const API_VERSION = 'v1';
 // Security middleware
 // ============================================
 
-// Set security HTTP headers
-app.use(helmet());
+// Set security HTTP headers with Content Security Policy allowing portal CDNs & inline handlers
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net"],
+        scriptSrcAttr: ["'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+        styleSrcAttr: ["'unsafe-inline'"],
+        fontSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "data:"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "https://wedonateapp.onrender.com", "http://localhost:5000", "http://127.0.0.1:5000"],
+      },
+    },
+  })
+);
 
 // CORS — only allow specified origins
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
-  : ['http://localhost:3000', 'http://localhost:8081', 'https://wedonateapp.onrender.com'];
+  : ['http://localhost:3000', 'http://localhost:5000', 'http://127.0.0.1:5000', 'http://localhost:8081', 'https://wedonateapp.onrender.com'];
 
 app.use(
   cors({

@@ -478,6 +478,37 @@
       return '';
     }
 
+    // Common API Helper
+    async function apiCall(endpoint, method = 'GET', body = null, options = {}) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (jwtToken) headers['Authorization'] = 'Bearer ' + jwtToken;
+
+      const opts = { method, headers };
+      if (body) opts.body = JSON.stringify(body);
+
+      try {
+        const res = await fetch(API_BASE + endpoint, opts);
+        const data = await res.json();
+
+        if (res.status === 401) {
+          if (!options.suppressToast) showToast('Session expired or unauthorized. Please log in again.', false);
+          logout();
+          throw new Error('Unauthorized');
+        }
+
+        if (!res.ok) {
+          throw new Error(data.message || `Request failed with status ${res.status}`);
+        }
+
+        return data;
+      } catch (err) {
+        if (err.message !== 'Unauthorized' && !options.suppressToast) {
+          showToast(err.message, false);
+        }
+        throw err;
+      }
+    }
+
     function openModalFallback(modalId) {
       const modalEl = document.getElementById(modalId);
       if (!modalEl) return;
@@ -523,6 +554,12 @@
       modalEl.setAttribute('aria-hidden', 'true');
       const backdrop = document.getElementById('modalBackdropFallback');
       if (backdrop) backdrop.remove();
+    }
+
+    function init() {
+      if (jwtToken) {
+        verifySession();
+      }
     }
 
     function selectRole(role) {
