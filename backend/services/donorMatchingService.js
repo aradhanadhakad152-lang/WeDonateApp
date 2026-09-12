@@ -136,17 +136,20 @@ const findAndMatchNearbyDonors = async (requestId, radiusKmOverride) => {
     await bloodRequest.save();
   }
 
-  // 7. Milestone 7 Notification Integration: Trigger Push & SMS Alerts
+  // 7. Multi-Channel Notification Integration: Trigger FCM Push & WhatsApp Alerts
   if (createdMatches.length > 0) {
     try {
       const { sendNotificationToUser } = require('./notificationService');
       const { sendEmergencySMS, SMS_MAX_DONORS_PER_REQUEST } = require('./smsService');
+      const { sendEmergencyWhatsAppAlert, WHATSAPP_MAX_DONORS_PER_REQUEST } = require('./whatsappService');
 
       let smsCount = 0;
+      let whatsappCount = 0;
+
       for (const m of createdMatches) {
         const formattedDist = m.distanceKm < 1 ? `${Math.round(m.distanceKm * 1000)} m` : `${m.distanceKm.toFixed(1)} km`;
 
-        // Send FCM Push Notification
+        // 1. Send FCM Push Notification to Donor App
         await sendNotificationToUser(
           m.donor,
           'BLOOD_REQUEST',
@@ -157,16 +160,28 @@ const findAndMatchNearbyDonors = async (requestId, radiusKmOverride) => {
           m._id
         );
 
-        // Send Emergency SMS Alert (limited by SMS_MAX_DONORS_PER_REQUEST policy)
-        if (smsCount < SMS_MAX_DONORS_PER_REQUEST) {
-          const donorUser = candidateDonors.find((d) => d._id.toString() === m.donor.toString());
-          if (donorUser && donorUser.phone) {
-            await sendEmergencySMS(
-              donorUser.phone,
-              `WE DONATE Emergency Alert: ${bloodRequest.bloodGroup} blood is urgently required near your location. Open WeDonate app to view request.`
-            );
-            smsCount++;
-          }
+        const donorUser = candidateDonors.find((d) => d._id.toString() === m.donor.toString());
+
+        // 2. Send Emergency WhatsApp Alert to Same Matched Donors
+        if (donorUser && donorUser.phone && whatsappCount < WHATSAPP_MAX_DONORS_PER_REQUEST) {
+          await sendEmergencyWhatsAppAlert(donorUser.phone, {
+            bloodGroup: bloodRequest.bloodGroup,
+            patientName: bloodRequest.patientName,
+            hospitalName: bloodRequest.hospitalName,
+            formattedDistance: formattedDist,
+            requestId: String(bloodRequest._id),
+            matchId: String(m._id),
+          });
+          whatsappCount++;
+        }
+
+        // 3. Send Emergency SMS Alert (Fallback / supplementary alert)
+        if (donorUser && donorUser.phone && smsCount < SMS_MAX_DONORS_PER_REQUEST) {
+          await sendEmergencySMS(
+            donorUser.phone,
+            `WE DONATE Emergency Alert: ${bloodRequest.bloodGroup} blood is urgently required near your location. Open WeDonate app to view request.`
+          );
+          smsCount++;
         }
       }
     } catch (notifErr) {
