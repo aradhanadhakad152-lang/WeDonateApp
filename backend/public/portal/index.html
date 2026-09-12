@@ -529,12 +529,12 @@
       document.getElementById('btnLoginSubmit').disabled = true;
 
       try {
-        let endpoint = '/auth/dev-login';
+        let endpoint = '/auth/admin-login';
         let bodyPayload = {};
 
         if (selectedPortal === 'ADMIN') {
-          endpoint = '/auth/dev-login';
-          bodyPayload = { phone: input, devPassword: password };
+          endpoint = '/auth/admin-login';
+          bodyPayload = input.includes('@') ? { email: input, password } : { phone: input, password };
         } else {
           endpoint = '/organizations/login';
           bodyPayload = input.includes('@') ? { email: input } : { phone: input };

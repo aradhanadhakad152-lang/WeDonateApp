@@ -4,7 +4,7 @@ const express = require('express');
 const router = express.Router();
 const { authLimiter } = require('../middleware/rateLimiter');
 const authenticate = require('../middleware/authenticate');
-const { firebaseLogin, refreshToken, logout, devLogin } = require('../controllers/authController');
+const { firebaseLogin, refreshToken, logout, devLogin, adminLogin } = require('../controllers/authController');
 
 /**
  * Auth Routes
@@ -16,8 +16,12 @@ const { firebaseLogin, refreshToken, logout, devLogin } = require('../controller
 router.post('/firebase-login', authLimiter, firebaseLogin);
 
 // POST /api/v1/auth/dev-login
-// Portal Admin authentication endpoint
+// Development testing endpoint (Disabled in production)
 router.post('/dev-login', authLimiter, devLogin);
+
+// POST /api/v1/auth/admin-login
+// Production Admin portal login endpoint
+router.post('/admin-login', authLimiter, adminLogin);
 
 // POST /api/v1/auth/refresh
 // Accepts refresh token, verifies signature and SHA-256 hash match, returns rotated token pair

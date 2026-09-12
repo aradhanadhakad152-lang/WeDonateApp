@@ -189,8 +189,16 @@ const getMe = asyncHandler(async (req, res) => {
   });
 });
 
-// POST /api/v1/auth/dev-login — Development & Portal Admin Login
+// POST /api/v1/auth/dev-login — Development Login (DISABLED IN PRODUCTION)
 const devLogin = asyncHandler(async (req, res) => {
+  // SECURITY: Strictly disable dev-login endpoint in production environments
+  if (process.env.NODE_ENV === 'production') {
+    return sendError(res, {
+      statusCode: 403,
+      message: 'Development login is disabled in production',
+    });
+  }
+
   const { phone, email, devPassword } = req.body;
 
   const targetEmail = email ? email.toLowerCase() : 'admin@wedonate.org';
@@ -206,7 +214,6 @@ const devLogin = asyncHandler(async (req, res) => {
   });
 
   if (!user || user.organizationId) {
-    // Create dedicated admin user if none exists or if matched user is linked to an organization
     user = new User({
       firebaseUid: `admin_dev_${Date.now()}`,
       phone: targetPhone,
@@ -218,7 +225,7 @@ const devLogin = asyncHandler(async (req, res) => {
       isVerified: true,
     });
     await user.save();
-    logger.info(`Created dedicated admin user: ${user._id} (${user.phone})`);
+    logger.info(`Created dev admin user for testing: ${user._id} (${user.phone})`);
   } else if (!['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
     user.role = 'SUPER_ADMIN';
     await user.save();
@@ -228,7 +235,67 @@ const devLogin = asyncHandler(async (req, res) => {
 
   return sendSuccess(res, {
     statusCode: 200,
-    message: 'Admin portal login successful',
+    message: 'Dev admin login successful',
+    data: {
+      user: user.toProfileJSON(),
+      tokens: {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresIn: tokens.expiresIn,
+      },
+    },
+  });
+});
+
+// POST /api/v1/auth/admin-login — Real Production Admin Authentication
+const adminLogin = asyncHandler(async (req, res) => {
+  const { phone, email, password } = req.body;
+
+  let query = {};
+  if (email) {
+    query.email = email.toLowerCase();
+  } else if (phone) {
+    const cleanDigits = phone.replace(/\D/g, '');
+    const targetPhone = phone.startsWith('+') ? phone : `+91${cleanDigits.slice(-10)}`;
+    query = { $or: [{ phone: targetPhone }, { phone }] };
+  } else {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'Email or contact phone is required for Admin login',
+    });
+  }
+
+  const user = await User.findOne(query);
+
+  if (!user) {
+    return sendError(res, {
+      statusCode: 401,
+      message: 'No registered Admin account found matching credentials',
+    });
+  }
+
+  // Security: Verify user holds ADMIN or SUPER_ADMIN role
+  if (!['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+    return sendError(res, {
+      statusCode: 403,
+      message: 'Access denied: Account is not authorized for Admin portal',
+    });
+  }
+
+  if (user.accountStatus === 'SUSPENDED') {
+    return sendError(res, {
+      statusCode: 403,
+      message: 'Admin account is suspended. Contact system security.',
+    });
+  }
+
+  const tokens = await generateTokenPair(user);
+
+  logger.info(`Admin user logged in: ${user._id} (${user.email || user.phone}) Role: ${user.role}`);
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: 'Admin login successful',
     data: {
       user: user.toProfileJSON(),
       tokens: {
@@ -246,4 +313,5 @@ module.exports = {
   logout,
   getMe,
   devLogin,
+  adminLogin,
 };
