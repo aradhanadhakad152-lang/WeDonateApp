@@ -474,6 +474,37 @@ const setOrganizationPassword = asyncHandler(async (req, res) => {
   });
 });
 
+// GET /api/v1/organizations/audit-logs — Get Audit Logs for Current Organization Staff / Admin
+const getOrganizationAuditLogs = asyncHandler(async (req, res) => {
+  const limit = parseInt(req.query.limit || 50, 10);
+  const filter = {};
+  if (['ADMIN', 'SUPER_ADMIN'].includes(req.user.role)) {
+    // Admin gets all logs
+  } else {
+    const orgIdStr = req.user.organizationId ? req.user.organizationId.toString() : null;
+    if (orgIdStr) {
+      filter.$or = [
+        { performedBy: req.user._id },
+        { entityId: orgIdStr }
+      ];
+    } else {
+      filter.performedBy = req.user._id;
+    }
+  }
+
+  const logs = await AuditLog.find(filter)
+    .populate('performedBy', 'fullName name phone role email')
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .exec();
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: `Retrieved ${logs.length} audit log record(s)`,
+    data: { logs },
+  });
+});
+
 module.exports = {
   registerOrganization,
   loginOrganization,
@@ -483,4 +514,5 @@ module.exports = {
   rejectRequestByHospital,
   updateMyOrganization,
   setOrganizationPassword,
+  getOrganizationAuditLogs,
 };

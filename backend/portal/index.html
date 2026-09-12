@@ -1118,7 +1118,8 @@
 
     async function loadAuditData() {
       try {
-        const data = await apiCall('/admin/audit-logs');
+        const endpoint = ['ADMIN', 'SUPER_ADMIN'].includes(currentUserRole) ? '/admin/audit-logs' : '/organizations/audit-logs';
+        const data = await apiCall(endpoint);
         const tbody = document.getElementById('auditTbody');
         tbody.innerHTML = '';
         if (data.success && data.data.logs.length > 0) {
@@ -1133,6 +1134,8 @@
               </tr>
             `;
           });
+        } else {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No audit log records found.</td></tr>';
         }
       } catch (err) { console.error(err); }
     }
