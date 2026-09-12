@@ -4,12 +4,15 @@ const express = require('express');
 const router = express.Router();
 const { authLimiter } = require('../middleware/rateLimiter');
 const authenticate = require('../middleware/authenticate');
-const { firebaseLogin, phoneLogin, refreshToken, logout, adminLogin, devLogin } = require('../controllers/authController');
+const { firebaseLogin, phoneLogin, refreshToken, logout, adminLogin, devLogin, getWhatsAppStatus } = require('../controllers/authController');
 
 /**
  * Auth Routes
  * Base path: /api/v1/auth
  */
+
+// GET /api/v1/auth/whatsapp-status
+router.get('/whatsapp-status', getWhatsAppStatus);
 
 // POST /api/v1/auth/firebase-login
 // Accepts Firebase ID Token in Authorization header (Bearer <ID_TOKEN>), verifies with Admin SDK, returns JWT pair

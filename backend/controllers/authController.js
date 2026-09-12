@@ -350,6 +350,17 @@ const phoneLogin = asyncHandler(async (req, res) => {
   });
 });
 
+// GET /api/v1/auth/whatsapp-status — Safe WhatsApp environment status query
+const getWhatsAppStatus = asyncHandler(async (req, res) => {
+  const { getWhatsAppConfigStatus } = require('../services/whatsappService');
+  const status = getWhatsAppConfigStatus();
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: 'WhatsApp environment configuration status',
+    data: { whatsappConfig: status },
+  });
+});
+
 module.exports = {
   firebaseLogin,
   phoneLogin,
@@ -358,4 +369,5 @@ module.exports = {
   getMe,
   adminLogin,
   devLogin,
+  getWhatsAppStatus,
 };
