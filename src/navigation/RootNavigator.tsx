@@ -10,6 +10,7 @@ import { RequestBloodScreen } from '../screens/requests/RequestBloodScreen';
 import { RequestDetailsScreen } from '../screens/requests/RequestDetailsScreen';
 import { NearbyDonorsMapScreen } from '../screens/map/NearbyDonorsMapScreen';
 import { DonationCampsScreen } from '../screens/camps/DonationCampsScreen';
+import { FundingScreen } from '../screens/funding/FundingScreen';
 import { User } from '../types/user.types';
 import { BloodRequest } from '../types/request.types';
 
@@ -23,7 +24,8 @@ type ScreenState =
   | 'RequestBlood'
   | 'RequestDetails'
   | 'NearbyDonorsMap'
-  | 'DonationCamps';
+  | 'DonationCamps'
+  | 'Funding';
 
 export const RootNavigator: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<ScreenState>('Splash');
@@ -81,6 +83,8 @@ export const RootNavigator: React.FC = () => {
           onNavigateToProfile={() => setCurrentScreen('DonorProfile')}
           onRequestBlood={() => setCurrentScreen('RequestBlood')}
           onOpenMap={() => setCurrentScreen('NearbyDonorsMap')}
+          onNavigateToCamps={() => setCurrentScreen('DonationCamps')}
+          onNavigateToFunding={() => setCurrentScreen('Funding')}
           onLogout={() => setCurrentScreen('PhoneLogin')}
         />
       )}
@@ -117,6 +121,12 @@ export const RootNavigator: React.FC = () => {
 
       {currentScreen === 'DonationCamps' && (
         <DonationCampsScreen
+          onBack={() => setCurrentScreen('Home')}
+        />
+      )}
+
+      {currentScreen === 'Funding' && (
+        <FundingScreen
           onBack={() => setCurrentScreen('Home')}
         />
       )}

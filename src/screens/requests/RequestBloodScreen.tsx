@@ -32,6 +32,7 @@ export const RequestBloodScreen: React.FC<RequestBloodScreenProps> = ({ onBack, 
   const [isLocating, setIsLocating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [existingActiveRequest, setExistingActiveRequest] = useState<BloodRequest | null>(null);
 
   // Real Hospital Picker Modal & Autocomplete
   const [realHospitals, setRealHospitals] = useState<RealHospital[]>([]);
@@ -115,6 +116,7 @@ export const RequestBloodScreen: React.FC<RequestBloodScreenProps> = ({ onBack, 
 
   const handleSubmit = async () => {
     setErrorMessage('');
+    setExistingActiveRequest(null);
 
     if (!patientName.trim()) {
       setErrorMessage('Please enter the patient full name');
@@ -144,9 +146,16 @@ export const RequestBloodScreen: React.FC<RequestBloodScreenProps> = ({ onBack, 
       onRequestCreated(response.data.data.request);
     } catch (err: any) {
       setIsSubmitting(false);
-      const msg = err?.response?.data?.message || 'Failed to submit blood request. Please try again.';
+      const resData = err?.response?.data;
+      const msg = resData?.message || 'Failed to submit blood request. Please try again.';
+      const existing = resData?.existingRequest || resData?.data?.existingRequest || resData?.data?.request;
+
       setErrorMessage(msg);
-      Alert.alert('Request Error', msg);
+      if (existing) {
+        setExistingActiveRequest(existing);
+      } else {
+        Alert.alert('Request Error', msg);
+      }
     }
   };
 
@@ -163,6 +172,24 @@ export const RequestBloodScreen: React.FC<RequestBloodScreenProps> = ({ onBack, 
         </View>
 
         {!!errorMessage && <Text style={styles.errorBanner}>{errorMessage}</Text>}
+
+        {existingActiveRequest && (
+          <View style={styles.existingCard}>
+            <Text style={styles.existingCardTitle}>🚨 Active Blood Request Exists</Text>
+            <Text style={styles.existingCardBody}>
+              You already have an active request for patient{' '}
+              <Text style={{ fontWeight: '700', color: COLORS.secondary }}>{existingActiveRequest.patientName}</Text> ({' '}
+              <Text style={{ fontWeight: '700', color: COLORS.primary }}>{existingActiveRequest.bloodGroup}</Text>) at{' '}
+              <Text style={{ fontWeight: '700', color: COLORS.secondary }}>{existingActiveRequest.hospitalName}</Text>.
+            </Text>
+            <TouchableOpacity
+              style={styles.existingCardBtn}
+              onPress={() => onRequestCreated(existingActiveRequest)}
+            >
+              <Text style={styles.existingCardBtnText}>View Existing Request ➔</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Blood Group Selector */}
         <View style={styles.formGroup}>
@@ -386,6 +413,39 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'center',
     fontWeight: '600',
+  },
+  existingCard: {
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 18,
+    ...SHADOWS.sm,
+  },
+  existingCardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.danger,
+    marginBottom: 6,
+  },
+  existingCardBody: {
+    fontSize: 13,
+    color: COLORS.textMain,
+    lineHeight: 19,
+    marginBottom: 12,
+  },
+  existingCardBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  existingCardBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
   formGroup: {
     marginBottom: 16,

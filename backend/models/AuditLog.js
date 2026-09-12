@@ -20,6 +20,10 @@ const AUDIT_ACTIONS = [
   'CAMP_COMPLETED_RESULTS_SUBMITTED',
   'USER_STATUS_CHANGED',
   'USER_AVAILABILITY_CHANGED',
+  'DONATION_REGISTERED',
+  'DONATION_APPROVED',
+  'DONATION_REJECTED',
+  'DONATION_COMPLETED',
 ];
 
 /**
@@ -46,7 +50,7 @@ const auditLogSchema = new mongoose.Schema(
     entityType: {
       type: String,
       required: true,
-      enum: ['BloodRequest', 'Organization', 'BloodInventory', 'DonationCamp', 'User', 'DonorMatch'],
+      enum: ['BloodRequest', 'Organization', 'BloodInventory', 'DonationCamp', 'User', 'DonorMatch', 'DonationRegistration'],
       index: true,
     },
     entityId: {

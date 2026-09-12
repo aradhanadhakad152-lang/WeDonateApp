@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Switch } from 'react-native';
 import { useUserStore } from '../../store/userStore';
 import { BloodGroup, Gender } from '../../types/user.types';
 import { COLORS, SHADOWS } from '../../theme/colors';
@@ -12,7 +12,7 @@ interface DonorProfileScreenProps {
 }
 
 export const DonorProfileScreen: React.FC<DonorProfileScreenProps> = ({ onBack }) => {
-  const { profile, updateUserProfile, acquireLocation, isUpdating } = useUserStore();
+  const { profile, updateUserProfile, toggleAvailability, acquireLocation, isUpdating } = useUserStore();
 
   const [fullName, setFullName] = useState(profile?.name || profile?.fullName || '');
   const [email, setEmail] = useState(profile?.email || '');
@@ -104,6 +104,24 @@ export const DonorProfileScreen: React.FC<DonorProfileScreenProps> = ({ onBack }
           <Text style={styles.readOnlySub}>Firebase UID: {profile?.firebaseUid}</Text>
         </View>
 
+        {/* Donor Availability Switch Card */}
+        <View style={styles.availCard}>
+          <View style={{ flex: 1, marginRight: 10 }}>
+            <Text style={styles.availTitle}>🟢 Emergency Donor Availability</Text>
+            <Text style={styles.availSub}>
+              {profile?.isAvailable ?? profile?.donorStatus === 'AVAILABLE'
+                ? 'Visible on Radar Map to nearby emergency requests'
+                : 'Offline from emergency donor matching'}
+            </Text>
+          </View>
+          <Switch
+            trackColor={{ false: '#CBD5E1', true: COLORS.primaryLight }}
+            thumbColor={(profile?.isAvailable ?? profile?.donorStatus === 'AVAILABLE') ? COLORS.primary : '#94A3B8'}
+            onValueChange={(val) => toggleAvailability(val)}
+            value={profile?.isAvailable ?? profile?.donorStatus === 'AVAILABLE'}
+          />
+        </View>
+
         {/* Form Fields */}
         <View style={styles.formGroup}>
           <Text style={styles.label}>FULL NAME</Text>
@@ -174,10 +192,13 @@ const styles = StyleSheet.create({
   backText: { fontSize: 14, color: COLORS.textMuted, fontWeight: '600' },
   navTitle: { fontSize: 18, fontWeight: '800', color: COLORS.secondary },
   errorBanner: { backgroundColor: COLORS.primaryLight, borderColor: '#FFA3A3', borderWidth: 1, color: COLORS.danger, padding: 12, borderRadius: 10, fontSize: 13, marginBottom: 16, textAlign: 'center', fontWeight: '600' },
-  readOnlyCard: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 14, padding: 16, marginBottom: 20, ...SHADOWS.sm },
+  readOnlyCard: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 14, padding: 16, marginBottom: 14, ...SHADOWS.sm },
   readOnlyLabel: { fontSize: 11, color: COLORS.textMuted, fontWeight: '700', textTransform: 'uppercase' },
   readOnlyValue: { fontSize: 16, fontWeight: '800', color: COLORS.success, marginTop: 4 },
   readOnlySub: { fontSize: 11, color: COLORS.textMuted, marginTop: 2 },
+  availCard: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 14, padding: 16, marginBottom: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', ...SHADOWS.sm },
+  availTitle: { fontSize: 14, fontWeight: '800', color: COLORS.secondary },
+  availSub: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
   formGroup: { marginBottom: 16 },
   label: { fontSize: 12, fontWeight: '700', color: COLORS.secondary, marginBottom: 6, letterSpacing: 0.5 },
   input: { backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: COLORS.borderColor, borderRadius: 12, paddingHorizontal: 16, height: 48, fontSize: 15, color: COLORS.textMain },

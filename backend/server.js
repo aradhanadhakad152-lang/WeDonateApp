@@ -206,6 +206,7 @@ app.use(`/api/${API_VERSION}/admin`, adminRoutes);
 app.use(`/api/${API_VERSION}/camps`, campRoutes);
 app.use(`/api/${API_VERSION}/inventory`, inventoryRoutes);
 app.use(`/api/${API_VERSION}/funding`, fundingRoutes);
+app.use(`/api/${API_VERSION}/donations`, donationRoutes);
 
 // ============================================
 // 404 handler — unknown routes

@@ -17,6 +17,8 @@ interface HomeScreenProps {
   onNavigateToProfile: () => void;
   onRequestBlood: () => void;
   onOpenMap?: () => void;
+  onNavigateToCamps?: () => void;
+  onNavigateToFunding?: () => void;
   onLogout: () => void;
 }
 
@@ -26,6 +28,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onNavigateToProfile,
   onRequestBlood,
   onOpenMap,
+  onNavigateToCamps,
+  onNavigateToFunding,
   onLogout,
 }) => {
   const { profile, fetchProfile, toggleAvailability, isLoading: isProfileLoading } = useUserStore();
@@ -276,6 +280,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 <Text style={styles.actionLabel}>Request Blood</Text>
               </TouchableOpacity>
 
+              <TouchableOpacity style={styles.actionCardBtn} onPress={onOpenMap || (() => setActiveTab('Search'))} activeOpacity={0.85}>
+                <View style={[styles.actionIconBox, styles.iconBlue]}>
+                  <Text style={styles.actionIconText}>📍</Text>
+                </View>
+                <Text style={styles.actionLabel}>Find Nearby</Text>
+              </TouchableOpacity>
+
               <TouchableOpacity style={styles.actionCardBtn} onPress={onNavigateToProfile} activeOpacity={0.85}>
                 <View style={[styles.actionIconBox, styles.iconGreen]}>
                   <Text style={styles.actionIconText}>💓</Text>
@@ -283,18 +294,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 <Text style={styles.actionLabel}>Donate Blood</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.actionCardBtn} onPress={onOpenMap || (() => setActiveTab('Search'))} activeOpacity={0.85}>
-                <View style={[styles.actionIconBox, styles.iconBlue]}>
-                  <Text style={styles.actionIconText}>🏦</Text>
+              <TouchableOpacity style={styles.actionCardBtn} onPress={onNavigateToCamps || (() => Alert.alert('Blood Camps', 'Opening Camps Drive...'))} activeOpacity={0.85}>
+                <View style={[styles.actionIconBox, styles.iconPurple]}>
+                  <Text style={styles.actionIconText}>⛺</Text>
                 </View>
-                <Text style={styles.actionLabel}>Blood Banks Map</Text>
+                <Text style={styles.actionLabel}>Donation Camps</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.actionCardBtn} onPress={onOpenMap || (() => setActiveTab('Search'))} activeOpacity={0.85}>
-                <View style={[styles.actionIconBox, styles.iconPurple]}>
-                  <Text style={styles.actionIconText}>🏥</Text>
+              <TouchableOpacity style={styles.actionCardBtn} onPress={onNavigateToFunding || (() => Alert.alert('Fund & Support', 'Opening Funding Campaigns...'))} activeOpacity={0.85}>
+                <View style={[styles.actionIconBox, styles.iconGreen]}>
+                  <Text style={styles.actionIconText}>💚</Text>
                 </View>
-                <Text style={styles.actionLabel}>Hospitals Map</Text>
+                <Text style={styles.actionLabel}>Fund / Support</Text>
               </TouchableOpacity>
 
               {/* 24x7 Emergency Helplines */}

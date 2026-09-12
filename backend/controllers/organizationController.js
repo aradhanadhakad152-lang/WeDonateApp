@@ -221,6 +221,18 @@ const getMyOrganization = asyncHandler(async (req, res) => {
 
   const inventory = await BloodInventory.find({ organizationId: organization._id });
   const criticalLowGroups = inventory.filter((item) => item.availableUnits <= item.lowStockThreshold).map((item) => item.bloodGroup);
+  const totalStockUnits = inventory.reduce((sum, item) => sum + (item.availableUnits || 0), 0);
+
+  const DonationRegistration = require('../models/DonationRegistration');
+  const pendingDonationsCount = await DonationRegistration.countDocuments({
+    organizationId: organization._id,
+    status: 'PENDING_APPROVAL',
+  });
+
+  const completedDonationsCount = await DonationRegistration.countDocuments({
+    organizationId: organization._id,
+    status: 'COMPLETED',
+  });
 
   return sendSuccess(res, {
     statusCode: 200,
@@ -234,6 +246,9 @@ const getMyOrganization = asyncHandler(async (req, res) => {
         fulfilledRequests,
         activeCamps,
         criticalLowGroups,
+        pendingDonationsCount,
+        completedDonationsCount,
+        totalStockUnits,
       },
       inventory,
     },
