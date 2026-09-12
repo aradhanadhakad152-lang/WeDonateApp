@@ -8,6 +8,7 @@ interface EmptyStateProps {
   title: string;
   description: string;
   actionText?: string;
+  actionLabel?: string;
   onAction?: () => void;
   style?: ViewStyle;
 }
@@ -17,17 +18,20 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   title,
   description,
   actionText,
+  actionLabel,
   onAction,
   style,
 }) => {
+  const btnLabel = actionText || actionLabel;
+
   return (
     <View style={[styles.container, style]}>
       <Text style={styles.icon}>{icon}</Text>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.description}>{description}</Text>
-      {!!actionText && !!onAction && (
+      {!!btnLabel && !!onAction && (
         <Button
-          title={actionText}
+          title={btnLabel}
           onPress={onAction}
           variant="outline"
           style={styles.actionBtn}

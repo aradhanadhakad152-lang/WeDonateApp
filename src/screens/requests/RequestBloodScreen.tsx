@@ -321,7 +321,7 @@ export const RequestBloodScreen: React.FC<RequestBloodScreenProps> = ({ onBack, 
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>🏥 Select Real Nearby Hospital</Text>
             {isLoadingHospitals ? (
-              <ActivityIndicator size="medium" color={COLORS.primary} style={{ marginVertical: 20 }} />
+              <ActivityIndicator size="small" color={COLORS.primary} style={{ marginVertical: 20 }} />
             ) : (
               <ScrollView style={{ maxHeight: 300, width: '100%' }}>
                 {realHospitals.map((h) => (

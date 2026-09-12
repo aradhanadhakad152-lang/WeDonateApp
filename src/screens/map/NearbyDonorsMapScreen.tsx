@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Linking, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Linking, Platform, ScrollView } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { getCurrentDeviceLocation, LocationData } from '../../services/locationService';
-import { getNearbyDonors, NearbyDonor } from '../../services/userService';
-import { getNearbyHospitals, RealHospital } from '../../services/hospitalService';
+import { getNearbyDonors, NearbyDonor, updateLocation } from '../../services/userService';
+import { getNearbyHospitals, getNearbyBloodBanks, RealHospital } from '../../services/hospitalService';
 import { BloodGroupBadge } from '../../components/ui/BloodGroupBadge';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -17,50 +17,62 @@ interface NearbyDonorsMapScreenProps {
 export const NearbyDonorsMapScreen: React.FC<NearbyDonorsMapScreenProps> = ({ onBack, onRequestBlood }) => {
   const [userLocation, setUserLocation] = useState<LocationData | null>(null);
   const [isLocating, setIsLocating] = useState(true);
-  const [viewMode, setViewMode] = useState<'DONORS' | 'HOSPITALS'>('DONORS');
+  const [permissionError, setPermissionError] = useState(false);
+  const [viewMode, setViewMode] = useState<'DONORS' | 'HOSPITALS' | 'BLOOD_BANKS'>('DONORS');
   const [radiusKm, setRadiusKm] = useState<number>(10);
   const [selectedBloodGroup, setSelectedBloodGroup] = useState<string | undefined>(undefined);
 
-  // Data
+  // Real Data Lists
   const [donors, setDonors] = useState<NearbyDonor[]>([]);
   const [hospitals, setHospitals] = useState<RealHospital[]>([]);
+  const [bloodBanks, setBloodBanks] = useState<RealHospital[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
 
-  // Selected item card
-  const [selectedItem, setSelectedItem] = useState<{ type: 'DONOR' | 'HOSPITAL'; data: any } | null>(null);
+  // Selected Card Detail
+  const [selectedItem, setSelectedItem] = useState<{ type: 'DONOR' | 'HOSPITAL' | 'BLOOD_BANK'; data: any } | null>(null);
 
-  // Acquire user GPS on mount
-  useEffect(() => {
-    let isMounted = true;
-    const fetchLocation = async () => {
-      setIsLocating(true);
-      const loc = await getCurrentDeviceLocation();
-      if (isMounted) {
-        setIsLocating(false);
-        if (loc) {
-          setUserLocation(loc);
-        } else {
-          Alert.alert('GPS Location Required', 'Please enable location services and grant permission to view nearby donors on the map.');
-          // Default fallback location for India
-          setUserLocation({ latitude: 28.5672, longitude: 77.2100, accuracy: 10, city: 'New Delhi' });
-        }
+  const fetchLocation = async () => {
+    setIsLocating(true);
+    setPermissionError(false);
+    const loc = await getCurrentDeviceLocation();
+    setIsLocating(false);
+    if (loc) {
+      setUserLocation(loc);
+      // Update authenticated user's GPS in backend [longitude, latitude]
+      try {
+        await updateLocation({
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          city: loc.city,
+          state: loc.state,
+          address: loc.address,
+        });
+      } catch (err) {
+        console.warn('Backend location sync error:', err);
       }
-    };
+    } else {
+      setPermissionError(true);
+    }
+  };
+
+  useEffect(() => {
     fetchLocation();
-    return () => { isMounted = false; };
   }, []);
 
-  // Fetch real donors/hospitals when location or filters change
+  // Fetch real map data based on mode & coordinates
   const loadMapData = useCallback(async () => {
     if (!userLocation) return;
     setIsLoadingData(true);
     try {
       if (viewMode === 'DONORS') {
         const result = await getNearbyDonors(userLocation.latitude, userLocation.longitude, radiusKm, selectedBloodGroup);
-        setDonors(result);
-      } else {
+        setDonors(result.slice(0, 100)); // Up to 100 real donors
+      } else if (viewMode === 'HOSPITALS') {
         const result = await getNearbyHospitals(userLocation.latitude, userLocation.longitude, radiusKm);
         setHospitals(result);
+      } else if (viewMode === 'BLOOD_BANKS') {
+        const result = await getNearbyBloodBanks(userLocation.latitude, userLocation.longitude, radiusKm);
+        setBloodBanks(result);
       }
     } catch (err) {
       console.warn('Failed to load map data:', err);
@@ -96,11 +108,32 @@ export const NearbyDonorsMapScreen: React.FC<NearbyDonorsMapScreenProps> = ({ on
     );
   }
 
+  if (permissionError || !userLocation) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.topBar}>
+          <TouchableOpacity style={styles.backBtn} onPress={onBack}>
+            <Text style={styles.backText}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.title}>GPS Location Required</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <EmptyState
+          icon="📍"
+          title="GPS Permission Required"
+          description="WE DONATE requires location access to find nearby blood donors, hospitals, and emergency requests."
+          actionLabel="Grant GPS Permission & Retry"
+          onAction={fetchLocation}
+        />
+      </View>
+    );
+  }
+
   const initialRegion = {
-    latitude: userLocation?.latitude || 28.5672,
-    longitude: userLocation?.longitude || 77.2100,
-    latitudeDelta: radiusKm > 10 ? 0.18 : 0.08,
-    longitudeDelta: radiusKm > 10 ? 0.18 : 0.08,
+    latitude: userLocation.latitude,
+    longitude: userLocation.longitude,
+    latitudeDelta: radiusKm > 20 ? 0.35 : radiusKm > 10 ? 0.18 : 0.08,
+    longitudeDelta: radiusKm > 20 ? 0.35 : radiusKm > 10 ? 0.18 : 0.08,
   };
 
   return (
@@ -116,14 +149,14 @@ export const NearbyDonorsMapScreen: React.FC<NearbyDonorsMapScreenProps> = ({ on
         </TouchableOpacity>
       </View>
 
-      {/* Mode Filter Toggle: Donors vs Hospitals */}
+      {/* Mode Filter Toggle: Donors vs Hospitals vs Blood Banks */}
       <View style={styles.filterRow}>
         <TouchableOpacity
           style={[styles.toggleBtn, viewMode === 'DONORS' && styles.toggleBtnActive]}
           onPress={() => { setViewMode('DONORS'); setSelectedItem(null); }}
         >
           <Text style={[styles.toggleBtnText, viewMode === 'DONORS' && styles.toggleBtnTextActive]}>
-            💓 Registered Donors ({donors.length})
+            💓 Donors ({donors.length})
           </Text>
         </TouchableOpacity>
 
@@ -132,23 +165,55 @@ export const NearbyDonorsMapScreen: React.FC<NearbyDonorsMapScreenProps> = ({ on
           onPress={() => { setViewMode('HOSPITALS'); setSelectedItem(null); }}
         >
           <Text style={[styles.toggleBtnText, viewMode === 'HOSPITALS' && styles.toggleBtnTextActive]}>
-            🏥 Real Hospitals ({hospitals.length})
+            🏥 Hospitals ({hospitals.length})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.toggleBtn, viewMode === 'BLOOD_BANKS' && styles.toggleBtnActive]}
+          onPress={() => { setViewMode('BLOOD_BANKS'); setSelectedItem(null); }}
+        >
+          <Text style={[styles.toggleBtnText, viewMode === 'BLOOD_BANKS' && styles.toggleBtnTextActive]}>
+            🏦 Banks ({bloodBanks.length})
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Radius Chips */}
-      <View style={styles.radiusRow}>
-        <Text style={styles.radiusLabel}>Radius:</Text>
-        {[2, 5, 10, 20].map((r) => (
-          <TouchableOpacity
-            key={r}
-            style={[styles.radiusChip, radiusKm === r && styles.radiusChipActive]}
-            onPress={() => setRadiusKm(r)}
-          >
-            <Text style={[styles.radiusChipText, radiusKm === r && styles.radiusChipTextActive]}>{r} km</Text>
-          </TouchableOpacity>
-        ))}
+      {/* Radius Chips & Blood Group Filter */}
+      <View style={styles.filterBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+          <Text style={styles.radiusLabel}>Radius:</Text>
+          {[2, 5, 10, 20, 50].map((r) => (
+            <TouchableOpacity
+              key={r}
+              style={[styles.radiusChip, radiusKm === r && styles.radiusChipActive]}
+              onPress={() => setRadiusKm(r)}
+            >
+              <Text style={[styles.radiusChipText, radiusKm === r && styles.radiusChipTextActive]}>{r} km</Text>
+            </TouchableOpacity>
+          ))}
+
+          {viewMode === 'DONORS' && (
+            <>
+              <Text style={[styles.radiusLabel, { marginLeft: 12 }]}>Blood:</Text>
+              <TouchableOpacity
+                style={[styles.radiusChip, !selectedBloodGroup && styles.radiusChipActive]}
+                onPress={() => setSelectedBloodGroup(undefined)}
+              >
+                <Text style={[styles.radiusChipText, !selectedBloodGroup && styles.radiusChipTextActive]}>All</Text>
+              </TouchableOpacity>
+              {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((bg) => (
+                <TouchableOpacity
+                  key={bg}
+                  style={[styles.radiusChip, selectedBloodGroup === bg && styles.radiusChipActive]}
+                  onPress={() => setSelectedBloodGroup(bg)}
+                >
+                  <Text style={[styles.radiusChipText, selectedBloodGroup === bg && styles.radiusChipTextActive]}>{bg}</Text>
+                </TouchableOpacity>
+              ))}
+            </>
+          )}
+        </ScrollView>
       </View>
 
       {/* Google Map View */}
@@ -164,48 +229,78 @@ export const NearbyDonorsMapScreen: React.FC<NearbyDonorsMapScreenProps> = ({ on
           {userLocation && (
             <Marker
               coordinate={{ latitude: userLocation.latitude, longitude: userLocation.longitude }}
-              title="Your Current Location"
+              title="Your Current Position"
               description={userLocation.city || 'GPS Position'}
               pinColor="#0284C7"
             />
           )}
 
-          {/* Donor Markers */}
+          {/* Real Donor Markers from MongoDB */}
           {viewMode === 'DONORS' &&
-            donors.map((d) => (
-              <Marker
-                key={d.id}
-                coordinate={{
-                  latitude: d.location?.coordinates[1] || userLocation!.latitude + 0.003,
-                  longitude: d.location?.coordinates[0] || userLocation!.longitude + 0.003,
-                }}
-                title={`${d.fullName || d.name} (${d.bloodGroup})`}
-                description={`📍 ${d.formattedDistance} away`}
-                onPress={() => setSelectedItem({ type: 'DONOR', data: d })}
-              >
-                <View style={styles.donorMarkerPin}>
-                  <Text style={styles.donorMarkerText}>{d.bloodGroup}</Text>
-                </View>
-              </Marker>
-            ))}
+            donors.map((d) => {
+              const coords = d.location?.coordinates;
+              if (!coords || (coords[0] === 0 && coords[1] === 0)) return null;
+              return (
+                <Marker
+                  key={d.id}
+                  coordinate={{
+                    latitude: coords[1],
+                    longitude: coords[0],
+                  }}
+                  title={`${d.fullName || d.name} (${d.bloodGroup})`}
+                  description={`📍 ${d.formattedDistance} away • ${d.location?.city || 'Locality'}`}
+                  onPress={() => setSelectedItem({ type: 'DONOR', data: d })}
+                >
+                  <View style={styles.donorMarkerPin}>
+                    <Text style={styles.donorMarkerText}>{d.bloodGroup}</Text>
+                  </View>
+                </Marker>
+              );
+            })}
 
-          {/* Hospital Markers */}
+          {/* Real Hospital Markers from Google Places */}
           {viewMode === 'HOSPITALS' &&
-            hospitals.map((h) => (
-              <Marker
-                key={h.id}
-                coordinate={{ latitude: h.latitude, longitude: h.longitude }}
-                title={h.name}
-                description={`📍 ${h.formattedDistance} • ${h.address}`}
-                pinColor="#FF4D4D"
-                onPress={() => setSelectedItem({ type: 'HOSPITAL', data: h })}
-              />
-            ))}
+            hospitals.map((h) => {
+              if (!h.latitude || !h.longitude) return null;
+              return (
+                <Marker
+                  key={h.id}
+                  coordinate={{ latitude: h.latitude, longitude: h.longitude }}
+                  title={h.name}
+                  description={`📍 ${h.formattedDistance} • ${h.address}`}
+                  pinColor="#FF4D4D"
+                  onPress={() => setSelectedItem({ type: 'HOSPITAL', data: h })}
+                />
+              );
+            })}
+
+          {/* Real Blood Bank Markers from Google Places */}
+          {viewMode === 'BLOOD_BANKS' &&
+            bloodBanks.map((b) => {
+              if (!b.latitude || !b.longitude) return null;
+              return (
+                <Marker
+                  key={b.id}
+                  coordinate={{ latitude: b.latitude, longitude: b.longitude }}
+                  title={b.name}
+                  description={`📍 ${b.formattedDistance} • ${b.address}`}
+                  pinColor="#8B5CF6"
+                  onPress={() => setSelectedItem({ type: 'BLOOD_BANK', data: b })}
+                />
+              );
+            })}
         </MapView>
 
         {isLoadingData && (
           <View style={styles.mapOverlayLoading}>
-            <ActivityIndicator size="medium" color={COLORS.primary} />
+            <ActivityIndicator size="small" color={COLORS.primary} />
+          </View>
+        )}
+
+        {/* Google Places Required Attribution */}
+        {(viewMode === 'HOSPITALS' || viewMode === 'BLOOD_BANKS') && (
+          <View style={styles.googleAttributionBadge}>
+            <Text style={styles.googleAttributionText}>Powered by Google</Text>
           </View>
         )}
       </View>
@@ -216,9 +311,9 @@ export const NearbyDonorsMapScreen: React.FC<NearbyDonorsMapScreenProps> = ({ on
           <EmptyState
             icon="🩸"
             title={`No ${selectedBloodGroup || ''} Donors Within ${radiusKm} km`}
-            description="Try expanding your search radius to 20 km to locate nearby registered donors."
-            actionText="Expand Radius to 20 km"
-            onAction={() => setRadiusKm(20)}
+            description="Try expanding your search radius to 20 km or 50 km to locate nearby registered donors."
+            actionLabel="Expand Radius to 50 km"
+            onAction={() => setRadiusKm(50)}
           />
         </View>
       )}
@@ -312,14 +407,14 @@ const styles = StyleSheet.create({
 
   filterRow: {
     flexDirection: 'row',
-    padding: 12,
-    gap: 10,
+    padding: 10,
+    gap: 6,
     backgroundColor: '#FFFFFF',
   },
   toggleBtn: {
     flex: 1,
-    height: 42,
-    borderRadius: 12,
+    height: 40,
+    borderRadius: 10,
     backgroundColor: COLORS.bgMain,
     borderWidth: 1,
     borderColor: COLORS.borderColor,
@@ -331,7 +426,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
   },
   toggleBtnText: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '700',
     color: COLORS.secondary,
   },
@@ -339,26 +434,28 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  radiusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 10,
-    gap: 8,
+  filterBar: {
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: COLORS.borderColor,
+    paddingVertical: 8,
+  },
+  filterScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    gap: 8,
   },
   radiusLabel: {
     fontSize: 12,
     fontWeight: '700',
     color: COLORS.textMuted,
-    marginRight: 4,
+    marginRight: 2,
   },
   radiusChip: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 16,
+    borderRadius: 14,
     backgroundColor: COLORS.bgMain,
     borderWidth: 1,
     borderColor: COLORS.borderColor,
@@ -368,7 +465,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.secondary,
   },
   radiusChipText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: COLORS.secondary,
   },
@@ -392,6 +489,20 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 8,
     elevation: 4,
+  },
+  googleAttributionBadge: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  googleAttributionText: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+    fontWeight: '600',
   },
 
   donorMarkerPin: {

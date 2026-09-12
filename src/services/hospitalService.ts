@@ -17,9 +17,9 @@ export interface RealHospital {
   longitude: number;
   distanceKm: number;
   formattedDistance: string;
-  phone?: string;
-  rating?: number;
-  isOpenNow?: boolean;
+  phone?: string | null;
+  rating?: number | null;
+  isOpenNow?: boolean | null;
 }
 
 /**
@@ -60,7 +60,7 @@ export const getHospitalAutocomplete = async (
     return response.data.data!;
   } catch (error) {
     console.error('Failed to autocomplete hospitals:', error);
-    return { suggestions: [], attribution: 'Places Service' };
+    return { suggestions: [], attribution: 'Powered by Google' };
   }
 };
 
@@ -80,6 +80,26 @@ export const getNearbyHospitals = async (
     return response.data.data!.hospitals;
   } catch (error) {
     console.error('Failed to fetch nearby hospitals:', error);
+    return [];
+  }
+};
+
+/**
+ * Fetches real nearby blood banks via backend Google Places API proxy based on user's GPS coordinates.
+ */
+export const getNearbyBloodBanks = async (
+  latitude: number,
+  longitude: number,
+  radiusKm = 10
+): Promise<RealHospital[]> => {
+  try {
+    const response = await api.get<ApiSuccessResponse<{ hospitals: RealHospital[]; attribution: string }>>(
+      '/hospitals/blood-banks',
+      { params: { latitude, longitude, radius: radiusKm } }
+    );
+    return response.data.data!.hospitals;
+  } catch (error) {
+    console.error('Failed to fetch nearby blood banks:', error);
     return [];
   }
 };

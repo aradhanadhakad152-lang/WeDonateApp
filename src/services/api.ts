@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getAccessToken, getRefreshToken, saveTokens, clearTokens } from '../utils/tokenStorage';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://wedonateapp.onrender.com';
+const API_BASE_URL = 'https://wedonateapp.onrender.com';
 
 export const api = axios.create({
   baseURL: `${API_BASE_URL}/api/v1`,

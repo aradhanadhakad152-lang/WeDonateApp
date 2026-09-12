@@ -1,4 +1,4 @@
-export type BloodGroup = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-', 'O+' | 'O-';
+export type BloodGroup = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
 export type UserRole = 'CITIZEN' | 'HOSPITAL_STAFF' | 'ADMIN';
 export type AccountStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING_VERIFICATION';
 export type DonorStatus = 'AVAILABLE' | 'UNAVAILABLE' | 'INELIGIBLE';

@@ -2,7 +2,7 @@ import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { api } from './api';
 import { saveTokens, clearTokens, getRefreshToken } from '../utils/tokenStorage';
 import { User } from '../types/user.types';
-import { LoginResponse } from '../types/api.types';
+import { ApiSuccessResponse, LoginResponse } from '../types/api.types';
 
 /**
  * Client Authentication Service
@@ -21,13 +21,13 @@ export const devLogin = async (
   email?: string
 ): Promise<User> => {
   try {
-    const response = await api.post<LoginResponse>('/auth/dev-login', {
+    const response = await api.post<ApiSuccessResponse<LoginResponse>>('/auth/dev-login', {
       phone,
       fullName,
       email,
     });
 
-    const { user, tokens } = response.data.data;
+    const { user, tokens } = response.data.data!;
 
     // Save Access Token & Refresh Token securely in expo-secure-store
     await saveTokens(tokens.accessToken, tokens.refreshToken);
@@ -70,13 +70,13 @@ export const verifyOTPAndLogin = async (
     const idToken = await credential.user.getIdToken(/* forceRefresh */ true);
 
     // 3. Send Firebase ID Token to backend API
-    const response = await api.post<LoginResponse>('/auth/firebase-login', { deviceToken }, {
+    const response = await api.post<ApiSuccessResponse<LoginResponse>>('/auth/firebase-login', { deviceToken }, {
       headers: {
         Authorization: `Bearer ${idToken}`,
       },
     });
 
-    const { user, tokens } = response.data.data;
+    const { user, tokens } = response.data.data!;
 
     // 4. Save Access Token & Refresh Token securely in expo-secure-store
     await saveTokens(tokens.accessToken, tokens.refreshToken);

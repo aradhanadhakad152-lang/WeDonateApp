@@ -1,9 +1,7 @@
-// Type stubs — Milestone 1
-
 import { BloodGroup } from './user.types';
 
-export type RequestStatus = 'PENDING' | 'VERIFIED' | 'FULFILLED' | 'CANCELLED';
-export type UrgencyLevel = 'NORMAL' | 'URGENT' | 'EMERGENCY';
+export type RequestStatus = 'OPEN' | 'MATCHING' | 'ACCEPTED' | 'FULFILLED' | 'CANCELLED' | 'EXPIRED';
+export type UrgencyLevel = 'CRITICAL' | 'HIGH' | 'URGENT' | 'NORMAL';
 
 export interface RequestLocation {
   type: 'Point';
@@ -12,31 +10,41 @@ export interface RequestLocation {
 
 export interface BloodRequest {
   id: string;
+  _id?: string;
+  requesterId?: any;
+  createdBy?: string;
+  patientName: string;
   bloodGroup: BloodGroup;
   unitsRequired: number;
   urgency: UrgencyLevel;
-  hospitalName?: string;
+  hospitalName: string;
+  hospitalAddress: string;
+  hospitalLatitude?: number;
+  hospitalLongitude?: number;
   location: RequestLocation;
-  contactName: string;
   contactPhone: string;
-  description?: string;
+  requiredBy?: string;
+  reason?: string;
+  additionalNotes?: string;
   status: RequestStatus;
-  createdBy: string;
-  verifiedBy?: string;
-  verifiedAt?: string;
+  acceptedDonorId?: string | null;
   fulfilledAt?: string;
+  cancelledAt?: string;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateBloodRequestPayload {
+  patientName: string;
   bloodGroup: BloodGroup;
   unitsRequired: number;
-  urgency: UrgencyLevel;
-  hospitalName?: string;
-  latitude: number;
-  longitude: number;
-  contactName: string;
+  urgency?: UrgencyLevel;
+  hospitalName: string;
+  hospitalAddress: string;
+  hospitalLatitude: number;
+  hospitalLongitude: number;
   contactPhone: string;
-  description?: string;
+  requiredBy?: string;
+  reason?: string;
+  additionalNotes?: string;
 }

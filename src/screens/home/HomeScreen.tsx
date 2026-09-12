@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator, TextInput, Modal } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator, TextInput, Modal, Platform } from 'react-native';
 import { useUserStore } from '../../store/userStore';
 import { useRequestStore } from '../../store/requestStore';
 import { logoutUser } from '../../services/authService';
-import { getNearbyHospitals, RealHospital } from '../../services/hospitalService';
+import { getCurrentDeviceLocation, LocationData } from '../../services/locationService';
+import { updateLocation } from '../../services/userService';
+import { getNearbyHospitals, getHospitalAutocomplete, RealHospital, HospitalSuggestion } from '../../services/hospitalService';
 import { BottomNav, TabName } from '../../components/ui/BottomNav';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { StatusBadge } from '../../components/ui/StatusBadge';
@@ -17,6 +19,8 @@ interface HomeScreenProps {
   onLogout: () => void;
 }
 
+type HistoryFilter = 'ALL' | 'OPEN' | 'EXPIRED';
+
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   onNavigateToProfile,
   onRequestBlood,
@@ -24,20 +28,49 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onLogout,
 }) => {
   const { profile, fetchProfile, toggleAvailability, isLoading: isProfileLoading } = useUserStore();
-  const { myRequests, fetchMyRequests, isLoading: isRequestsLoading } = useRequestStore();
+  const { requests, myRequests, fetchRequests, fetchMyRequests, isLoading: isRequestsLoading } = useRequestStore();
 
   const [activeTab, setActiveTab] = useState<TabName>('Home');
+  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSOSModal, setShowSOSModal] = useState(false);
 
-  // Real Nearby Hospitals for Search Tab
+  // User GPS Location
+  const [userLocation, setUserLocation] = useState<LocationData | null>(null);
+
+  // Live Hospital Search Autocomplete
+  const [hospitalSuggestions, setHospitalSuggestions] = useState<HospitalSuggestion[]>([]);
   const [nearbyHospitalsList, setNearbyHospitalsList] = useState<RealHospital[]>([]);
   const [isSearchingHospitals, setIsSearchingHospitals] = useState(false);
+  const [googleAttribution, setGoogleAttribution] = useState('');
 
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Acquire real GPS position and sync profile
   useEffect(() => {
     fetchProfile();
+    fetchRequests({ status: 'OPEN' });
     fetchMyRequests();
-  }, [fetchProfile, fetchMyRequests]);
+
+    const acquireGPS = async () => {
+      const loc = await getCurrentDeviceLocation();
+      if (loc) {
+        setUserLocation(loc);
+        try {
+          await updateLocation({
+            latitude: loc.latitude,
+            longitude: loc.longitude,
+            city: loc.city,
+            state: loc.state,
+            address: loc.address,
+          });
+        } catch {
+          // Ignore location sync errors
+        }
+      }
+    };
+    acquireGPS();
+  }, [fetchProfile, fetchRequests, fetchMyRequests]);
 
   useEffect(() => {
     if (activeTab === 'History') {
@@ -49,14 +82,40 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const loadNearbyHospitals = async () => {
     setIsSearchingHospitals(true);
-    const lat = profile?.location?.coordinates[1] || 28.5672;
-    const lng = profile?.location?.coordinates[0] || 77.2100;
+    const lat = userLocation?.latitude || profile?.location?.coordinates[1] || 28.5672;
+    const lng = userLocation?.longitude || profile?.location?.coordinates[0] || 77.2100;
     try {
       const list = await getNearbyHospitals(lat, lng, 15);
       setNearbyHospitalsList(list);
     } catch {
       setNearbyHospitalsList([]);
     } finally {
+      setIsSearchingHospitals(false);
+    }
+  };
+
+  // Live Google Places Autocomplete with 400ms debounce
+  const handleSearchInputChange = (text: string) => {
+    setSearchQuery(text);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+
+    if (text.trim().length >= 2) {
+      setIsSearchingHospitals(true);
+      searchDebounceRef.current = setTimeout(async () => {
+        const lat = userLocation?.latitude || profile?.location?.coordinates[1];
+        const lng = userLocation?.longitude || profile?.location?.coordinates[0];
+        try {
+          const res = await getHospitalAutocomplete(text.trim(), lat, lng);
+          setHospitalSuggestions(res.suggestions || []);
+          setGoogleAttribution(res.attribution || '');
+        } catch {
+          setHospitalSuggestions([]);
+        } finally {
+          setIsSearchingHospitals(false);
+        }
+      }, 400);
+    } else {
+      setHospitalSuggestions([]);
       setIsSearchingHospitals(false);
     }
   };
@@ -88,20 +147,30 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     );
   }
 
-  const nameVal = profile?.name || profile?.fullName || 'WeDonate Donor';
+  const nameVal = profile?.name || profile?.fullName || 'WeDonate Member';
   const bloodGroupVal = profile?.bloodGroup || 'B+';
   const isAvailable = profile?.isAvailable ?? profile?.donorStatus === 'AVAILABLE';
   const initials = nameVal.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'WD';
 
-  const filteredHospitals = nearbyHospitalsList.filter(
-    (h) =>
-      h.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      h.address.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter History Requests: ALL, OPEN, EXPIRED
+  const filteredHistory = myRequests.filter((r) => {
+    const isPastRequired = r.requiredBy && new Date() > new Date(r.requiredBy);
+    const isOpenStatus = ['OPEN', 'MATCHING', 'ACCEPTED'].includes(r.status);
+
+    if (historyFilter === 'OPEN') {
+      return isOpenStatus && !isPastRequired;
+    }
+    if (historyFilter === 'EXPIRED') {
+      return isPastRequired || ['EXPIRED', 'CANCELLED', 'FULFILLED'].includes(r.status);
+    }
+    return true; // ALL
+  });
+
+  const activeEmergencyRequest = requests.length > 0 ? requests[0] : null;
 
   return (
     <View style={styles.mainWrapper}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {/* ================= TAB 1: HOME DASHBOARD ================= */}
         {activeTab === 'Home' && (
           <>
@@ -115,7 +184,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   <View>
                     <Text style={styles.dashUserName}>{nameVal}</Text>
                     <Text style={styles.dashUserLocation}>
-                      📍 {profile?.location?.city || 'New Delhi'} • Connected via GPS
+                      📍 {userLocation?.city || profile?.location?.city || 'GPS Position'}
                     </Text>
                   </View>
                 </View>
@@ -137,72 +206,76 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               </View>
             </View>
 
-            {/* Emergency Banner Card */}
+            {/* Live Emergency Alert Banner Card */}
             <View style={styles.emergencyCardWrapper}>
-              <View style={styles.emergencyBannerCard}>
-                <View style={styles.emergencyBannerTop}>
-                  <Text style={styles.emergencyBadge}>EMERGENCY ALERT</Text>
-                  <Text style={styles.emergencyTime}>Active</Text>
+              {activeEmergencyRequest ? (
+                <View style={styles.emergencyBannerCard}>
+                  <View style={styles.emergencyBannerTop}>
+                    <Text style={styles.emergencyBadge}>LIVE EMERGENCY</Text>
+                    <StatusBadge status={activeEmergencyRequest.status} />
+                  </View>
+                  <Text style={styles.emergencyTitle}>
+                    {activeEmergencyRequest.bloodGroup} BLOOD REQUIRED FOR {activeEmergencyRequest.patientName.toUpperCase()}
+                  </Text>
+                  <Text style={styles.emergencySub}>
+                    🏥 {activeEmergencyRequest.hospitalName} • {activeEmergencyRequest.unitsRequired} Unit(s) Needed
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.btnRespondDonor}
+                    onPress={onRequestBlood}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.btnRespondDonorText}>Respond or Create Request  🚨</Text>
+                  </TouchableOpacity>
                 </View>
-                <Text style={styles.emergencyTitle}>CRITICAL {bloodGroupVal} BLOOD REQUIRED</Text>
-                <Text style={styles.emergencySub}>AIIMS Trauma Centre • Emergency Blood Unit</Text>
-                <TouchableOpacity
-                  style={styles.btnRespondDonor}
-                  onPress={onRequestBlood}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.btnRespondDonorText}>Create Emergency Request  🚨</Text>
-                </TouchableOpacity>
-              </View>
+              ) : (
+                <View style={[styles.emergencyBannerCard, { backgroundColor: COLORS.bgMain, borderColor: COLORS.borderColor }]}>
+                  <Text style={[styles.emergencyTitle, { color: COLORS.secondary }]}>No Active Emergency Requests</Text>
+                  <Text style={styles.availabilitySub}>
+                    Create an emergency blood request whenever blood is urgently required.
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.btnRespondDonor, { backgroundColor: COLORS.primary }]}
+                    onPress={onRequestBlood}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.btnRespondDonorText}>Request Emergency Blood  📋</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
 
-            {/* Core Action Grid (5 Quick Buttons matching HTML) */}
+            {/* Core Action Grid */}
             <View style={styles.coreActionGrid}>
-              <TouchableOpacity
-                style={styles.actionCardBtn}
-                onPress={onRequestBlood}
-                activeOpacity={0.85}
-              >
+              <TouchableOpacity style={styles.actionCardBtn} onPress={onRequestBlood} activeOpacity={0.85}>
                 <View style={[styles.actionIconBox, styles.iconRed]}>
                   <Text style={styles.actionIconText}>📋</Text>
                 </View>
                 <Text style={styles.actionLabel}>Request Blood</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.actionCardBtn}
-                onPress={onNavigateToProfile}
-                activeOpacity={0.85}
-              >
+              <TouchableOpacity style={styles.actionCardBtn} onPress={onNavigateToProfile} activeOpacity={0.85}>
                 <View style={[styles.actionIconBox, styles.iconGreen]}>
                   <Text style={styles.actionIconText}>💓</Text>
                 </View>
                 <Text style={styles.actionLabel}>Donate Blood</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.actionCardBtn}
-                onPress={onOpenMap || (() => setActiveTab('Search'))}
-                activeOpacity={0.85}
-              >
+              <TouchableOpacity style={styles.actionCardBtn} onPress={onOpenMap || (() => setActiveTab('Search'))} activeOpacity={0.85}>
                 <View style={[styles.actionIconBox, styles.iconBlue]}>
                   <Text style={styles.actionIconText}>🏦</Text>
                 </View>
                 <Text style={styles.actionLabel}>Blood Banks Map</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.actionCardBtn}
-                onPress={onOpenMap || (() => setActiveTab('Search'))}
-                activeOpacity={0.85}
-              >
+              <TouchableOpacity style={styles.actionCardBtn} onPress={onOpenMap || (() => setActiveTab('Search'))} activeOpacity={0.85}>
                 <View style={[styles.actionIconBox, styles.iconPurple]}>
                   <Text style={styles.actionIconText}>🏥</Text>
                 </View>
                 <Text style={styles.actionLabel}>Hospitals Map</Text>
               </TouchableOpacity>
 
-              {/* SOS Active Emergency (Full Width) */}
+              {/* 24x7 Emergency Helplines */}
               <TouchableOpacity
                 style={[styles.actionCardBtn, styles.actionCardSOS]}
                 onPress={() => setShowSOSModal(true)}
@@ -212,7 +285,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   <Text style={styles.actionIconText}>📞</Text>
                 </View>
                 <Text style={[styles.actionLabel, { color: COLORS.primary }]}>
-                  Active Emergency 24x7 SOS
+                  Emergency Helplines & SOS
                 </Text>
               </TouchableOpacity>
             </View>
@@ -235,7 +308,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </>
         )}
 
-        {/* ================= TAB 2: SEARCH BLOOD BANKS & HOSPITALS ================= */}
+        {/* ================= TAB 2: SEARCH HOSPITALS & BLOOD BANKS ================= */}
         {activeTab === 'Search' && (
           <View style={styles.tabSection}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -249,57 +322,92 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
             <TextInput
               style={styles.searchInput}
-              placeholder="🔍 Search hospital, address or category..."
+              placeholder="🔍 Search hospital (e.g. AIIMS, Fortis, Max)..."
               placeholderTextColor="#94A3B8"
               value={searchQuery}
-              onChangeText={setSearchQuery}
+              onChangeText={handleSearchInputChange}
             />
 
-            {isSearchingHospitals ? (
+            {/* Live Autocomplete Suggestions */}
+            {hospitalSuggestions.length > 0 ? (
+              <View style={styles.cardList}>
+                {hospitalSuggestions.map((s, idx) => (
+                  <TouchableOpacity
+                    key={s.placeId || idx}
+                    style={styles.itemCard}
+                    onPress={() => {
+                      Alert.alert(s.name, s.address || 'Medical Facility');
+                    }}
+                  >
+                    <Text style={styles.itemCardName}>🏥 {s.name}</Text>
+                    {!!s.address && <Text style={styles.itemCardSub}>{s.address}</Text>}
+                  </TouchableOpacity>
+                ))}
+                {!!googleAttribution && (
+                  <Text style={styles.attributionText}>{googleAttribution}</Text>
+                )}
+              </View>
+            ) : isSearchingHospitals ? (
               <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
-            ) : filteredHospitals.length === 0 ? (
+            ) : nearbyHospitalsList.length === 0 ? (
               <EmptyState
                 icon="🏥"
                 title="No Nearby Hospitals Found"
-                description="Make sure GPS is enabled to discover medical facilities near your location."
+                description="Make sure GPS location is enabled to discover nearby hospitals and blood banks."
                 actionLabel="Open Map Radar"
                 onAction={onOpenMap}
               />
             ) : (
               <View style={styles.cardList}>
-                {filteredHospitals.map((h) => (
+                {nearbyHospitalsList.map((h) => (
                   <View key={h.id} style={styles.itemCard}>
                     <View style={styles.itemCardHeader}>
                       <Text style={styles.itemCardName}>{h.name}</Text>
                       <Text style={styles.itemCardDistance}>📍 {h.formattedDistance}</Text>
                     </View>
-                    <Text style={styles.itemCardSub}>{h.address}</Text>
-                    <Text style={styles.itemCardStock}>🏥 Phone: {h.phone || '+91 11 2658 8500'}</Text>
+                    <Text style={styles.itemCardSub}>{h.address || 'Medical Zone'}</Text>
+                    {!!h.phone && <Text style={styles.itemCardStock}>📞 {h.phone}</Text>}
                   </View>
                 ))}
+                <Text style={styles.attributionText}>Powered by Google</Text>
               </View>
             )}
           </View>
         )}
 
-        {/* ================= TAB 3: REQUEST HISTORY ================= */}
+        {/* ================= TAB 3: REQUEST HISTORY WITH FILTERS ================= */}
         {activeTab === 'History' && (
           <View style={styles.tabSection}>
-            <Text style={styles.tabSectionTitle}>My Requests</Text>
+            <Text style={styles.tabSectionTitle}>Request History</Text>
+
+            {/* Filter Chips: ALL, OPEN, EXPIRED */}
+            <View style={styles.filterChipRow}>
+              {(['ALL', 'OPEN', 'EXPIRED'] as HistoryFilter[]).map((f) => (
+                <TouchableOpacity
+                  key={f}
+                  style={[styles.historyFilterChip, historyFilter === f && styles.historyFilterChipActive]}
+                  onPress={() => setHistoryFilter(f)}
+                >
+                  <Text style={[styles.historyFilterText, historyFilter === f && styles.historyFilterTextActive]}>
+                    {f}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
             {isRequestsLoading ? (
               <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
-            ) : myRequests.length === 0 ? (
+            ) : filteredHistory.length === 0 ? (
               <EmptyState
                 icon="📋"
-                title="No Blood Requests Found"
-                description="You haven't created any emergency blood requests yet."
+                title={`No ${historyFilter === 'ALL' ? '' : historyFilter} Blood Requests`}
+                description="Your emergency blood request history will be displayed here."
                 actionLabel="Request Blood Now ➔"
                 onAction={onRequestBlood}
               />
             ) : (
               <View style={styles.cardList}>
-                {myRequests.map((r) => (
+                {filteredHistory.map((r) => (
                   <View key={r.id || r._id} style={styles.itemCard}>
                     <View style={styles.itemCardHeader}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -328,7 +436,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 <Text style={styles.profileAvatarText}>{initials}</Text>
               </View>
               <Text style={styles.profileName}>{nameVal}</Text>
-              <Text style={styles.profilePhone}>{profile?.phone || '+91 98765 12345'}</Text>
+              <Text style={styles.profilePhone}>{profile?.phone || 'Connected Member'}</Text>
               <Text style={styles.profileBlood}>Blood Group: {bloodGroupVal}</Text>
 
               <TouchableOpacity style={styles.btnEditProfile} onPress={onNavigateToProfile}>
@@ -347,10 +455,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       <Modal visible={showSOSModal} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>📞 24x7 Emergency Helplines</Text>
+            <Text style={styles.modalTitle}>📞 Emergency Helplines</Text>
             <Text style={styles.modalSub}>National Blood Helpline: 104</Text>
-            <Text style={styles.modalSub}>Ambulance Emergency: 102 / 108</Text>
-            <Text style={styles.modalSub}>WE DONATE Control Room: +91 11 2658 8888</Text>
+            <Text style={styles.modalSub}>Ambulance Service: 102 / 108</Text>
 
             <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowSOSModal(false)}>
               <Text style={styles.modalCloseText}>Close</Text>
@@ -494,10 +601,6 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 4,
   },
-  emergencyTime: {
-    color: '#94A3B8',
-    fontSize: 11,
-  },
   emergencyTitle: {
     color: '#FF4D4D',
     fontSize: 16,
@@ -523,7 +626,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  /* Core Action Grid (5 Quick Buttons) */
+  /* Core Action Grid */
   coreActionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -633,6 +736,31 @@ const styles = StyleSheet.create({
     color: COLORS.textMain,
     marginBottom: 16,
   },
+  filterChipRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  historyFilterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: COLORS.borderColor,
+  },
+  historyFilterChipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  historyFilterText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.secondary,
+  },
+  historyFilterTextActive: {
+    color: '#FFFFFF',
+  },
   cardList: {
     gap: 12,
   },
@@ -676,6 +804,13 @@ const styles = StyleSheet.create({
     color: COLORS.success,
     fontWeight: '600',
     marginTop: 6,
+  },
+  attributionText: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+    textAlign: 'right',
+    marginTop: 6,
+    fontStyle: 'italic',
   },
 
   /* Profile Tab */

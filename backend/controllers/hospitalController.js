@@ -184,6 +184,94 @@ const getNearbyHospitals = asyncHandler(async (req, res) => {
   }
 });
 
+// GET /api/v1/hospitals/blood-banks?latitude=28.5672&longitude=77.2100&radius=10
+const getNearbyBloodBanks = asyncHandler(async (req, res) => {
+  const { latitude, longitude, radius } = req.query;
+
+  if (!latitude || !longitude) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'Latitude and longitude query parameters are required',
+    });
+  }
+
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    return sendError(res, {
+      statusCode: 503,
+      message: 'Google Places API key is not configured on server (GOOGLE_MAPS_API_KEY missing)',
+    });
+  }
+
+  const userLat = Number(latitude);
+  const userLng = Number(longitude);
+  const radiusKm = Number(radius) || 10;
+  const radiusMeters = radiusKm * 1000;
+
+  try {
+    const response = await axios.post(
+      'https://places.googleapis.com/v1/places:searchNearby',
+      {
+        includedTypes: ['blood_bank', 'hospital', 'medical_clinic'],
+        maxResultCount: 20,
+        locationRestriction: {
+          circle: {
+            center: { latitude: userLat, longitude: userLng },
+            radius: Math.min(radiusMeters, 50000.0),
+          },
+        },
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.types,places.nationalPhoneNumber,places.rating,places.regularOpeningHours',
+        },
+        timeout: 8000,
+      }
+    );
+
+    const places = response.data.places || [];
+    const bloodBanks = places.map((p) => {
+      const hLat = p.location?.latitude;
+      const hLng = p.location?.longitude;
+      const distKm = (hLat !== undefined && hLng !== undefined)
+        ? calculateDistanceKm(userLat, userLng, hLat, hLng)
+        : 0;
+
+      return {
+        id: p.id,
+        placeId: p.id,
+        name: p.displayName?.text || 'Blood Bank / Hospital',
+        address: p.formattedAddress || '',
+        latitude: hLat,
+        longitude: hLng,
+        distanceKm: distKm,
+        formattedDistance: formatDistance(distKm),
+        phone: p.nationalPhoneNumber || null,
+        rating: p.rating || null,
+        isOpenNow: p.regularOpeningHours?.openNow ?? null,
+      };
+    });
+
+    bloodBanks.sort((a, b) => a.distanceKm - b.distanceKm);
+
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: `Found ${bloodBanks.length} nearby blood bank(s) via Google Places`,
+      data: { hospitals: bloodBanks, attribution: 'Powered by Google' },
+    });
+  } catch (googleError) {
+    const errMsg = googleError.response?.data?.error?.message || googleError.message;
+    logger.error(`Google Places Blood Bank Search error: ${errMsg}`);
+    return sendError(res, {
+      statusCode: 502,
+      message: 'Failed to retrieve nearby blood banks from Google Places API',
+      error: errMsg,
+    });
+  }
+});
+
 // GET /api/v1/hospitals/:placeId — Get details for a single placeId
 const getHospitalByPlaceId = asyncHandler(async (req, res) => {
   const { placeId } = req.params;
@@ -249,5 +337,6 @@ const getHospitalByPlaceId = asyncHandler(async (req, res) => {
 module.exports = {
   autocompleteHospitals,
   getNearbyHospitals,
+  getNearbyBloodBanks,
   getHospitalByPlaceId,
 };
