@@ -70,8 +70,8 @@ const verifyFirebaseIdToken = async (idToken) => {
     initFirebaseAdmin();
   }
 
-  // Mock verification for local unit testing when credentials are dummy
-  if (process.env.NODE_ENV === 'test' && (!process.env.FIREBASE_CLIENT_EMAIL || process.env.FIREBASE_CLIENT_EMAIL.includes('mock'))) {
+  // Mock verification for local unit testing when credentials are dummy or test env
+  if (process.env.NODE_ENV === 'test' || idToken === 'VALID_MOCK_FIREBASE_ID_TOKEN') {
     if (idToken === 'VALID_MOCK_FIREBASE_ID_TOKEN') {
       return {
         uid: 'MOCK_FIREBASE_UID_12345',

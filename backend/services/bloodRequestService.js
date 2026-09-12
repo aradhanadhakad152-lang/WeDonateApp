@@ -25,6 +25,11 @@ const VALID_TRANSITIONS = {
  * @param {string} newStatus
  */
 const validateStatusTransition = (currentStatus, newStatus) => {
+  if (['CANCELLED', 'FULFILLED', 'EXPIRED'].includes(currentStatus)) {
+    const error = new Error(`Cannot modify or transition blood request with terminal status '${currentStatus}'`);
+    error.statusCode = 400;
+    throw error;
+  }
   if (currentStatus === newStatus) return; // No change
 
   const allowedNextStatuses = VALID_TRANSITIONS[currentStatus] || [];

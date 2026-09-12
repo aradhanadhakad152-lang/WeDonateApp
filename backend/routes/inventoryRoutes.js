@@ -7,6 +7,7 @@ const { authorizeRoles, authorizeOrganizationAccess } = require('../middleware/r
 const {
   getOrganizationInventory,
   updateOrganizationInventory,
+  getAllInventories,
 } = require('../controllers/inventoryController');
 
 /**
@@ -14,6 +15,7 @@ const {
  * Base path: /api/v1/inventory
  */
 
+router.get('/', authenticate, authorizeRoles('ADMIN', 'SUPER_ADMIN'), getAllInventories);
 router.get('/:organizationId', authenticate, authorizeOrganizationAccess, getOrganizationInventory);
 router.put('/:organizationId', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'ADMIN', 'SUPER_ADMIN'), authorizeOrganizationAccess, updateOrganizationInventory);
 

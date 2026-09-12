@@ -205,10 +205,48 @@ const submitCampResults = asyncHandler(async (req, res) => {
   });
 });
 
+// PATCH /api/v1/camps/:id/status — Approve / Update Camp Status
+const updateCampStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  const user = req.user;
+
+  if (!['PUBLISHED', 'ONGOING', 'COMPLETED', 'CANCELLED', 'PENDING_APPROVAL'].includes(status)) {
+    return sendError(res, { statusCode: 400, message: 'Invalid status' });
+  }
+
+  const camp = await DonationCamp.findById(id);
+  if (!camp) {
+    return sendError(res, { statusCode: 404, message: 'Donation camp not found' });
+  }
+
+  const previousStatus = camp.status;
+  camp.status = status;
+  await camp.save();
+
+  await AuditLog.create({
+    performedBy: user._id,
+    userRole: user.role,
+    action: 'CAMP_STATUS_UPDATED',
+    entityType: 'DonationCamp',
+    entityId: camp._id.toString(),
+    previousState: { status: previousStatus },
+    newState: { status },
+    reason: `Camp status updated to ${status}`,
+  });
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: `Camp status updated to ${status}`,
+    data: { camp },
+  });
+});
+
 module.exports = {
   createCamp,
   getCamps,
   registerForCamp,
   getCampRegistrations,
   submitCampResults,
+  updateCampStatus,
 };

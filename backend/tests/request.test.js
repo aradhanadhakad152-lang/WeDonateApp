@@ -29,7 +29,7 @@ describe('Milestone 5 Blood Request Suite', () => {
 
     if (mongoose.connection.readyState === 1) {
       await User.deleteMany({ firebaseUid: /^TEST_REQ_M5_/ });
-      await BloodRequest.deleteMany({ patientName: /^TEST_PATIENT_/ });
+      await BloodRequest.deleteMany({ $or: [{ patientName: /^TEST_PATIENT_/ }, { contactPhone: '+919876543210' }, { patientName: /Patient/i }] });
 
       // User A (Requester)
       userA = new User({
@@ -250,6 +250,8 @@ describe('Milestone 5 Blood Request Suite', () => {
 
     it('should create initial active request for user A', async () => {
       if (mongoose.connection.readyState !== 1) return;
+
+      await BloodRequest.deleteMany({ requesterId: userA._id });
 
       const res = await request(app)
         .post('/api/v1/blood-requests')

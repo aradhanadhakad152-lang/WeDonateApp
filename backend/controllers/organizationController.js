@@ -356,6 +356,36 @@ const rejectRequestByHospital = asyncHandler(async (req, res) => {
   });
 });
 
+// PATCH /api/v1/organizations/me — Update Organization Profile
+const updateMyOrganization = asyncHandler(async (req, res) => {
+  const user = req.user;
+  if (!user.organizationId) {
+    return sendError(res, { statusCode: 403, message: 'Authenticated user is not linked to an Organization' });
+  }
+
+  const { name, contactPhone, street, city, state, pincode, registrationLicense } = req.body;
+  const organization = await Organization.findById(user.organizationId);
+  if (!organization) {
+    return sendError(res, { statusCode: 404, message: 'Organization record not found' });
+  }
+
+  if (name) organization.name = name;
+  if (contactPhone) organization.contactPhone = contactPhone;
+  if (street) organization.address.street = street;
+  if (city) organization.address.city = city;
+  if (state) organization.address.state = state;
+  if (pincode) organization.address.pincode = pincode;
+  if (registrationLicense) organization.registrationLicense = registrationLicense;
+
+  await organization.save();
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: 'Organization profile updated successfully',
+    data: { organization },
+  });
+});
+
 module.exports = {
   registerOrganization,
   loginOrganization,
@@ -363,4 +393,5 @@ module.exports = {
   getOrganizationRequestsQueue,
   verifyRequestByHospital,
   rejectRequestByHospital,
+  updateMyOrganization,
 };

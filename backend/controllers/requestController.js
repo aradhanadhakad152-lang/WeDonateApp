@@ -60,10 +60,10 @@ const createRequest = asyncHandler(async (req, res) => {
       success: false,
       message: 'You already have an active blood request.',
       existingRequest: existingActiveRequest,
-      existingRequestId: existingActiveRequest._id,
+      existingRequestId: existingActiveRequest._id.toString(),
       data: {
         existingRequest: existingActiveRequest,
-        existingRequestId: existingActiveRequest._id,
+        existingRequestId: existingActiveRequest._id.toString(),
         request: existingActiveRequest,
       },
       timestamp: new Date().toISOString(),
@@ -338,7 +338,14 @@ const cancelRequest = asyncHandler(async (req, res) => {
   }
 
   // Lifecycle Check: Validate status transition to CANCELLED
-  validateStatusTransition(bloodRequest.status, 'CANCELLED');
+  try {
+    validateStatusTransition(bloodRequest.status, 'CANCELLED');
+  } catch (transitionErr) {
+    return sendError(res, {
+      statusCode: 400,
+      message: transitionErr.message,
+    });
+  }
 
   bloodRequest.status = 'CANCELLED';
   bloodRequest.cancelledAt = new Date();

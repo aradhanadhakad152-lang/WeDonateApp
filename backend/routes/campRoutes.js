@@ -10,6 +10,7 @@ const {
   registerForCamp,
   getCampRegistrations,
   submitCampResults,
+  updateCampStatus,
 } = require('../controllers/campController');
 
 /**
@@ -22,5 +23,6 @@ router.post('/', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MA
 router.post('/:id/register', authenticate, registerForCamp);
 router.get('/:id/registrations', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'CAMP_ORGANIZER', 'ADMIN', 'SUPER_ADMIN'), getCampRegistrations);
 router.post('/:id/results', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'CAMP_ORGANIZER', 'ADMIN', 'SUPER_ADMIN'), submitCampResults);
+router.patch('/:id/status', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'ADMIN', 'SUPER_ADMIN'), updateCampStatus);
 
 module.exports = router;

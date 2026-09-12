@@ -71,7 +71,21 @@ const updateOrganizationInventory = asyncHandler(async (req, res) => {
   });
 });
 
+// GET /api/v1/inventory — Get All Inventories Across All Organizations (Admin)
+const getAllInventories = asyncHandler(async (req, res) => {
+  const inventory = await BloodInventory.find()
+    .populate('organizationId', 'name type address contactPhone officialEmail status')
+    .sort({ updatedAt: -1 });
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: 'All inventory stock levels retrieved',
+    data: { inventory },
+  });
+});
+
 module.exports = {
   getOrganizationInventory,
   updateOrganizationInventory,
+  getAllInventories,
 };
