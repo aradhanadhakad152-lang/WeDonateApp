@@ -571,6 +571,14 @@ const completeDonationByHospital = asyncHandler(async (req, res) => {
 
   logger.info(`Physical donation COMPLETED for request ${bloodRequest._id}. ${unitsCount} unit(s) of ${bloodGroup} added to inventory for Org ${user.organizationId}`);
 
+  // 5. Trigger ₹99 Platform Service Fee upon qualifying completion state
+  try {
+    const { triggerServiceFeeForCompletedRequest } = require('./serviceFeeController');
+    await triggerServiceFeeForCompletedRequest(bloodRequest);
+  } catch (err) {
+    logger.error(`Error triggering service fee for completed request ${bloodRequest._id}: ${err.message}`);
+  }
+
   return sendSuccess(res, {
     statusCode: 200,
     message: `Physical donation marked COMPLETED. ${unitsCount} unit(s) of ${bloodGroup} added to blood inventory.`,
@@ -693,6 +701,108 @@ const getOrganizationAuditLogs = asyncHandler(async (req, res) => {
   });
 });
 
+// POST /api/v1/organizations/requests — Hospital Creates Blood Request
+const createHospitalBloodRequest = asyncHandler(async (req, res) => {
+  const user = req.user;
+  if (!user.organizationId) {
+    return sendError(res, {
+      statusCode: 403,
+      message: 'Authenticated user is not linked to any Organization',
+    });
+  }
+
+  const organization = await Organization.findById(user.organizationId);
+  if (!organization) {
+    return sendError(res, {
+      statusCode: 404,
+      message: 'Linked Organization record not found',
+    });
+  }
+
+  const {
+    patientName,
+    bloodGroup,
+    unitsRequired,
+    urgency,
+    requiredBy,
+    contactPhone,
+    department,
+    ward,
+    notes,
+    reason,
+  } = req.body;
+
+  if (!patientName || !bloodGroup || !unitsRequired) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'Patient name, blood group, and units required are mandatory',
+    });
+  }
+
+  const cleanPhone = String(contactPhone || user.phone || organization.contactPhone || '').trim();
+  const formattedPhone = cleanPhone.startsWith('+') ? cleanPhone : `+91${cleanPhone.replace(/\D/g, '').slice(-10)}`;
+
+  const lat = organization.location?.coordinates ? organization.location.coordinates[1] : 30.7046;
+  const lng = organization.location?.coordinates ? organization.location.coordinates[0] : 76.7179;
+
+  const departmentText = [department, ward].filter(Boolean).join(' - ');
+  const combinedNotes = [notes, reason, departmentText ? `Dept/Ward: ${departmentText}` : null]
+    .filter(Boolean)
+    .join(' | ');
+
+  const bloodRequest = new BloodRequest({
+    requesterId: user._id,
+    targetOrganizationId: organization._id,
+    patientName: patientName.trim(),
+    bloodGroup: bloodGroup.toUpperCase(),
+    unitsRequired: Number(unitsRequired) || 1,
+    urgency: urgency ? urgency.toUpperCase() : 'NORMAL',
+    requiredBy: requiredBy ? new Date(requiredBy) : new Date(Date.now() + 24 * 60 * 60 * 1000),
+    reason: combinedNotes || 'Hospital emergency blood request',
+    hospitalName: organization.name,
+    hospitalAddress: organization.address?.street
+      ? `${organization.address.street}, ${organization.address.city || ''}`
+      : organization.name,
+    hospitalLatitude: lat,
+    hospitalLongitude: lng,
+    location: {
+      type: 'Point',
+      coordinates: [lng, lat],
+    },
+    contactPhone: formattedPhone,
+    additionalNotes: combinedNotes,
+    status: 'VERIFICATION_PENDING',
+  });
+
+  await bloodRequest.save();
+
+  await AuditLog.create({
+    performedBy: user._id,
+    userRole: user.role,
+    action: 'HOSPITAL_BLOOD_REQUEST_CREATED',
+    entityType: 'BloodRequest',
+    entityId: bloodRequest._id.toString(),
+    newState: {
+      patientName: bloodRequest.patientName,
+      bloodGroup: bloodRequest.bloodGroup,
+      unitsRequired: bloodRequest.unitsRequired,
+      targetOrganizationId: organization._id.toString(),
+      status: 'VERIFICATION_PENDING',
+    },
+    reason: `Hospital ${organization.name} created blood request for ${patientName}`,
+  });
+
+  logger.info(`Hospital ${organization.name} created Blood Request ${bloodRequest._id} for patient ${patientName}`);
+
+  return sendSuccess(res, {
+    statusCode: 201,
+    message: 'Blood request created successfully. Status: VERIFICATION_PENDING',
+    data: {
+      request: bloodRequest,
+    },
+  });
+});
+
 // GET /api/v1/organizations/list — Public list of approved organizations (Hospitals / Blood Banks)
 const listPublicOrganizations = asyncHandler(async (req, res) => {
   const { type, city } = req.query;
@@ -717,6 +827,7 @@ module.exports = {
   loginOrganization,
   getMyOrganization,
   getOrganizationRequestsQueue,
+  createHospitalBloodRequest,
   verifyRequestByHospital,
   rejectRequestByHospital,
   confirmDonorByHospital,

@@ -25,6 +25,8 @@ const {
   getWhatsAppConfigStatusController,
 } = require('../controllers/adminController');
 
+const { getAdminRevenueStats } = require('../controllers/serviceFeeController');
+
 /**
  * System Admin Portal Routes
  * Base path: /api/v1/admin
@@ -34,6 +36,7 @@ router.use(authenticate);
 router.use(authorizeRoles('SUPER_ADMIN', 'ADMIN'));
 
 router.get('/dashboard', getAdminDashboardMetrics);
+router.get('/revenue', getAdminRevenueStats);
 router.get('/users', getUsersList);
 router.get('/donors', getAdminDonorsList);
 router.get('/donors/:id/history', getDonorDetailsHistory);

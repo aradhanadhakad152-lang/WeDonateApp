@@ -1082,6 +1082,7 @@
         menu.innerHTML = `
           <button class="nav-link active text-start" data-bs-toggle="pill" data-bs-target="#tab-dashboard" onclick="loadAdminMetrics()"><i class="bi bi-speedometer2 me-2"></i> Dashboard</button>
           <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-requests" onclick="loadRequestsData()"><i class="bi bi-card-checklist me-2"></i> Blood Requests</button>
+          <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-revenue" onclick="loadRevenueData()"><i class="bi bi-cash-stack me-2"></i> Service Revenue (₹99)</button>
           <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-users" onclick="loadUsersData()"><i class="bi bi-people me-2"></i> Donors & Citizens</button>
           <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-orgs" onclick="loadOrgsData()"><i class="bi bi-building me-2"></i> Hospitals & Banks</button>
           <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-camps" onclick="loadCampsData()"><i class="bi bi-geo-alt me-2"></i> Donation Drives</button>
@@ -1091,6 +1092,7 @@
           <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-notifications" onclick="loadNotificationsData()"><i class="bi bi-bell me-2"></i> Push Notifications</button>
           <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-audit" onclick="loadAuditData()"><i class="bi bi-shield-check me-2"></i> Security Audit Logs</button>
         `;
+        document.getElementById('btnHospCreateRequest')?.classList.add('d-none');
         loadAdminMetrics();
       } else if (isHospital) {
         menu.innerHTML = `
@@ -1101,6 +1103,7 @@
           <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-profile" onclick="loadProfileData()"><i class="bi bi-building-gear me-2"></i> Org Profile</button>
           <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-audit" onclick="loadAuditData()"><i class="bi bi-shield-check me-2"></i> Audit Logs</button>
         `;
+        document.getElementById('btnHospCreateRequest')?.classList.remove('d-none');
         loadOrgMetrics();
       } else {
         menu.innerHTML = `
@@ -1112,6 +1115,7 @@
           <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-profile" onclick="loadProfileData()"><i class="bi bi-building-gear me-2"></i> Org Profile</button>
           <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-audit" onclick="loadAuditData()"><i class="bi bi-shield-check me-2"></i> Audit Logs</button>
         `;
+        document.getElementById('btnHospCreateRequest')?.classList.add('d-none');
         loadOrgMetrics();
       }
     }
