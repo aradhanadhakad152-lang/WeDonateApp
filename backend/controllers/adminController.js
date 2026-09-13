@@ -916,9 +916,27 @@ const getPendingRequestsForAdmin = asyncHandler(async (req, res) => {
 const getAllRequestsForAdmin = asyncHandler(async (req, res) => {
   const { status, bloodGroup, urgency } = req.query;
   const filter = {};
-  if (status) filter.status = status;
-  if (bloodGroup) filter.bloodGroup = bloodGroup;
-  if (urgency) filter.urgency = urgency;
+  
+  if (status && status !== 'ALL') {
+    if (status === 'OPEN') {
+      filter.status = {
+        $in: ['OPEN', 'VERIFICATION_PENDING', 'HOSPITAL_VERIFIED', 'ADMIN_VERIFIED', 'MATCHING', 'DONOR_RESPONDED', 'DONOR_CONFIRMED'],
+      };
+    } else if (status === 'CLOSED') {
+      filter.status = {
+        $in: ['FULFILLED', 'COMPLETED', 'REJECTED', 'CANCELLED', 'EXPIRED'],
+      };
+    } else if (status === 'PENDING') {
+      filter.status = {
+        $in: ['PENDING', 'VERIFICATION_PENDING'],
+      };
+    } else {
+      filter.status = status;
+    }
+  }
+
+  if (bloodGroup && bloodGroup !== 'ALL') filter.bloodGroup = bloodGroup;
+  if (urgency && urgency !== 'ALL') filter.urgency = urgency;
 
   const requests = await BloodRequest.find(filter)
     .populate('requesterId', 'fullName name phone bloodGroup email')

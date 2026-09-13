@@ -29,7 +29,10 @@ const createCamp = asyncHandler(async (req, res) => {
     registrationLimit,
   } = req.body;
 
-  const orgId = organizationId || req.user.organizationId;
+  const orgId = ['ADMIN', 'SUPER_ADMIN'].includes(req.user.role)
+    ? (organizationId || req.user.organizationId)
+    : req.user.organizationId;
+
   if (!orgId) {
     return sendError(res, {
       statusCode: 400,
@@ -282,6 +285,14 @@ const updateCampRegistrationStatus = asyncHandler(async (req, res) => {
 
   const camp = registration.campId;
   const finalUnits = Number(unitsDonated) > 0 ? Number(unitsDonated) : (registration.unitsDonated || 1);
+
+  if (registration.status === 'DONATED' && status === 'DONATED') {
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: `Camp donation is already marked completed (Donation Number: ${registration.donationNumber})`,
+      data: { registration },
+    });
+  }
 
   registration.status = status;
 

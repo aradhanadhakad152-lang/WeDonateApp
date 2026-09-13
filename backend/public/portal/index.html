@@ -248,6 +248,17 @@
               <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-card-checklist"></i> Patient Emergency Blood Requests</h5>
                 <div class="d-flex gap-2">
+                  <select id="reqFilterStatus" class="form-select form-select-sm" onchange="loadRequestsData()">
+                    <option value="ALL">All Statuses</option>
+                    <option value="OPEN">Open Requests</option>
+                    <option value="CLOSED">Closed Requests</option>
+                    <option value="VERIFICATION_PENDING">Pending Verification</option>
+                    <option value="MATCHING">Matching Donors</option>
+                    <option value="DONOR_RESPONDED">Donor Responded</option>
+                    <option value="DONOR_CONFIRMED">Donor Confirmed</option>
+                    <option value="FULFILLED">Fulfilled</option>
+                    <option value="REJECTED">Rejected</option>
+                  </select>
                   <select id="reqFilterGroup" class="form-select form-select-sm" onchange="loadRequestsData()">
                     <option value="">All Blood Groups</option>
                     <option value="A+">A+</option><option value="A-">A-</option><option value="B+">B+</option><option value="B-">B-</option><option value="AB+">AB+</option><option value="AB-">AB-</option><option value="O+">O+</option><option value="O-">O-</option>
@@ -1161,8 +1172,15 @@
 
     async function loadRequestsData() {
       try {
-        const groupFilter = document.getElementById('reqFilterGroup').value;
-        const endpoint = currentOrg ? `/organizations/requests${groupFilter ? '?bloodGroup=' + encodeURIComponent(groupFilter) : ''}` : `/admin/requests${groupFilter ? '?bloodGroup=' + encodeURIComponent(groupFilter) : ''}`;
+        const groupFilter = document.getElementById('reqFilterGroup')?.value || '';
+        const statusFilter = document.getElementById('reqFilterStatus')?.value || 'ALL';
+
+        const params = new URLSearchParams();
+        if (groupFilter) params.append('bloodGroup', groupFilter);
+        if (statusFilter && statusFilter !== 'ALL') params.append('status', statusFilter);
+
+        const basePath = currentOrg ? '/organizations/requests' : '/admin/requests';
+        const endpoint = `${basePath}?${params.toString()}`;
         const data = await apiCall(endpoint);
         const tbody = document.getElementById('requestsTbody');
         tbody.innerHTML = '';
