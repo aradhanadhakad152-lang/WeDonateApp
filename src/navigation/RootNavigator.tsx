@@ -35,7 +35,11 @@ type ScreenState =
 
 export const RootNavigator: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<ScreenState>('Splash');
-  const [phoneState, setPhoneState] = useState<{ phoneNumber: string; confirmation: any } | null>(null);
+  const [phoneState, setPhoneState] = useState<{
+    phoneNumber: string;
+    purpose: 'LOGIN' | 'REGISTER';
+    fullName?: string;
+  } | null>(null);
   const [activeRequest, setActiveRequest] = useState<BloodRequest | null>(null);
   const [activeMatch, setActiveMatch] = useState<DonorMatch | null>(null);
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
@@ -58,9 +62,12 @@ export const RootNavigator: React.FC = () => {
     };
   }, []);
 
-  // LEGACY FIREBASE OTP HANDLER (PRESERVED FOR RESTORATION)
-  const handleOTPSent = (phoneNumber: string, confirmation: any) => {
-    setPhoneState({ phoneNumber, confirmation });
+  const handleSendOTP = (
+    phoneNumber: string,
+    purpose: 'LOGIN' | 'REGISTER',
+    fullName?: string
+  ) => {
+    setPhoneState({ phoneNumber, purpose, fullName });
     setCurrentScreen('OTPVerification');
   };
 
@@ -84,15 +91,15 @@ export const RootNavigator: React.FC = () => {
       {currentScreen === 'PhoneLogin' && (
         <PhoneLoginScreen
           onSuccess={handleAuthSuccess}
-          onOTPSent={handleOTPSent}
+          onSendOTP={handleSendOTP}
         />
       )}
 
-      {/* LEGACY OTP SCREEN - PRESERVED SAFELY IN CODE FOR PRODUCTION RESTORATION */}
       {currentScreen === 'OTPVerification' && phoneState && (
         <OTPVerificationScreen
           phoneNumber={phoneState.phoneNumber}
-          confirmation={phoneState.confirmation}
+          purpose={phoneState.purpose}
+          fullName={phoneState.fullName}
           onSuccess={handleAuthSuccess}
           onBack={() => setCurrentScreen('PhoneLogin')}
         />

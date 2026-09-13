@@ -162,6 +162,54 @@ export const verifyOTPAndLogin = async (
 };
 
 // ============================================================================
+// PRODUCTION SMS OTP AUTHENTICATION (MSG91 / SERVER-SIDE OTP)
+// ============================================================================
+
+export const sendSMSOTP = async (
+  phone: string,
+  purpose: 'LOGIN' | 'REGISTER' = 'LOGIN'
+): Promise<{ phone: string; purpose: string }> => {
+  try {
+    const response = await api.post<ApiSuccessResponse<{ phone: string; purpose: string }>>(
+      '/auth/send-otp',
+      { phone, purpose }
+    );
+    return response.data.data!;
+  } catch (error) {
+    console.error('Send OTP failed:', error);
+    throw error;
+  }
+};
+
+export const verifySMSOTP = async (
+  phone: string,
+  otp: string,
+  purpose: 'LOGIN' | 'REGISTER' = 'LOGIN',
+  fullName?: string
+): Promise<User> => {
+  try {
+    const response = await api.post<ApiSuccessResponse<LoginResponse>>(
+      '/auth/verify-otp',
+      { phone, otp, purpose, fullName }
+    );
+
+    const { user, tokens } = response.data.data!;
+    await saveTokens(tokens.accessToken, tokens.refreshToken);
+
+    try {
+      await initializeNotifications();
+    } catch (notificationError) {
+      console.warn('FCM initialization failed:', notificationError);
+    }
+
+    return user;
+  } catch (error) {
+    console.error('Verify OTP failed:', error);
+    throw error;
+  }
+};
+
+// ============================================================================
 // LOGOUT
 // ============================================================================
 

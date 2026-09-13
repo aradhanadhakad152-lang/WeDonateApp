@@ -1,19 +1,18 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { phoneLogin } from '../../services/authService';
-import { useAuthStore } from '../../store/authStore';
+import { sendSMSOTP } from '../../services/authService';
 import { User } from '../../types/user.types';
 import { COLORS, SHADOWS } from '../../theme/colors';
 
 interface PhoneLoginScreenProps {
   onSuccess: (user: User) => void;
-  // Preserved prop for OTP flow restoration
-  onOTPSent?: (phoneNumber: string, confirmation: any) => void;
+  onSendOTP?: (phoneNumber: string, purpose: 'LOGIN' | 'REGISTER', fullName?: string) => void;
 }
 
-export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onSuccess }) => {
-  const [phoneNumber, setPhoneNumber] = useState('9876512345');
-  const [fullName, setFullName] = useState('Ayush Dhakad');
+export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onSuccess, onSendOTP }) => {
+  const [mode, setMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
+  const [phoneNumber, setPhoneNumber] = useState('9876543210');
+  const [fullName, setFullName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -30,27 +29,35 @@ export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onSuccess })
     }
   };
 
-  const handlePhoneLogin = async () => {
+  const handleSendOTP = async () => {
     setErrorMessage('');
     const trimmed = phoneNumber.trim();
 
-    const formattedPhone = trimmed.startsWith('+') ? trimmed : `+91${trimmed}`;
-    if (!/^\+[1-9]\d{9,14}$/.test(formattedPhone)) {
+    if (trimmed.length < 10) {
       setErrorMessage('Please enter a valid 10-digit mobile phone number');
       return;
     }
 
+    if (mode === 'REGISTER' && !fullName.trim()) {
+      setErrorMessage('Please enter your full name for registration');
+      return;
+    }
+
+    const formattedPhone = trimmed.startsWith('+') ? trimmed : `+91${trimmed}`;
+
     setIsLoading(true);
     try {
-      const user = await phoneLogin(formattedPhone, fullName.trim() || undefined);
-      useAuthStore.getState().setUser(user);
+      await sendSMSOTP(formattedPhone, mode);
       setIsLoading(false);
-      onSuccess(user);
+
+      if (onSendOTP) {
+        onSendOTP(formattedPhone, mode, fullName.trim() || undefined);
+      }
     } catch (error: any) {
       setIsLoading(false);
-      const msg = error?.response?.data?.message || error?.message || 'Login failed. Please check backend connection.';
+      const msg = error?.response?.data?.message || error?.message || 'Failed to send OTP. Please check connection.';
       setErrorMessage(msg);
-      Alert.alert('Authentication Error', msg);
+      Alert.alert('OTP Dispatch Failed', msg);
     }
   };
 
@@ -63,22 +70,40 @@ export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onSuccess })
           <Text style={styles.badgeText}>WE DONATE</Text>
         </View>
 
-        <Text style={styles.title}>Login or Register</Text>
-        <Text style={styles.subtitle}>Direct Development Authentication (No OTP Required)</Text>
+        <Text style={styles.title}>{mode === 'LOGIN' ? 'Citizen Sign In' : 'Register New Account'}</Text>
+        <Text style={styles.subtitle}>Production SMS OTP Authentication</Text>
 
-        {/* Full Name for Registration */}
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>FULL NAME (FOR NEW USERS)</Text>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.inputName}
-              placeholder="e.g. Ayush Dhakad"
-              placeholderTextColor="#94A3B8"
-              value={fullName}
-              onChangeText={setFullName}
-            />
-          </View>
+        {/* Mode Switcher Tabs */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tabButton, mode === 'LOGIN' && styles.tabButtonActive]}
+            onPress={() => { setMode('LOGIN'); setErrorMessage(''); }}
+          >
+            <Text style={[styles.tabText, mode === 'LOGIN' && styles.tabTextActive]}>LOGIN</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabButton, mode === 'REGISTER' && styles.tabButtonActive]}
+            onPress={() => { setMode('REGISTER'); setErrorMessage(''); }}
+          >
+            <Text style={[styles.tabText, mode === 'REGISTER' && styles.tabTextActive]}>REGISTER</Text>
+          </TouchableOpacity>
         </View>
+
+        {/* Full Name for Registration Mode */}
+        {mode === 'REGISTER' && (
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>FULL NAME</Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.inputName}
+                placeholder="e.g. Ramesh Kumar"
+                placeholderTextColor="#94A3B8"
+                value={fullName}
+                onChangeText={setFullName}
+              />
+            </View>
+          </View>
+        )}
 
         {/* Mobile Number Input */}
         <View style={styles.formGroup}>
@@ -114,14 +139,14 @@ export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onSuccess })
 
         <TouchableOpacity
           style={[styles.btnCoralWide, isLoading && styles.btnDisabled]}
-          onPress={handlePhoneLogin}
+          onPress={handleSendOTP}
           disabled={isLoading}
           activeOpacity={0.85}
         >
           {isLoading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.btnCoralWideText}>Login / Register  ➔</Text>
+            <Text style={styles.btnCoralWideText}>Send OTP  ➔</Text>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -174,7 +199,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textMuted,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#E2E8F0',
+    borderRadius: 10,
+    padding: 3,
+    marginBottom: 14,
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  tabButtonActive: {
+    backgroundColor: COLORS.primary,
+  },
+  tabText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+  },
+  tabTextActive: {
+    color: '#FFFFFF',
   },
   formGroup: {
     marginBottom: 12,

@@ -389,6 +389,270 @@ const getWhatsAppStatus = asyncHandler(async (req, res) => {
   });
 });
 
+// POST /api/v1/auth/send-otp
+const sendOTP = asyncHandler(async (req, res) => {
+  const { phone, purpose } = req.body;
+
+  if (!phone) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'Mobile phone number is required',
+    });
+  }
+
+  const validPurpose = (purpose || 'LOGIN').toUpperCase();
+  if (!['LOGIN', 'REGISTER'].includes(validPurpose)) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'Purpose must be LOGIN or REGISTER',
+    });
+  }
+
+  const { normalizePhone, generate6DigitCode, hashOTP, sendSMS } = require('../services/otpService');
+  const OtpVerification = require('../models/OtpVerification');
+
+  const normalizedPhone = normalizePhone(phone);
+  if (!/^\+[1-9]\d{7,14}$/.test(normalizedPhone)) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'Invalid phone number format. Please provide a valid 10-digit mobile number.',
+    });
+  }
+
+  // 1. Resend Cooldown Check (30 seconds)
+  const recentOtp = await OtpVerification.findOne({
+    phone: normalizedPhone,
+    purpose: validPurpose,
+    createdAt: { $gt: new Date(Date.now() - 30 * 1000) },
+  });
+
+  if (recentOtp) {
+    return sendError(res, {
+      statusCode: 429,
+      message: 'Please wait 30 seconds before requesting another OTP code.',
+    });
+  }
+
+  // 2. User Existence Verification per Purpose
+  const existingUser = await User.findOne({ phone: normalizedPhone });
+
+  if (validPurpose === 'REGISTER') {
+    if (existingUser) {
+      return sendError(res, {
+        statusCode: 400,
+        message: 'An account already exists for this mobile number. Please login instead.',
+      });
+    }
+  } else if (validPurpose === 'LOGIN') {
+    if (!existingUser) {
+      return sendError(res, {
+        statusCode: 404,
+        message: 'No registered Citizen account found for this mobile number. Please register first.',
+      });
+    }
+
+    if (['HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(existingUser.role)) {
+      return sendError(res, {
+        statusCode: 403,
+        message: 'Hospital, Blood Bank, and Admin accounts must authenticate via portal password login.',
+      });
+    }
+
+    if (existingUser.accountStatus === 'SUSPENDED') {
+      return sendError(res, {
+        statusCode: 403,
+        message: 'Your citizen account is currently suspended. Please contact support.',
+      });
+    }
+  }
+
+  // 3. Generate 6-digit OTP code & Store SHA-256 hash
+  const otpCode = generate6DigitCode();
+  const otpHash = hashOTP(otpCode);
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes TTL
+
+  await OtpVerification.create({
+    phone: normalizedPhone,
+    purpose: validPurpose,
+    otpHash,
+    expiresAt,
+    attempts: 0,
+  });
+
+  // 4. Dispatch SMS via OTP Provider
+  const smsResult = await sendSMS(normalizedPhone, otpCode, validPurpose);
+
+  if (!smsResult.success) {
+    if (smsResult.providerConfigured === false) {
+      return sendError(res, {
+        statusCode: 503,
+        message: smsResult.error,
+      });
+    }
+    return sendError(res, {
+      statusCode: 500,
+      message: smsResult.error || 'Failed to deliver SMS OTP. Please try again.',
+    });
+  }
+
+  const maskedPhone = `${normalizedPhone.slice(0, 3)} XXXXX ${normalizedPhone.slice(-4)}`;
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: `OTP sent successfully via SMS to ${maskedPhone}`,
+    data: {
+      phone: normalizedPhone,
+      purpose: validPurpose,
+      expiresInSeconds: 300,
+      resendCooldownSeconds: 30,
+    },
+  });
+});
+
+// POST /api/v1/auth/verify-otp
+const verifyOTP = asyncHandler(async (req, res) => {
+  const { phone, otp, purpose, fullName } = req.body;
+
+  if (!phone || !otp) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'Mobile phone number and 6-digit OTP code are required',
+    });
+  }
+
+  const validPurpose = (purpose || 'LOGIN').toUpperCase();
+  const cleanOtp = String(otp).trim();
+  if (cleanOtp.length !== 6 || !/^\d{6}$/.test(cleanOtp)) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'OTP must be a 6-digit numeric code',
+    });
+  }
+
+  const { normalizePhone, hashOTP } = require('../services/otpService');
+  const OtpVerification = require('../models/OtpVerification');
+
+  const normalizedPhone = normalizePhone(phone);
+
+  // 1. Fetch latest active OTP verification record
+  const otpRecord = await OtpVerification.findOne({
+    phone: normalizedPhone,
+    purpose: validPurpose,
+    verifiedAt: null,
+  })
+    .select('+otpHash')
+    .sort({ createdAt: -1 });
+
+  if (!otpRecord) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'No active OTP request found for this mobile number. Please request a new OTP.',
+    });
+  }
+
+  // 2. Expiration Check
+  if (new Date() > new Date(otpRecord.expiresAt)) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'OTP code has expired. Please request a new OTP code.',
+    });
+  }
+
+  // 3. Maximum Attempt Check (Max 5 attempts)
+  if (otpRecord.attempts >= 5) {
+    return sendError(res, {
+      statusCode: 429,
+      message: 'Maximum verification attempts exceeded (5/5). Please request a new OTP code.',
+    });
+  }
+
+  // Increment attempt counter
+  otpRecord.attempts += 1;
+
+  // 4. Verify SHA-256 Hash
+  const incomingHash = hashOTP(cleanOtp);
+  if (incomingHash !== otpRecord.otpHash) {
+    await otpRecord.save();
+    const remaining = 5 - otpRecord.attempts;
+    return sendError(res, {
+      statusCode: 400,
+      message: remaining > 0
+        ? `Invalid OTP code. ${remaining} attempt(s) remaining.`
+        : 'Invalid OTP code. Maximum verification attempts exceeded. Please request a new OTP.',
+    });
+  }
+
+  // Mark OTP record as verified
+  otpRecord.verifiedAt = new Date();
+  await otpRecord.save();
+
+  // 5. Account Upsert / Login Flow
+  let user = await User.findOne({ phone: normalizedPhone });
+
+  if (validPurpose === 'REGISTER') {
+    if (!user) {
+      user = new User({
+        firebaseUid: `citizen_otp_${normalizedPhone.replace('+', '')}`,
+        phone: normalizedPhone,
+        fullName: (fullName || 'Citizen Donor').trim(),
+        role: 'CITIZEN',
+        accountStatus: 'ACTIVE',
+        isActive: true,
+        isVerified: true,
+      });
+    } else {
+      user.isVerified = true;
+      if (fullName && !user.fullName) user.fullName = fullName.trim();
+    }
+  } else { // LOGIN
+    if (!user) {
+      return sendError(res, {
+        statusCode: 404,
+        message: 'Account not found for this mobile number. Please register first.',
+      });
+    }
+
+    if (user.accountStatus === 'SUSPENDED') {
+      return sendError(res, {
+        statusCode: 403,
+        message: 'Your citizen account is currently suspended. Please contact support.',
+      });
+    }
+  }
+
+  user.lastLogin = new Date();
+
+  // Issue short-lived Access Token & long-lived Refresh Token
+  const tokens = generateTokenPair(user);
+
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  user.refreshTokenHashes = (user.refreshTokenHashes || []).filter(
+    (item) => item.expiresAt > new Date()
+  );
+  user.refreshTokenHashes.push({
+    hash: tokens.tokenHash,
+    createdAt: new Date(),
+    expiresAt,
+  });
+
+  await user.save();
+
+  logger.info(`Citizen authenticated via SMS OTP: ${user._id} (${user.phone}) Purpose: ${validPurpose}`);
+
+  return sendSuccess(res, {
+    statusCode: validPurpose === 'REGISTER' ? 201 : 200,
+    message: validPurpose === 'REGISTER' ? 'Citizen account created and verified successfully' : 'OTP verification successful',
+    data: {
+      user: user.toProfileJSON(),
+      tokens: {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresIn: tokens.expiresIn,
+      },
+    },
+  });
+});
+
 module.exports = {
   firebaseLogin,
   phoneLogin,
@@ -398,4 +662,6 @@ module.exports = {
   adminLogin,
   devLogin,
   getWhatsAppStatus,
+  sendOTP,
+  verifyOTP,
 };

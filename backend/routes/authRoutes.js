@@ -4,7 +4,7 @@ const express = require('express');
 const router = express.Router();
 const { authLimiter } = require('../middleware/rateLimiter');
 const authenticate = require('../middleware/authenticate');
-const { firebaseLogin, phoneLogin, refreshToken, logout, adminLogin, devLogin, getWhatsAppStatus } = require('../controllers/authController');
+const { firebaseLogin, phoneLogin, refreshToken, logout, adminLogin, devLogin, getWhatsAppStatus, sendOTP, verifyOTP } = require('../controllers/authController');
 
 /**
  * Auth Routes
@@ -13,6 +13,12 @@ const { firebaseLogin, phoneLogin, refreshToken, logout, adminLogin, devLogin, g
 
 // GET /api/v1/auth/whatsapp-status
 router.get('/whatsapp-status', getWhatsAppStatus);
+
+// POST /api/v1/auth/send-otp — Citizen SMS OTP Request
+router.post('/send-otp', authLimiter, sendOTP);
+
+// POST /api/v1/auth/verify-otp — Citizen SMS OTP Verification & Account Login/Registration
+router.post('/verify-otp', authLimiter, verifyOTP);
 
 // POST /api/v1/auth/firebase-login
 // Accepts Firebase ID Token in Authorization header (Bearer <ID_TOKEN>), verifies with Admin SDK, returns JWT pair
