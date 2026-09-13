@@ -8,6 +8,18 @@ const asyncHandler = require('../utils/asyncHandler');
 // GET /api/v1/inventory/:organizationId — Get Organization Blood Stock
 const getOrganizationInventory = asyncHandler(async (req, res) => {
   const { organizationId } = req.params;
+  const user = req.user;
+
+  // Security Check: Hospital staff can only view inventory for their own organization unless admin
+  const isAdmin = user.role && ['ADMIN', 'SUPER_ADMIN'].includes(user.role);
+  if (!isAdmin) {
+    if (!user.organizationId || user.organizationId.toString() !== organizationId.toString()) {
+      return sendError(res, {
+        statusCode: 403,
+        message: 'You are not authorized to view inventory for another organization',
+      });
+    }
+  }
 
   const inventory = await BloodInventory.find({ organizationId });
 
@@ -23,6 +35,17 @@ const updateOrganizationInventory = asyncHandler(async (req, res) => {
   const { organizationId } = req.params;
   const { bloodGroup, availableUnits, reservedUnits, lowStockThreshold } = req.body;
   const user = req.user;
+
+  // Security Check: Hospital staff can only update inventory for their own organization unless admin
+  const isAdmin = user.role && ['ADMIN', 'SUPER_ADMIN'].includes(user.role);
+  if (!isAdmin) {
+    if (!user.organizationId || user.organizationId.toString() !== organizationId.toString()) {
+      return sendError(res, {
+        statusCode: 403,
+        message: 'You are not authorized to update inventory for another organization',
+      });
+    }
+  }
 
   if (!bloodGroup) {
     return sendError(res, {

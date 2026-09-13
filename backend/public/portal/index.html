@@ -782,6 +782,20 @@
         if (data.success && data.data.requests.length > 0) {
           data.data.requests.forEach(r => {
             const isPending = r.status === 'VERIFICATION_PENDING';
+            const isDonorResponded = r.status === 'DONOR_RESPONDED';
+            const isDonorConfirmed = r.status === 'DONOR_CONFIRMED';
+
+            let actionHtml = '';
+            if (isPending) {
+              actionHtml = `<button class="btn btn-sm btn-success me-1 fw-bold" onclick="verifyRequest('${r._id}')"><i class="bi bi-check-circle"></i> Verify</button><button class="btn btn-sm btn-outline-danger fw-bold" onclick="rejectRequest('${r._id}')"><i class="bi bi-x-circle"></i> Reject</button>`;
+            } else if (isDonorResponded) {
+              actionHtml = `<button class="btn btn-sm btn-primary me-1 fw-bold" onclick="confirmDonor('${r._id}')"><i class="bi bi-person-check-fill"></i> Confirm Donor</button>`;
+            } else if (isDonorConfirmed) {
+              actionHtml = `<button class="btn btn-sm btn-success me-1 fw-bold" onclick="completeRequestDonation('${r._id}')"><i class="bi bi-check2-all"></i> Mark Completed (Add Stock)</button>`;
+            } else {
+              actionHtml = `<span class="badge bg-secondary">${r.status}</span>`;
+            }
+
             tbody.innerHTML += `
               <tr>
                 <td><span class="badge bg-danger blood-badge">${r.bloodGroup}</span></td>
@@ -791,7 +805,7 @@
                 <td><i class="bi bi-telephone"></i> <a href="tel:${r.contactPhone}">${r.contactPhone}</a></td>
                 <td><span class="badge bg-secondary">${r.status}</span></td>
                 <td>
-                  ${isPending ? `<button class="btn btn-sm btn-success me-1 fw-bold" onclick="verifyRequest('${r._id}')"><i class="bi bi-check-circle"></i> Verify</button><button class="btn btn-sm btn-outline-danger fw-bold" onclick="rejectRequest('${r._id}')"><i class="bi bi-x-circle"></i> Reject</button>` : `<span class="text-muted small"><i class="bi bi-check2-all text-success"></i> Processed</span>`}
+                  ${actionHtml}
                 </td>
               </tr>
             `;
@@ -825,6 +839,36 @@
         const data = await apiCall(endpoint, 'PATCH', payload);
         if (data.success) {
           showToast('Blood request rejected');
+          loadRequestsData();
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    async function confirmDonor(id) {
+      if (!confirm('Confirm donor response and proceed to physical donation scheduling?')) return;
+      try {
+        const endpoint = `/organizations/requests/${id}/confirm-donor`;
+        const data = await apiCall(endpoint, 'PATCH', {});
+        if (data.success) {
+          showToast('Donor confirmed! Status updated to DONOR_CONFIRMED.');
+          loadRequestsData();
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    async function completeRequestDonation(id) {
+      const unitsStr = prompt('Enter physical blood units collected at hospital (will add to blood inventory):', '1');
+      if (unitsStr === null) return;
+      const units = parseInt(unitsStr, 10);
+      if (isNaN(units) || units <= 0) {
+        showToast('Invalid units entered', false);
+        return;
+      }
+      try {
+        const endpoint = `/organizations/requests/${id}/complete`;
+        const data = await apiCall(endpoint, 'PATCH', { unitsCollected: units });
+        if (data.success) {
+          showToast('Physical donation completed! Blood inventory updated.');
           loadRequestsData();
         }
       } catch (err) { console.error(err); }

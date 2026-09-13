@@ -36,6 +36,8 @@ export const RequestBloodScreen: React.FC<RequestBloodScreenProps> = ({ onBack, 
 
   // Real Hospital Picker Modal & Autocomplete
   const [realHospitals, setRealHospitals] = useState<RealHospital[]>([]);
+  const [systemHospitals, setSystemHospitals] = useState<Array<{ _id: string; name: string; address?: { city?: string; street?: string } }>>([]);
+  const [targetOrganizationId, setTargetOrganizationId] = useState<string | undefined>(undefined);
   const [showHospitalPicker, setShowHospitalPicker] = useState(false);
   const [isLoadingHospitals, setIsLoadingHospitals] = useState(false);
 
@@ -46,7 +48,19 @@ export const RequestBloodScreen: React.FC<RequestBloodScreenProps> = ({ onBack, 
 
   useEffect(() => {
     fetchHospitals(latitude, longitude);
+    fetchSystemHospitals();
   }, [latitude, longitude]);
+
+  const fetchSystemHospitals = async () => {
+    try {
+      const res = await api.get<{ success: boolean; data: { organizations: Array<any> } }>('/organizations/list?type=HOSPITAL');
+      if (res.data?.data?.organizations) {
+        setSystemHospitals(res.data.data.organizations);
+      }
+    } catch {
+      // Ignore
+    }
+  };
 
   const fetchHospitals = async (lat: number, lng: number) => {
     setIsLoadingHospitals(true);
@@ -62,6 +76,7 @@ export const RequestBloodScreen: React.FC<RequestBloodScreenProps> = ({ onBack, 
 
   const handleHospitalInputChange = async (text: string) => {
     setHospitalName(text);
+    setTargetOrganizationId(undefined);
     if (text.trim().length >= 2) {
       setIsSearchingAutocomplete(true);
       try {
@@ -81,6 +96,7 @@ export const RequestBloodScreen: React.FC<RequestBloodScreenProps> = ({ onBack, 
   const selectSuggestion = (s: HospitalSuggestion) => {
     setHospitalName(s.name);
     if (s.address) setHospitalAddress(s.address);
+    setTargetOrganizationId(undefined);
     setAutocompleteSuggestions([]);
   };
 
@@ -111,6 +127,14 @@ export const RequestBloodScreen: React.FC<RequestBloodScreenProps> = ({ onBack, 
     setHospitalAddress(h.address);
     setLatitude(h.latitude);
     setLongitude(h.longitude);
+    setTargetOrganizationId(undefined);
+    setShowHospitalPicker(false);
+  };
+
+  const selectRegisteredOrg = (org: { _id: string; name: string; address?: { city?: string; street?: string } }) => {
+    setHospitalName(org.name);
+    if (org.address?.city) setHospitalAddress(`${org.address.street || ''}, ${org.address.city}`);
+    setTargetOrganizationId(org._id);
     setShowHospitalPicker(false);
   };
 
@@ -140,6 +164,7 @@ export const RequestBloodScreen: React.FC<RequestBloodScreenProps> = ({ onBack, 
         urgency,
         contactPhone: contactPhone.trim(),
         additionalNotes: additionalNotes.trim(),
+        ...(targetOrganizationId ? { targetOrganizationId } : {}),
       });
 
       setIsSubmitting(false);
@@ -346,11 +371,28 @@ export const RequestBloodScreen: React.FC<RequestBloodScreenProps> = ({ onBack, 
       <Modal visible={showHospitalPicker} transparent animationType="slide">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>🏥 Select Real Nearby Hospital</Text>
+            <Text style={styles.modalTitle}>🏥 Select Hospital</Text>
             {isLoadingHospitals ? (
               <ActivityIndicator size="small" color={COLORS.primary} style={{ marginVertical: 20 }} />
             ) : (
-              <ScrollView style={{ maxHeight: 300, width: '100%' }}>
+              <ScrollView style={{ maxHeight: 320, width: '100%' }}>
+                {systemHospitals.length > 0 && (
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '800', color: COLORS.primary, marginBottom: 6 }}>VERIFIED PARTNER HOSPITALS</Text>
+                    {systemHospitals.map((org) => (
+                      <TouchableOpacity
+                        key={org._id}
+                        style={[styles.hospitalItem, { backgroundColor: '#FFF1F2' }]}
+                        onPress={() => selectRegisteredOrg(org)}
+                      >
+                        <Text style={styles.hospitalItemName}>🏥 {org.name}</Text>
+                        <Text style={styles.hospitalItemAddress}>📍 Verified Partner Hospital {org.address?.city ? `• ${org.address.city}` : ''}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                <Text style={{ fontSize: 12, fontWeight: '800', color: COLORS.secondary, marginBottom: 6 }}>NEARBY HOSPITALS</Text>
                 {realHospitals.map((h) => (
                   <TouchableOpacity
                     key={h.id}

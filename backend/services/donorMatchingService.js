@@ -61,7 +61,7 @@ const findAndMatchNearbyDonors = async (requestId, radiusKmOverride) => {
     donorStatus: 'AVAILABLE',
     isEligible: true,
     bloodGroup: { $in: compatibleGroups },
-    'location.coordinates': {
+    location: {
       $geoWithin: {
         $centerSphere: [[hospitalLng, hospitalLat], radiusInRadians],
       },

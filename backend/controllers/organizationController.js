@@ -257,14 +257,28 @@ const getMyOrganization = asyncHandler(async (req, res) => {
 // GET /api/v1/organizations/requests — Verification Queue for Hospital
 const getOrganizationRequestsQueue = asyncHandler(async (req, res) => {
   const user = req.user;
+  if (!user.organizationId) {
+    return sendError(res, {
+      statusCode: 403,
+      message: 'Authenticated user is not linked to an Organization',
+    });
+  }
+
   const organization = await Organization.findById(user.organizationId);
 
+  // Strict Organization Isolation: Only return requests targeted to this hospital
   const filter = {
     $or: [
       { targetOrganizationId: user.organizationId },
-      { hospitalName: new RegExp(organization?.name || '', 'i') },
     ],
   };
+
+  if (organization?.name && organization.name.trim().length > 0) {
+    filter.$or.push({
+      targetOrganizationId: null,
+      hospitalName: new RegExp(`^${organization.name.trim().replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}$`, 'i'),
+    });
+  }
 
   if (req.query.status) {
     filter.status = req.query.status;
@@ -293,6 +307,13 @@ const verifyRequestByHospital = asyncHandler(async (req, res) => {
   const { notes } = req.body;
   const user = req.user;
 
+  if (!user.organizationId) {
+    return sendError(res, {
+      statusCode: 403,
+      message: 'Authenticated user is not linked to an Organization',
+    });
+  }
+
   const bloodRequest = await BloodRequest.findById(id);
   if (!bloodRequest) {
     return sendError(res, {
@@ -302,7 +323,8 @@ const verifyRequestByHospital = asyncHandler(async (req, res) => {
   }
 
   // Security Check: Hospital staff can only verify requests targeting their hospital
-  if (bloodRequest.targetOrganizationId && user.organizationId && bloodRequest.targetOrganizationId.toString() !== user.organizationId.toString()) {
+  const isTargetOrg = bloodRequest.targetOrganizationId && bloodRequest.targetOrganizationId.toString() === user.organizationId.toString();
+  if (!isTargetOrg) {
     return sendError(res, {
       statusCode: 403,
       message: 'You can only verify blood requests targeted to your own hospital',
@@ -353,6 +375,13 @@ const rejectRequestByHospital = asyncHandler(async (req, res) => {
   const { rejectionReason } = req.body;
   const user = req.user;
 
+  if (!user.organizationId) {
+    return sendError(res, {
+      statusCode: 403,
+      message: 'Authenticated user is not linked to an Organization',
+    });
+  }
+
   if (!rejectionReason) {
     return sendError(res, {
       statusCode: 400,
@@ -365,6 +394,15 @@ const rejectRequestByHospital = asyncHandler(async (req, res) => {
     return sendError(res, {
       statusCode: 404,
       message: 'Blood request not found',
+    });
+  }
+
+  // Security Check: Hospital staff can only reject requests targeting their hospital
+  const isTargetOrg = bloodRequest.targetOrganizationId && bloodRequest.targetOrganizationId.toString() === user.organizationId.toString();
+  if (!isTargetOrg) {
+    return sendError(res, {
+      statusCode: 403,
+      message: 'You can only reject blood requests targeted to your own hospital',
     });
   }
 
@@ -392,6 +430,145 @@ const rejectRequestByHospital = asyncHandler(async (req, res) => {
     message: 'Blood request rejected',
     data: {
       request: bloodRequest,
+    },
+  });
+});
+
+// PATCH /api/v1/organizations/requests/:id/confirm-donor — Confirm Responding Donor
+const confirmDonorByHospital = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { donorId, notes } = req.body;
+  const user = req.user;
+
+  if (!user.organizationId) {
+    return sendError(res, { statusCode: 403, message: 'Authenticated user is not linked to an Organization' });
+  }
+
+  const bloodRequest = await BloodRequest.findById(id);
+  if (!bloodRequest) {
+    return sendError(res, { statusCode: 404, message: 'Blood request not found' });
+  }
+
+  // Security Check: Organization isolation
+  if (bloodRequest.targetOrganizationId && bloodRequest.targetOrganizationId.toString() !== user.organizationId.toString()) {
+    return sendError(res, { statusCode: 403, message: 'You can only confirm donors for requests targeted to your own hospital' });
+  }
+
+  const previousState = bloodRequest.status;
+  bloodRequest.status = 'DONOR_CONFIRMED';
+  if (donorId && mongoose.Types.ObjectId.isValid(donorId)) {
+    bloodRequest.acceptedDonorId = donorId;
+  }
+  await bloodRequest.save();
+
+  // Audit Log
+  await AuditLog.create({
+    performedBy: user._id,
+    userRole: user.role,
+    action: 'HOSPITAL_CONFIRMED_DONOR',
+    entityType: 'BloodRequest',
+    entityId: bloodRequest._id.toString(),
+    previousState: { status: previousState },
+    newState: { status: 'DONOR_CONFIRMED', acceptedDonorId: bloodRequest.acceptedDonorId },
+    reason: notes || 'Hospital confirmed donor appointment',
+  });
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: 'Donor confirmed for blood request. Physical donation visit pending.',
+    data: { request: bloodRequest },
+  });
+});
+
+// PATCH /api/v1/organizations/requests/:id/complete — Authorized Hospital Marks Physical Donation Completed
+const completeDonationByHospital = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { unitsDonated, notes } = req.body;
+  const user = req.user;
+
+  if (!user.organizationId) {
+    return sendError(res, { statusCode: 403, message: 'Authenticated user is not linked to an Organization' });
+  }
+
+  const bloodRequest = await BloodRequest.findById(id);
+  if (!bloodRequest) {
+    return sendError(res, { statusCode: 404, message: 'Blood request not found' });
+  }
+
+  // Security Check: Organization isolation
+  if (bloodRequest.targetOrganizationId && bloodRequest.targetOrganizationId.toString() !== user.organizationId.toString()) {
+    return sendError(res, { statusCode: 403, message: 'You can only complete physical donations for requests targeted to your own hospital' });
+  }
+
+  if (bloodRequest.status === 'FULFILLED') {
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Donation has already been marked as COMPLETED',
+      data: { request: bloodRequest },
+    });
+  }
+
+  const previousState = bloodRequest.status;
+  const unitsCount = Number(unitsDonated) || bloodRequest.unitsRequired || 1;
+
+  // 1. Update BloodRequest status to FULFILLED
+  bloodRequest.status = 'FULFILLED';
+  bloodRequest.fulfilledAt = new Date();
+  await bloodRequest.save();
+
+  // 2. ATOMIC INVENTORY UPDATE: Increment stock in BloodInventory ONLY at COMPLETED physical donation
+  const bloodGroup = bloodRequest.bloodGroup;
+  let inventoryItem = await BloodInventory.findOne({
+    organizationId: user.organizationId,
+    bloodGroup,
+  });
+
+  if (!inventoryItem) {
+    inventoryItem = new BloodInventory({
+      organizationId: user.organizationId,
+      bloodGroup,
+      availableUnits: unitsCount,
+      reservedUnits: 0,
+      lowStockThreshold: 5,
+      lastUpdatedBy: user._id,
+    });
+  } else {
+    inventoryItem.availableUnits = (inventoryItem.availableUnits || 0) + unitsCount;
+    inventoryItem.lastUpdatedBy = user._id;
+  }
+  await inventoryItem.save();
+
+  // 3. Update Donor Profile & Eligibility if acceptedDonorId exists
+  if (bloodRequest.acceptedDonorId) {
+    const donorUser = await User.findById(bloodRequest.acceptedDonorId);
+    if (donorUser) {
+      donorUser.lastDonationDate = new Date();
+      donorUser.isEligible = false;
+      donorUser.donorStatus = 'INELIGIBLE';
+      await donorUser.save();
+    }
+  }
+
+  // 4. Audit Log
+  await AuditLog.create({
+    performedBy: user._id,
+    userRole: user.role,
+    action: 'PHYSICAL_DONATION_COMPLETED',
+    entityType: 'BloodRequest',
+    entityId: bloodRequest._id.toString(),
+    previousState: { status: previousState },
+    newState: { status: 'FULFILLED', unitsAddedToInventory: unitsCount },
+    reason: notes || 'Physical blood donation completed and stock updated',
+  });
+
+  logger.info(`Physical donation COMPLETED for request ${bloodRequest._id}. ${unitsCount} unit(s) of ${bloodGroup} added to inventory for Org ${user.organizationId}`);
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: `Physical donation marked COMPLETED. ${unitsCount} unit(s) of ${bloodGroup} added to blood inventory.`,
+    data: {
+      request: bloodRequest,
+      inventoryItem,
     },
   });
 });
@@ -508,6 +685,25 @@ const getOrganizationAuditLogs = asyncHandler(async (req, res) => {
   });
 });
 
+// GET /api/v1/organizations/list — Public list of approved organizations (Hospitals / Blood Banks)
+const listPublicOrganizations = asyncHandler(async (req, res) => {
+  const { type, city } = req.query;
+  const filter = { status: 'APPROVED' };
+  if (type) filter.type = type;
+  if (city) filter['address.city'] = new RegExp(city, 'i');
+
+  const organizations = await Organization.find(filter)
+    .select('_id name type address contactPhone officialEmail location')
+    .sort({ name: 1 })
+    .exec();
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: `Retrieved ${organizations.length} organization(s)`,
+    data: { organizations },
+  });
+});
+
 module.exports = {
   registerOrganization,
   loginOrganization,
@@ -515,7 +711,10 @@ module.exports = {
   getOrganizationRequestsQueue,
   verifyRequestByHospital,
   rejectRequestByHospital,
+  confirmDonorByHospital,
+  completeDonationByHospital,
   updateMyOrganization,
   setOrganizationPassword,
   getOrganizationAuditLogs,
+  listPublicOrganizations,
 };

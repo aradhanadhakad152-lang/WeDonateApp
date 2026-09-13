@@ -27,6 +27,7 @@ const createRequest = asyncHandler(async (req, res) => {
     hospitalAddress,
     hospitalLatitude,
     hospitalLongitude,
+    targetOrganizationId,
     urgency,
     requiredBy,
     reason,
@@ -36,6 +37,26 @@ const createRequest = asyncHandler(async (req, res) => {
 
   const lat = Number(hospitalLatitude);
   const lng = Number(hospitalLongitude);
+
+  // Validate targetOrganizationId if provided
+  let validTargetOrgId = null;
+  if (targetOrganizationId) {
+    if (!mongoose.Types.ObjectId.isValid(targetOrganizationId)) {
+      return sendError(res, {
+        statusCode: 400,
+        message: 'Invalid target organization ID format',
+      });
+    }
+    const Organization = require('../models/Organization');
+    const org = await Organization.findById(targetOrganizationId);
+    if (!org) {
+      return sendError(res, {
+        statusCode: 404,
+        message: 'Target organization not found',
+      });
+    }
+    validTargetOrgId = org._id;
+  }
 
   // SECURITY & BUSINESS RULE: Prevent multiple active blood requests per user
   const activeStatuses = [
@@ -83,12 +104,13 @@ const createRequest = asyncHandler(async (req, res) => {
       type: 'Point',
       coordinates: [lng, lat], // GeoJSON order: [longitude, latitude]
     },
+    targetOrganizationId: validTargetOrgId,
     urgency: urgency || 'NORMAL',
     requiredBy: requiredBy ? new Date(requiredBy) : undefined,
     reason,
     contactPhone,
     additionalNotes,
-    status: 'OPEN',
+    status: 'VERIFICATION_PENDING',
   });
 
   await bloodRequest.save();
