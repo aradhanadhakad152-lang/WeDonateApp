@@ -10,6 +10,9 @@ const {
   updateUserStatus,
   updateUserAvailability,
   getOrganizationsList,
+  createOrganizationAccount,
+  resetOrganizationAccountPassword,
+  updateOrganizationAccountStatus,
   updateOrganizationStatus,
   getPendingRequestsForAdmin,
   getAllRequestsForAdmin,
@@ -31,8 +34,12 @@ router.get('/users', getUsersList);
 router.patch('/users/:id/status', updateUserStatus);
 router.patch('/users/:id/availability', updateUserAvailability);
 router.get('/organizations', getOrganizationsList);
+router.post('/organizations/:id/account', createOrganizationAccount);
+router.post('/organizations/:id/account/reset-password', resetOrganizationAccountPassword);
+router.post('/organizations/:id/reset-password', resetOrganizationAccountPassword);
+router.post('/organizations/:id/set-password', resetOrganizationAccountPassword);
+router.patch('/organizations/:id/account-status', updateOrganizationAccountStatus);
 router.patch('/organizations/:id/status', updateOrganizationStatus);
-router.post('/organizations/:id/set-password', require('../controllers/organizationController').setOrganizationPassword);
 router.get('/requests/pending', getPendingRequestsForAdmin);
 router.get('/requests', getAllRequestsForAdmin);
 router.patch('/requests/:id/verify', verifyRequestByAdmin);

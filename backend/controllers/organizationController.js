@@ -143,7 +143,7 @@ const loginOrganization = asyncHandler(async (req, res) => {
   }
 
   const organization = user.organizationId;
-  if (organization.status === 'SUSPENDED') {
+  if (user.accountStatus === 'SUSPENDED' || user.isActive === false || organization.status === 'SUSPENDED') {
     return sendError(res, {
       statusCode: 403,
       message: 'Organization account is suspended. Contact WE DONATE admin.',

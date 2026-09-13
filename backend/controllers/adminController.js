@@ -9,6 +9,7 @@ const BloodInventory = require('../models/BloodInventory');
 const FinancialDonation = require('../models/FinancialDonation');
 const FundingCampaign = require('../models/FundingCampaign');
 const AuditLog = require('../models/AuditLog');
+const mongoose = require('mongoose');
 const { sendSuccess, sendError } = require('../utils/apiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
@@ -177,20 +178,361 @@ const updateUserAvailability = asyncHandler(async (req, res) => {
   });
 });
 
-// GET /api/v1/admin/organizations — List Organizations
-const getOrganizationsList = asyncHandler(async (req, res) => {
-  const { status, type } = req.query;
-  const filter = {};
-  if (status) filter.status = status;
-  if (type) filter.type = type;
+function generateTemporaryPassword() {
+  const uppercase = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const lowercase = 'abcdefghijkmnopqrstuvwxyz';
+  const numbers = '23456789';
+  const symbols = '!@#$%&*';
 
-  const organizations = await Organization.find(filter).sort({ createdAt: -1 });
+  const getRandomChar = (str) => str.charAt(Math.floor(Math.random() * str.length));
+
+  let pass = '';
+  pass += getRandomChar(uppercase);
+  pass += getRandomChar(lowercase);
+  pass += getRandomChar(numbers);
+  pass += getRandomChar(symbols);
+
+  const all = uppercase + lowercase + numbers + symbols;
+  for (let i = 0; i < 8; i++) {
+    pass += getRandomChar(all);
+  }
+
+  return pass.split('').sort(() => 0.5 - Math.random()).join('');
+}
+
+// GET /api/v1/admin/organizations — List Organizations with Search, Filter & Account Status
+const getOrganizationsList = asyncHandler(async (req, res) => {
+  const { status, type, city, search } = req.query;
+  const filter = {};
+  if (status && status !== 'all') filter.status = status;
+  if (type && type !== 'all') filter.type = type;
+  if (city && city.trim().length > 0) filter['address.city'] = new RegExp(city.trim(), 'i');
+
+  if (search && search.trim().length > 0) {
+    const s = search.trim();
+    if (/^[0-9a-fA-F]{24}$/.test(s)) {
+      filter._id = s;
+    } else {
+      const searchRegex = new RegExp(s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'), 'i');
+      filter.$or = [
+        { name: searchRegex },
+        { 'address.city': searchRegex },
+        { officialEmail: searchRegex },
+        { registrationLicense: searchRegex },
+      ];
+    }
+  }
+
+  const rawOrgs = await Organization.find(filter).sort({ createdAt: -1 });
+
+  // Attach linked manager User account status for each organization
+  const organizations = await Promise.all(
+    rawOrgs.map(async (org) => {
+      const orgJson = org.toJSON();
+      const staffUser = await User.findOne({ organizationId: org._id }).select('email phone role accountStatus isActive createdAt');
+      orgJson.account = staffUser
+        ? {
+            hasAccount: true,
+            userId: staffUser._id,
+            loginId: staffUser.email || staffUser.phone,
+            email: staffUser.email,
+            phone: staffUser.phone,
+            role: staffUser.role,
+            accountStatus: staffUser.accountStatus,
+            isActive: staffUser.isActive,
+            createdAt: staffUser.createdAt,
+          }
+        : {
+            hasAccount: false,
+            accountStatus: 'NO_ACCOUNT',
+          };
+      return orgJson;
+    })
+  );
 
   return sendSuccess(res, {
     statusCode: 200,
     message: `Retrieved ${organizations.length} organization(s)`,
     data: {
       organizations,
+    },
+  });
+});
+
+// POST /api/v1/admin/organizations/:id/account — Create Manager Account for Organization
+const createOrganizationAccount = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { loginId, password } = req.body;
+  const adminUser = req.user;
+
+  if (!['ADMIN', 'SUPER_ADMIN'].includes(adminUser.role)) {
+    return sendError(res, {
+      statusCode: 403,
+      message: 'Access denied: Admin privileges required to manage organization accounts',
+    });
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'Invalid organization ID format',
+    });
+  }
+
+  const organization = await Organization.findById(id);
+  if (!organization) {
+    return sendError(res, {
+      statusCode: 404,
+      message: 'Organization not found',
+    });
+  }
+
+  // Duplicate Check: Check if manager account already exists for this organization
+  const existingAccount = await User.findOne({ organizationId: organization._id });
+  if (existingAccount) {
+    return sendError(res, {
+      statusCode: 409,
+      message: 'Account already exists for this organization',
+      data: {
+        organizationId: organization._id,
+        organizationName: organization.name,
+        accountStatus: existingAccount.accountStatus,
+        loginId: existingAccount.email || existingAccount.phone,
+        role: existingAccount.role,
+        userId: existingAccount._id,
+      },
+    });
+  }
+
+  // Determine Login ID (Email or Phone)
+  let finalLoginId = (loginId || '').trim();
+  if (!finalLoginId) {
+    finalLoginId = organization.officialEmail || organization.contactPhone;
+  }
+  if (!finalLoginId) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'Login ID (email or phone) is required for organization account creation',
+    });
+  }
+
+  // Determine password
+  let tempPassword = (password || '').trim();
+  if (!tempPassword) {
+    tempPassword = generateTemporaryPassword();
+  } else if (tempPassword.length < 8) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'Password must be at least 8 characters long',
+    });
+  }
+
+  // Derivation of Role strictly based on organization.type
+  const role = organization.type === 'HOSPITAL' ? 'HOSPITAL_MANAGER' : 'BLOOD_BANK_MANAGER';
+  const isEmail = finalLoginId.includes('@');
+
+  const staffUser = new User({
+    firebaseUid: `org_mgr_${organization._id}_${Date.now()}`,
+    fullName: organization.authorizedPerson?.name || organization.name,
+    name: organization.name,
+    email: isEmail ? finalLoginId.toLowerCase() : organization.officialEmail.toLowerCase(),
+    phone: !isEmail ? finalLoginId : (organization.authorizedPerson?.phone || organization.contactPhone),
+    role,
+    organizationId: organization._id,
+    accountStatus: 'ACTIVE',
+    isActive: true,
+    isVerified: true,
+    password: tempPassword, // Will be bcrypt-hashed in User pre-save hook
+  });
+
+  await staffUser.save();
+
+  // Audit Log
+  await AuditLog.create({
+    performedBy: adminUser._id,
+    userRole: adminUser.role,
+    action: 'ORGANIZATION_ACCOUNT_CREATED',
+    entityType: 'Organization',
+    entityId: organization._id.toString(),
+    newState: {
+      organizationName: organization.name,
+      role,
+      loginId: finalLoginId,
+      accountStatus: 'ACTIVE',
+    },
+    reason: `Admin created ${role} account for '${organization.name}'`,
+  });
+
+  logger.info(`Admin ${adminUser._id} created ${role} account for Organization ${organization._id}`);
+
+  return sendSuccess(res, {
+    statusCode: 201,
+    message: `Login account created successfully for '${organization.name}'`,
+    data: {
+      organizationId: organization._id,
+      organizationName: organization.name,
+      loginId: finalLoginId,
+      role,
+      accountStatus: staffUser.accountStatus,
+      temporaryPassword: tempPassword, // Exposed ONCE in initial response payload
+    },
+  });
+});
+
+// POST /api/v1/admin/organizations/:id/account/reset-password — Reset Organization Password
+const resetOrganizationAccountPassword = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { newPassword } = req.body;
+  const adminUser = req.user;
+
+  if (!['ADMIN', 'SUPER_ADMIN'].includes(adminUser.role)) {
+    return sendError(res, {
+      statusCode: 403,
+      message: 'Access denied: Admin privileges required to reset organization password',
+    });
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'Invalid organization ID format',
+    });
+  }
+
+  const organization = await Organization.findById(id);
+  if (!organization) {
+    return sendError(res, {
+      statusCode: 404,
+      message: 'Organization not found',
+    });
+  }
+
+  const staffUser = await User.findOne({ organizationId: organization._id });
+  if (!staffUser) {
+    return sendError(res, {
+      statusCode: 404,
+      message: 'No login account exists for this organization. Please create an account first.',
+    });
+  }
+
+  let tempPassword = (newPassword || '').trim();
+  if (!tempPassword) {
+    tempPassword = generateTemporaryPassword();
+  } else if (tempPassword.length < 8) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'New password must be at least 8 characters long',
+    });
+  }
+
+  // Update password & invalidate active sessions
+  staffUser.password = tempPassword;
+  staffUser.refreshTokenHashes = []; // Invalidate existing refresh tokens
+  await staffUser.save(); // Hashes password via User pre-save hook
+
+  // Audit Log
+  await AuditLog.create({
+    performedBy: adminUser._id,
+    userRole: adminUser.role,
+    action: 'ORGANIZATION_ACCOUNT_PASSWORD_RESET',
+    entityType: 'Organization',
+    entityId: organization._id.toString(),
+    newState: { organizationName: organization.name },
+    reason: `Admin reset password for organization '${organization.name}'`,
+  });
+
+  logger.info(`Admin ${adminUser._id} reset password for Organization ${organization._id}`);
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: `Password reset successfully for '${organization.name}'`,
+    data: {
+      organizationId: organization._id,
+      organizationName: organization.name,
+      loginId: staffUser.email || staffUser.phone,
+      temporaryPassword: tempPassword, // Returned ONCE in response
+    },
+  });
+});
+
+// PATCH /api/v1/admin/organizations/:id/account-status — Activate/Suspend Organization Account
+const updateOrganizationAccountStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { accountStatus, reason } = req.body;
+  const adminUser = req.user;
+
+  if (!['ADMIN', 'SUPER_ADMIN'].includes(adminUser.role)) {
+    return sendError(res, {
+      statusCode: 403,
+      message: 'Access denied: Admin privileges required to update organization account status',
+    });
+  }
+
+  if (!['ACTIVE', 'SUSPENDED', 'INACTIVE'].includes(accountStatus)) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'accountStatus must be ACTIVE, SUSPENDED, or INACTIVE',
+    });
+  }
+
+  const organization = await Organization.findById(id);
+  if (!organization) {
+    return sendError(res, {
+      statusCode: 404,
+      message: 'Organization not found',
+    });
+  }
+
+  const staffUser = await User.findOne({ organizationId: organization._id });
+  if (!staffUser) {
+    return sendError(res, {
+      statusCode: 404,
+      message: 'No login account exists for this organization',
+    });
+  }
+
+  const previousStatus = staffUser.accountStatus;
+  staffUser.accountStatus = accountStatus;
+
+  if (accountStatus === 'SUSPENDED') {
+    staffUser.isActive = false;
+    staffUser.refreshTokenHashes = []; // Revoke active sessions
+    organization.status = 'SUSPENDED';
+    await organization.save();
+  } else if (accountStatus === 'ACTIVE') {
+    staffUser.isActive = true;
+    if (organization.status === 'SUSPENDED') {
+      organization.status = 'APPROVED';
+      await organization.save();
+    }
+  }
+
+  await staffUser.save();
+
+  const actionName = accountStatus === 'ACTIVE' ? 'ORGANIZATION_ACCOUNT_ACTIVATED' : 'ORGANIZATION_ACCOUNT_SUSPENDED';
+
+  // Audit Log
+  await AuditLog.create({
+    performedBy: adminUser._id,
+    userRole: adminUser.role,
+    action: actionName,
+    entityType: 'Organization',
+    entityId: organization._id.toString(),
+    previousState: { accountStatus: previousStatus },
+    newState: { accountStatus, organizationStatus: organization.status },
+    reason: reason || `Admin set account status to ${accountStatus}`,
+  });
+
+  logger.info(`Admin ${adminUser._id} set Organization ${organization._id} account status to ${accountStatus}`);
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: `Organization account status updated to ${accountStatus}`,
+    data: {
+      organizationId: organization._id,
+      organizationName: organization.name,
+      accountStatus: staffUser.accountStatus,
+      organizationStatus: organization.status,
     },
   });
 });
@@ -267,7 +609,7 @@ const getPendingRequestsForAdmin = asyncHandler(async (req, res) => {
   });
 });
 
-// GET /api/v1/admin/requests — Get All Blood Requests with Filters
+// GET /api/v1/admin/requests — Get All Requests Across All Organizations
 const getAllRequestsForAdmin = asyncHandler(async (req, res) => {
   const { status, bloodGroup, urgency } = req.query;
   const filter = {};
@@ -283,15 +625,17 @@ const getAllRequestsForAdmin = asyncHandler(async (req, res) => {
 
   return sendSuccess(res, {
     statusCode: 200,
-    message: `Retrieved ${requests.length} blood request(s)`,
-    data: { requests },
+    message: `Retrieved ${requests.length} request(s) for platform admin`,
+    data: {
+      requests,
+    },
   });
 });
 
-// PATCH /api/v1/admin/requests/:id/verify — Admin Fallback Request Verification
+// PATCH /api/v1/admin/requests/:id/verify — Admin Fallback Manual Request Verification
 const verifyRequestByAdmin = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { reason, action } = req.body;
+  const { action, reason } = req.body;
   const adminUser = req.user;
 
   const bloodRequest = await BloodRequest.findById(id);
@@ -303,12 +647,9 @@ const verifyRequestByAdmin = asyncHandler(async (req, res) => {
   }
 
   const previousState = bloodRequest.status;
-
   if (action === 'REJECT') {
     bloodRequest.status = 'REJECTED';
-    bloodRequest.rejectionReason = reason || 'Admin rejected request after phone verification';
-    bloodRequest.verifiedBy = adminUser._id;
-    bloodRequest.verificationSource = 'ADMIN';
+    bloodRequest.rejectionReason = reason || 'Admin manual rejection';
     await bloodRequest.save();
 
     await AuditLog.create({
@@ -319,24 +660,22 @@ const verifyRequestByAdmin = asyncHandler(async (req, res) => {
       entityId: bloodRequest._id.toString(),
       previousState: { status: previousState },
       newState: { status: 'REJECTED' },
-      reason: reason || 'Admin rejected blood request',
+      reason: reason || 'Admin rejected request',
     });
 
     return sendSuccess(res, {
       statusCode: 200,
-      message: 'Blood request rejected by Admin',
+      message: 'Blood request rejected by platform admin',
       data: { request: bloodRequest },
     });
   }
 
-  // Admin Approval (ADMIN_VERIFIED)
   bloodRequest.status = 'ADMIN_VERIFIED';
   bloodRequest.verifiedBy = adminUser._id;
-  bloodRequest.verificationSource = 'ADMIN';
-  bloodRequest.verificationNotes = reason || 'Hospital did not respond within timeout / Admin manual verification';
+  bloodRequest.verificationSource = 'ADMIN_MANUAL';
+  bloodRequest.verificationNotes = reason || 'Admin verified patient emergency requirement';
   await bloodRequest.save();
 
-  // Create Audit Log
   await AuditLog.create({
     performedBy: adminUser._id,
     userRole: adminUser.role,
@@ -345,12 +684,10 @@ const verifyRequestByAdmin = asyncHandler(async (req, res) => {
     entityId: bloodRequest._id.toString(),
     previousState: { status: previousState },
     newState: { status: 'ADMIN_VERIFIED' },
-    reason: reason || 'Hospital timeout fallback / Manual Admin Verification',
+    reason: reason || 'Admin verified request',
   });
 
-  logger.info(`BloodRequest ${bloodRequest._id} VERIFIED by Admin ${adminUser._id}`);
-
-  // Trigger targeted donor matching engine
+  // Trigger matching engine
   try {
     const { findAndMatchNearbyDonors } = require('../services/donorMatchingService');
     await findAndMatchNearbyDonors(bloodRequest._id);
@@ -360,32 +697,24 @@ const verifyRequestByAdmin = asyncHandler(async (req, res) => {
 
   return sendSuccess(res, {
     statusCode: 200,
-    message: 'Blood request verified by Admin (ADMIN_VERIFIED). Targeted donor matching initiated.',
-    data: {
-      request: bloodRequest,
-    },
+    message: 'Blood request verified by admin. Donor matching initiated.',
+    data: { request: bloodRequest },
   });
 });
 
-// GET /api/v1/admin/audit-logs — Query System Audit Trail
+// GET /api/v1/admin/audit-logs — System Audit Logs
 const getAuditLogs = asyncHandler(async (req, res) => {
-  const { entityType, action, limit = 100 } = req.query;
-  const filter = {};
-  if (entityType) filter.entityType = entityType;
-  if (action) filter.action = action;
-
-  const logs = await AuditLog.find(filter)
+  const limit = parseInt(req.query.limit || 100, 10);
+  const logs = await AuditLog.find({})
     .populate('performedBy', 'fullName name phone role email')
     .sort({ createdAt: -1 })
-    .limit(parseInt(limit, 10))
+    .limit(limit)
     .exec();
 
   return sendSuccess(res, {
     statusCode: 200,
     message: `Retrieved ${logs.length} audit log record(s)`,
-    data: {
-      logs,
-    },
+    data: { logs },
   });
 });
 
@@ -409,6 +738,9 @@ module.exports = {
   updateUserStatus,
   updateUserAvailability,
   getOrganizationsList,
+  createOrganizationAccount,
+  resetOrganizationAccountPassword,
+  updateOrganizationAccountStatus,
   updateOrganizationStatus,
   getPendingRequestsForAdmin,
   getAllRequestsForAdmin,

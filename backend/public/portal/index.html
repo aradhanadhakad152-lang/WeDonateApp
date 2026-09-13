@@ -326,14 +326,48 @@
           <!-- ORGANIZATIONS TAB (ADMIN ONLY) -->
           <div class="tab-pane fade" id="tab-orgs">
             <div class="card border-0 shadow-sm p-4 bg-white rounded-3">
-              <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-building"></i> Registered Hospitals & Blood Banks</h5>
+              <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-building"></i> Hospital & Blood Bank Management</h5>
                 <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="loadOrgsData()"><i class="bi bi-arrow-clockwise"></i> Refresh Organizations</button>
               </div>
+
+              <!-- Search & Filter Controls -->
+              <div class="row g-2 mb-3">
+                <div class="col-md-5">
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" id="orgSearchInput" class="form-control" placeholder="Search by name, city, license, or org ID..." onkeyup="if(event.key==='Enter') loadOrgsData()">
+                    <button class="btn btn-outline-secondary fw-bold" onclick="loadOrgsData()">Search</button>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <select id="orgTypeFilter" class="form-select form-select-sm" onchange="loadOrgsData()">
+                    <option value="all">All Organization Types</option>
+                    <option value="HOSPITAL">Hospitals Only</option>
+                    <option value="BLOOD_BANK">Blood Banks Only</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <select id="orgStatusFilter" class="form-select form-select-sm" onchange="loadOrgsData()">
+                    <option value="all">All Verification Statuses</option>
+                    <option value="APPROVED">Approved</option>
+                    <option value="PENDING_VERIFICATION">Pending Verification</option>
+                    <option value="SUSPENDED">Suspended</option>
+                  </select>
+                </div>
+              </div>
+
               <div class="table-responsive">
                 <table class="table table-hover align-middle">
                   <thead class="table-light">
-                    <tr><th>Organization Name</th><th>Type</th><th>City</th><th>License #</th><th>Status</th><th>Actions</th></tr>
+                    <tr>
+                      <th>Organization Name & ID</th>
+                      <th>Type</th>
+                      <th>City / Address</th>
+                      <th>Verification Status</th>
+                      <th>Account Status / Login ID</th>
+                      <th>Account Actions</th>
+                    </tr>
                   </thead>
                   <tbody id="orgsTbody"><tr><td colspan="6" class="text-muted text-center py-4">Loading organizations...</td></tr></tbody>
                 </table>
@@ -429,6 +463,59 @@
           <div class="mb-2"><label class="form-label small fw-bold">Street Location</label><input type="text" id="campAddress" class="form-control" placeholder="Community Center Sector 5"></div>
           <div class="mb-3"><label class="form-label small fw-bold">Donor Capacity Limit</label><input type="number" id="campLimit" class="form-control" value="200"></div>
           <button class="btn btn-danger w-100 fw-bold py-2 shadow-sm" onclick="submitCreateCamp()">Launch Donation Drive</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CREATE / MANAGING ORG LOGIN ACCOUNT -->
+  <div class="modal fade" id="createOrgAccountModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header border-0 pb-0">
+          <h5 class="modal-title fw-bold text-dark" id="orgAccountModalTitle">Create Organization Login Account</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <input type="hidden" id="accountOrgId" value="">
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-secondary">Target Organization</label>
+            <input type="text" id="accountOrgName" class="form-control fw-bold" readonly disabled>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-secondary">Role to Assign</label>
+            <input type="text" id="accountOrgRole" class="form-control fw-bold text-danger" readonly disabled>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-secondary">Official Login ID (Email / Phone)</label>
+            <input type="text" id="accountLoginId" class="form-control" placeholder="e.g. hospital@domain.com or +919876543210">
+            <small class="text-muted">Will use official organization email/phone if left blank</small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-secondary">Access Password</label>
+            <div class="input-group">
+              <input type="text" id="accountPassword" class="form-control font-monospace" placeholder="Min 8 characters">
+              <button class="btn btn-outline-secondary fw-bold" type="button" onclick="generateRandomAccountPassword()"><i class="bi bi-dice-5"></i> Auto-Generate</button>
+            </div>
+          </div>
+
+          <!-- Alert box showing credentials ONCE -->
+          <div id="credentialsAlertBox" class="alert alert-success d-none border-0 shadow-sm mt-3">
+            <h6 class="fw-bold mb-1"><i class="bi bi-key-fill"></i> Account Credentials Generated (Shown ONCE)</h6>
+            <div class="small"><strong>Organization:</strong> <span id="credOrgName"></span></div>
+            <div class="small"><strong>Login ID:</strong> <span id="credLoginId" class="fw-bold"></span></div>
+            <div class="small"><strong>Role:</strong> <span id="credRole" class="badge bg-danger"></span></div>
+            <div class="small mt-2"><strong>Temporary Password:</strong></div>
+            <div class="p-2 bg-dark text-warning font-monospace rounded d-flex justify-content-between align-items-center mt-1">
+              <span id="credTempPassword" class="fs-6 fw-bold"></span>
+              <button class="btn btn-sm btn-outline-warning" onclick="copyCredPassword()"><i class="bi bi-clipboard"></i> Copy</button>
+            </div>
+            <div class="small text-muted mt-2"><i class="bi bi-exclamation-triangle-fill text-warning me-1"></i> Copy and securely transmit these credentials to the organization representative now.</div>
+          </div>
+
+          <button id="btnSubmitOrgAccount" class="btn btn-danger w-100 fw-bold py-2 shadow-sm mt-3" onclick="submitCreateOrgAccount()">
+            Create Organization Login Account
+          </button>
         </div>
       </div>
     </div>
@@ -1121,30 +1208,122 @@
 
     async function loadOrgsData() {
       try {
-        const data = await apiCall('/admin/organizations');
+        const search = (document.getElementById('orgSearchInput')?.value || '').trim();
+        const type = document.getElementById('orgTypeFilter')?.value || 'all';
+        const status = document.getElementById('orgStatusFilter')?.value || 'all';
+
+        const params = new URLSearchParams();
+        if (search) params.append('search', search);
+        if (type !== 'all') params.append('type', type);
+        if (status !== 'all') params.append('status', status);
+
+        const data = await apiCall(`/admin/organizations?${params.toString()}`);
         const tbody = document.getElementById('orgsTbody');
         tbody.innerHTML = '';
         if (data.success && data.data.organizations.length > 0) {
           data.data.organizations.forEach(o => {
             const isPending = o.status === 'PENDING_VERIFICATION';
+            const isOrgSuspended = o.status === 'SUSPENDED';
+            const hasAcc = o.account && o.account.hasAccount;
+            const isAccSuspended = o.account && o.account.accountStatus === 'SUSPENDED';
+
+            let accBadge = '<span class="badge bg-secondary">No Account</span>';
+            if (hasAcc) {
+              if (isAccSuspended) {
+                accBadge = `<span class="badge bg-danger"><i class="bi bi-person-x-fill me-1"></i> SUSPENDED</span><small class="d-block text-muted font-monospace">${o.account.loginId}</small>`;
+              } else {
+                accBadge = `<span class="badge bg-success"><i class="bi bi-person-check-fill me-1"></i> ACTIVE</span><small class="d-block text-muted font-monospace">${o.account.loginId}</small>`;
+              }
+            }
+
+            let actionsHtml = '';
+            if (isPending) {
+              actionsHtml += `<button class="btn btn-sm btn-success me-1 fw-bold mb-1" onclick="approveOrg('${o._id}')"><i class="bi bi-check-circle"></i> Approve</button>`;
+            }
+
+            if (!hasAcc) {
+              actionsHtml += `<button class="btn btn-sm btn-primary me-1 fw-bold mb-1" onclick="openCreateAccountModal('${o._id}', '${(o.name || '').replace(/'/g, "\\'")}', '${o.type}', '${o.officialEmail || ''}')"><i class="bi bi-person-plus-fill me-1"></i> Create Login Account</button>`;
+            } else {
+              actionsHtml += `<button class="btn btn-sm btn-outline-primary me-1 fw-bold mb-1" onclick="resetOrgPassword('${o._id}', '${(o.name || '').replace(/'/g, "\\'")}')"><i class="bi bi-key-fill me-1"></i> Reset Password</button>`;
+
+              if (isAccSuspended || isOrgSuspended) {
+                actionsHtml += `<button class="btn btn-sm btn-success fw-bold mb-1" onclick="toggleOrgAccountStatus('${o._id}', 'ACTIVE', '${(o.name || '').replace(/'/g, "\\'")}')"><i class="bi bi-play-circle-fill me-1"></i> Activate Account</button>`;
+              } else {
+                actionsHtml += `<button class="btn btn-sm btn-outline-danger fw-bold mb-1" onclick="toggleOrgAccountStatus('${o._id}', 'SUSPENDED', '${(o.name || '').replace(/'/g, "\\'")}')"><i class="bi bi-pause-circle-fill me-1"></i> Suspend Account</button>`;
+              }
+            }
+
             tbody.innerHTML += `
               <tr>
-                <td><strong>${o.name}</strong></td>
-                <td><span class="badge bg-secondary">${o.type}</span></td>
-                <td>${o.address?.city || ''}</td>
-                <td>${o.registrationLicense || 'N/A'}</td>
-                <td><span class="badge ${isPending ? 'bg-warning text-dark' : 'bg-success'}">${o.status}</span></td>
-                <td>
-                  ${isPending ? `<button class="btn btn-sm btn-success me-1 fw-bold" onclick="approveOrg('${o._id}')"><i class="bi bi-check-circle"></i> Approve</button>` : `<span class="text-muted small me-1"><i class="bi bi-patch-check-fill text-success"></i> Approved</span>`}
-                  <button class="btn btn-sm btn-outline-primary fw-bold" onclick="setOrgPassword('${o._id}', '${(o.name || '').replace(/'/g, "\\'")}')"><i class="bi bi-key"></i> Set Password</button>
-                </td>
+                <td><strong>${o.name}</strong><br><small class="text-muted font-monospace">ID: ${o._id}</small></td>
+                <td><span class="badge ${o.type === 'HOSPITAL' ? 'bg-danger' : 'bg-primary'}">${o.type}</span></td>
+                <td>${o.address?.city || 'N/A'}<br><small class="text-muted">${o.address?.street || ''}</small></td>
+                <td><span class="badge ${isPending ? 'bg-warning text-dark' : isOrgSuspended ? 'bg-danger' : 'bg-success'}">${o.status}</span></td>
+                <td>${accBadge}</td>
+                <td>${actionsHtml}</td>
               </tr>
             `;
           });
         } else {
-          tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No organizations found.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No organizations found matching search criteria.</td></tr>';
         }
       } catch (err) { console.error(err); }
+    }
+
+    function openCreateAccountModal(id, name, type, defaultEmail) {
+      document.getElementById('accountOrgId').value = id;
+      document.getElementById('accountOrgName').value = name;
+      const roleText = type === 'HOSPITAL' ? 'HOSPITAL_MANAGER (Hospital Operations)' : 'BLOOD_BANK_MANAGER (Blood Bank Operations)';
+      document.getElementById('accountOrgRole').value = roleText;
+      document.getElementById('accountLoginId').value = defaultEmail || '';
+      document.getElementById('accountPassword').value = '';
+      document.getElementById('credentialsAlertBox').classList.add('d-none');
+      document.getElementById('btnSubmitOrgAccount').classList.remove('d-none');
+      openModalFallback('createOrgAccountModal');
+    }
+
+    function generateRandomAccountPassword() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*';
+      let pass = '';
+      for (let i = 0; i < 12; i++) {
+        pass += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      document.getElementById('accountPassword').value = pass;
+    }
+
+    async function submitCreateOrgAccount() {
+      const orgId = document.getElementById('accountOrgId').value;
+      const loginId = document.getElementById('accountLoginId').value.trim();
+      const password = document.getElementById('accountPassword').value.trim();
+
+      if (!orgId) return;
+
+      try {
+        const data = await apiCall(`/admin/organizations/${orgId}/account`, 'POST', { loginId, password });
+        if (data.success) {
+          const creds = data.data;
+          document.getElementById('credOrgName').innerText = creds.organizationName;
+          document.getElementById('credLoginId').innerText = creds.loginId;
+          document.getElementById('credRole').innerText = creds.role;
+          document.getElementById('credTempPassword').innerText = creds.temporaryPassword;
+          document.getElementById('credentialsAlertBox').classList.remove('d-none');
+          document.getElementById('btnSubmitOrgAccount').classList.add('d-none');
+          showToast(`Account created for '${creds.organizationName}'! Copy temporary password.`);
+          loadOrgsData();
+        }
+      } catch (err) {
+        if (err.message && err.message.includes('Account already exists')) {
+          showToast('Account already exists for this organization. You can reset password or suspend.', false);
+        }
+      }
+    }
+
+    function copyCredPassword() {
+      const passText = document.getElementById('credTempPassword').innerText;
+      if (passText) {
+        navigator.clipboard.writeText(passText);
+        showToast('Temporary password copied to clipboard!');
+      }
     }
 
     async function approveOrg(id) {
@@ -1157,17 +1336,29 @@
       } catch (err) { console.error(err); }
     }
 
-    async function setOrgPassword(id, name) {
-      const newPassword = prompt(`Set secure access password for organization '${name}':\n(Minimum 8 characters)`);
-      if (!newPassword) return;
-      if (newPassword.length < 8) {
-        showToast('Password must be at least 8 characters long', false);
-        return;
-      }
+    async function resetOrgPassword(id, name) {
+      if (!confirm(`Reset access password for '${name}'? This will generate a new temporary password and invalidate active sessions.`)) return;
       try {
-        const data = await apiCall(`/admin/organizations/${id}/set-password`, 'POST', { newPassword });
+        const data = await apiCall(`/admin/organizations/${id}/account/reset-password`, 'POST', {});
         if (data.success) {
-          showToast(`Access password updated successfully for '${name}'!`);
+          const tempPass = data.data.temporaryPassword;
+          alert(`PASSWORD RESET SUCCESSFUL for '${name}'!\n\nOfficial Login ID: ${data.data.loginId}\nNew Temporary Password: ${tempPass}\n\nIMPORTANT: Note or copy this password now. It will NOT be shown again.`);
+          showToast(`Password reset for '${name}'!`);
+          loadOrgsData();
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    async function toggleOrgAccountStatus(id, newStatus, name) {
+      const actionText = newStatus === 'SUSPENDED' ? 'SUSPEND' : 'ACTIVATE';
+      const reason = prompt(`Reason for setting account status to ${newStatus} for '${name}':`, `Admin ${actionText.toLowerCase()} action`);
+      if (!reason) return;
+
+      try {
+        const data = await apiCall(`/admin/organizations/${id}/account-status`, 'PATCH', { accountStatus: newStatus, reason });
+        if (data.success) {
+          showToast(`Account status for '${name}' updated to ${newStatus}!`);
+          loadOrgsData();
         }
       } catch (err) { console.error(err); }
     }
