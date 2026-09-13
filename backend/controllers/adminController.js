@@ -5,6 +5,8 @@ const Organization = require('../models/Organization');
 const BloodRequest = require('../models/BloodRequest');
 const DonationCamp = require('../models/DonationCamp');
 const CampRegistration = require('../models/CampRegistration');
+const DonationRegistration = require('../models/DonationRegistration');
+const DonorMatch = require('../models/DonorMatch');
 const BloodInventory = require('../models/BloodInventory');
 const FinancialDonation = require('../models/FinancialDonation');
 const FundingCampaign = require('../models/FundingCampaign');
@@ -1033,9 +1035,112 @@ const getWhatsAppConfigStatusController = asyncHandler(async (req, res) => {
   });
 });
 
+// GET /api/v1/admin/donors — Operational Donor Management List
+const getAdminDonorsList = asyncHandler(async (req, res) => {
+  const { search, bloodGroup, status } = req.query;
+  const filter = { isDonor: true };
+
+  if (bloodGroup && bloodGroup !== 'ALL') {
+    filter.bloodGroup = bloodGroup;
+  }
+
+  if (search) {
+    const searchRegex = new RegExp(search, 'i');
+    filter.$or = [
+      { fullName: searchRegex },
+      { name: searchRegex },
+      { phone: searchRegex },
+      { email: searchRegex },
+    ];
+  }
+
+  const now = new Date();
+
+  if (status === 'AVAILABLE') {
+    filter.isAvailable = true;
+  } else if (status === 'UNAVAILABLE') {
+    filter.isAvailable = false;
+  } else if (status === 'ELIGIBLE') {
+    filter.isAvailable = true;
+    filter.$and = filter.$and || [];
+    filter.$and.push({
+      $or: [
+        { nextEligibleDate: { $exists: false } },
+        { nextEligibleDate: null },
+        { nextEligibleDate: { $lte: now } },
+      ],
+    });
+  } else if (status === 'NOT_ELIGIBLE') {
+    filter.nextEligibleDate = { $gt: now };
+  }
+
+  const donors = await User.find(filter)
+    .select('-password -refreshTokenHashes')
+    .sort({ createdAt: -1 })
+    .exec();
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: `Retrieved ${donors.length} donor record(s)`,
+    data: { donors },
+  });
+});
+
+// GET /api/v1/admin/donors/:id/history — Aggregated Donor Operational History
+const getDonorDetailsHistory = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const donor = await User.findById(id).select('-password -refreshTokenHashes');
+  if (!donor) {
+    return sendError(res, {
+      statusCode: 404,
+      message: 'Donor not found',
+    });
+  }
+
+  const physicalDonations = await DonationRegistration.find({ donorId: id })
+    .populate('organizationId', 'name city type')
+    .populate('campId', 'title location')
+    .sort({ createdAt: -1 })
+    .exec();
+
+  const campRegistrations = await CampRegistration.find({ userId: id })
+    .populate('campId', 'title location organizerName')
+    .sort({ createdAt: -1 })
+    .exec();
+
+  const matchHistory = await DonorMatch.find({ donor: id })
+    .populate('bloodRequest')
+    .populate('requester', 'fullName name phone')
+    .sort({ createdAt: -1 })
+    .exec();
+
+  const auditLogs = await AuditLog.find({
+    $or: [{ entityId: id.toString() }, { performedBy: id }],
+  })
+    .populate('performedBy', 'fullName name role')
+    .sort({ createdAt: -1 })
+    .limit(50)
+    .exec();
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: 'Donor profile and operational history retrieved',
+    data: {
+      donor: donor.toProfileJSON ? donor.toProfileJSON() : donor,
+      physicalDonations,
+      campRegistrations,
+      matchHistory,
+      auditLogs,
+    },
+  });
+});
+
 module.exports = {
   getAdminDashboardMetrics,
   getUsersList,
+  getAdminDonorsList,
+  getDonorDetailsHistory,
   updateUserStatus,
   updateUserAvailability,
   getOrganizationsList,

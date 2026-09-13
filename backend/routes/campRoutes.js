@@ -11,6 +11,8 @@ const {
   getCampRegistrations,
   submitCampResults,
   updateCampStatus,
+  checkInCampRegistration,
+  updateCampRegistrationStatus,
 } = require('../controllers/campController');
 
 /**
@@ -22,6 +24,8 @@ router.get('/', getCamps);
 router.post('/', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'CAMP_ORGANIZER', 'ADMIN', 'SUPER_ADMIN'), createCamp);
 router.post('/:id/register', authenticate, registerForCamp);
 router.get('/:id/registrations', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'CAMP_ORGANIZER', 'ADMIN', 'SUPER_ADMIN'), getCampRegistrations);
+router.patch('/registrations/:registrationId/check-in', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'CAMP_ORGANIZER', 'ADMIN', 'SUPER_ADMIN'), checkInCampRegistration);
+router.patch('/registrations/:registrationId/status', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'CAMP_ORGANIZER', 'ADMIN', 'SUPER_ADMIN'), updateCampRegistrationStatus);
 router.post('/:id/results', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'CAMP_ORGANIZER', 'ADMIN', 'SUPER_ADMIN'), submitCampResults);
 router.patch('/:id/status', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'ADMIN', 'SUPER_ADMIN'), updateCampStatus);
 

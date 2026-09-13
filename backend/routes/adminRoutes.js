@@ -7,6 +7,8 @@ const { authorizeRoles } = require('../middleware/rbacMiddleware');
 const {
   getAdminDashboardMetrics,
   getUsersList,
+  getAdminDonorsList,
+  getDonorDetailsHistory,
   updateUserStatus,
   updateUserAvailability,
   getOrganizationsList,
@@ -33,6 +35,8 @@ router.use(authorizeRoles('SUPER_ADMIN', 'ADMIN'));
 
 router.get('/dashboard', getAdminDashboardMetrics);
 router.get('/users', getUsersList);
+router.get('/donors', getAdminDonorsList);
+router.get('/donors/:id/history', getDonorDetailsHistory);
 router.patch('/users/:id/status', updateUserStatus);
 router.patch('/users/:id/availability', updateUserAvailability);
 router.get('/organizations/search-places', searchGooglePlacesForOrganizations);

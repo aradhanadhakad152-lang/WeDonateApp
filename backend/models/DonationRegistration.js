@@ -57,6 +57,12 @@ const donationRegistrationSchema = new mongoose.Schema(
     },
     rejectedAt: {
       type: Date
+    },
+    donationNumber: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true
     }
   },
   {

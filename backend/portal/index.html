@@ -225,10 +225,20 @@
             
             <div class="card border-0 shadow-sm p-4 bg-white rounded-3">
               <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="fw-bold text-dark mb-0"><i class="bi bi-activity"></i> Live Platform Operations Center</h5>
-                <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="refreshCurrentTab()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                <h5 class="fw-bold text-dark mb-0"><i class="bi bi-activity text-danger me-2"></i> Live Platform Operations Center & Event Stream</h5>
+                <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="refreshCurrentTab()"><i class="bi bi-arrow-clockwise"></i> Refresh Stream</button>
               </div>
-              <p class="text-muted">Use the navigation menu on the left to process incoming patient blood requirements, update real-time stock inventory, manage donation drives, and inspect security audit trails.</p>
+              <p class="text-muted small mb-3">Real-time audit event stream tracking platform actions, donor matches, request verifications, and inventory updates.</p>
+              <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                  <thead class="table-light">
+                    <tr><th>Timestamp</th><th>Action</th><th>User / Role</th><th>Entity Type & ID</th><th>Reason / Details</th></tr>
+                  </thead>
+                  <tbody id="liveAuditStreamTbody">
+                    <tr><td colspan="5" class="text-muted text-center py-3">Loading live event stream...</td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
 
@@ -308,16 +318,49 @@
           <!-- USERS & DONORS TAB (ADMIN ONLY) -->
           <div class="tab-pane fade" id="tab-users">
             <div class="card border-0 shadow-sm p-4 bg-white rounded-3">
-              <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-people"></i> Registered Citizens & Blood Donors</h5>
-                <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="loadUsersData()"><i class="bi bi-arrow-clockwise"></i> Refresh Users</button>
+              <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                <div>
+                  <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-people-fill text-danger me-2"></i> Registered Donors & Citizens Operations</h5>
+                  <small class="text-muted">Manage donor profiles, inspect physical donation history, and check eligibility status</small>
+                </div>
+                <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="loadUsersData()"><i class="bi bi-arrow-clockwise"></i> Refresh Donors</button>
               </div>
+
+              <!-- Search & Filter Bar -->
+              <div class="row g-2 mb-3">
+                <div class="col-md-5">
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" id="donorSearchInput" class="form-control" placeholder="Search donor name, phone, email..." onkeyup="if(event.key==='Enter') loadUsersData()">
+                    <button class="btn btn-danger fw-bold" onclick="loadUsersData()">Search</button>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="btn-group btn-group-sm w-100" role="group" id="donorStatusFilterGroup">
+                    <button type="button" class="btn btn-outline-danger active" onclick="setDonorStatusFilter('ALL', this)">ALL</button>
+                    <button type="button" class="btn btn-outline-danger" onclick="setDonorStatusFilter('AVAILABLE', this)">AVAILABLE</button>
+                    <button type="button" class="btn btn-outline-danger" onclick="setDonorStatusFilter('UNAVAILABLE', this)">UNAVAILABLE</button>
+                    <button type="button" class="btn btn-outline-danger" onclick="setDonorStatusFilter('ELIGIBLE', this)">ELIGIBLE</button>
+                    <button type="button" class="btn btn-outline-danger" onclick="setDonorStatusFilter('NOT_ELIGIBLE', this)">NOT ELIGIBLE</button>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <select id="donorBloodGroupFilter" class="form-select form-select-sm" onchange="loadUsersData()">
+                    <option value="ALL">All Blood Groups</option>
+                    <option value="A+">A+</option><option value="A-">A-</option>
+                    <option value="B+">B+</option><option value="B-">B-</option>
+                    <option value="AB+">AB+</option><option value="AB-">AB-</option>
+                    <option value="O+">O+</option><option value="O-">O-</option>
+                  </select>
+                </div>
+              </div>
+
               <div class="table-responsive">
                 <table class="table table-hover align-middle">
                   <thead class="table-light">
-                    <tr><th>Name</th><th>Blood Group</th><th>Availability</th><th>Eligibility</th><th>City</th><th>Role</th><th>Status</th><th>Actions</th></tr>
+                    <tr><th>Donor Name</th><th>Blood Group</th><th>Availability</th><th>Eligibility</th><th>City</th><th>Contact Phone</th><th>Account Status</th><th>Actions</th></tr>
                   </thead>
-                  <tbody id="usersTbody"><tr><td colspan="8" class="text-muted text-center py-4">Loading registered users...</td></tr></tbody>
+                  <tbody id="usersTbody"><tr><td colspan="8" class="text-muted text-center py-4">Loading registered donors...</td></tr></tbody>
                 </table>
               </div>
             </div>
@@ -668,6 +711,111 @@
         </div>
       </div>
     </div>
+  <!-- MODAL: DONOR DETAILS & OPERATIONAL HISTORY -->
+  <div class="modal fade" id="donorDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header bg-dark text-white">
+          <h5 class="modal-title fw-bold" id="donorDetailsModalTitle"><i class="bi bi-person-badge me-2 text-danger"></i> Donor Profile & Operational History</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" onclick="closeModalFallback('donorDetailsModal')"></button>
+        </div>
+        <div class="modal-body p-4 bg-light">
+          <!-- Donor Summary Header Banner -->
+          <div id="donorHeaderCard" class="card border-0 shadow-sm p-3 mb-4 bg-white rounded-3">
+            <div class="row align-items-center">
+              <div class="col-md-6">
+                <h4 id="ddName" class="fw-bold text-dark mb-1">Donor Name</h4>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                  <span id="ddBloodGroup" class="badge bg-danger fs-6 px-3">O+</span>
+                  <span id="ddAvailability" class="badge bg-success">Available</span>
+                  <span id="ddEligibility" class="badge bg-success">Eligible to Donate</span>
+                </div>
+                <div class="small text-muted"><i class="bi bi-telephone me-1"></i> Phone: <span id="ddPhone" class="fw-bold text-dark"></span> | <i class="bi bi-envelope me-1"></i> Email: <span id="ddEmail" class="text-dark"></span></div>
+              </div>
+              <div class="col-md-6 text-md-end">
+                <div class="small text-muted">City / Location: <strong id="ddCity" class="text-dark">N/A</strong></div>
+                <div class="small text-muted">Next Eligible Date: <strong id="ddNextEligible" class="text-primary">Immediate</strong></div>
+                <div class="small text-muted">Total Completed Donations: <strong id="ddDonationCount" class="text-success fs-6">0</strong></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- History Tabs -->
+          <ul class="nav nav-tabs nav-fill mb-3" id="donorHistoryTabs" role="tablist">
+            <li class="nav-item"><button class="nav-link active fw-bold" id="dh-physical-tab" data-bs-toggle="tab" data-bs-target="#dh-physical"><i class="bi bi-journal-check me-1"></i> Physical Donation History (DON-XXXXXX)</button></li>
+            <li class="nav-item"><button class="nav-link fw-bold" id="dh-matches-tab" data-bs-toggle="tab" data-bs-target="#dh-matches"><i class="bi bi-arrow-left-right me-1"></i> Request Response History</button></li>
+            <li class="nav-item"><button class="nav-link fw-bold" id="dh-camps-tab" data-bs-toggle="tab" data-bs-target="#dh-camps"><i class="bi bi-geo-alt me-1"></i> Camp Registrations</button></li>
+            <li class="nav-item"><button class="nav-link fw-bold" id="dh-audit-tab" data-bs-toggle="tab" data-bs-target="#dh-audit"><i class="bi bi-shield-check me-1"></i> Audit Trail</button></li>
+          </ul>
+
+          <div class="tab-content bg-white p-3 rounded-3 shadow-sm" id="donorHistoryTabContent">
+            <!-- Physical Donations -->
+            <div class="tab-pane fade show active" id="dh-physical">
+              <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                  <thead class="table-light"><tr><th>Donation Number</th><th>Units</th><th>Organization / Camp</th><th>Date</th><th>Status</th></tr></thead>
+                  <tbody id="dhPhysicalTbody"><tr><td colspan="5" class="text-muted text-center py-3">Loading donation records...</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+            <!-- Request Matches -->
+            <div class="tab-pane fade" id="dh-matches">
+              <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                  <thead class="table-light"><tr><th>Blood Request</th><th>Requested Group</th><th>Distance</th><th>Response Status</th><th>Date</th></tr></thead>
+                  <tbody id="dhMatchesTbody"><tr><td colspan="5" class="text-muted text-center py-3">Loading match history...</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+            <!-- Camp Registrations -->
+            <div class="tab-pane fade" id="dh-camps">
+              <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                  <thead class="table-light"><tr><th>Camp Drive</th><th>Organizer</th><th>Check-in Time</th><th>Donation #</th><th>Status</th></tr></thead>
+                  <tbody id="dhCampsTbody"><tr><td colspan="5" class="text-muted text-center py-3">Loading camp records...</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+            <!-- Audit Logs -->
+            <div class="tab-pane fade" id="dh-audit">
+              <div class="table-responsive">
+                <table class="table table-sm table-striped align-middle">
+                  <thead class="table-light"><tr><th>Timestamp</th><th>Action</th><th>Performed By</th><th>Reason / Details</th></tr></thead>
+                  <tbody id="dhAuditTbody"><tr><td colspan="4" class="text-muted text-center py-3">Loading audit log trail...</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CAMP DRIVE OPERATIONS -->
+  <div class="modal fade" id="campOperationsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title fw-bold" id="campOpsModalTitle"><i class="bi bi-gear-fill me-2"></i> Camp Drive Operations</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" onclick="closeModalFallback('campOperationsModal')"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="fw-bold text-dark mb-0"><i class="bi bi-people-fill me-1"></i> Donor Check-in & Collection Management</h6>
+            <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="refreshCampOperations()"><i class="bi bi-arrow-clockwise me-1"></i> Refresh List</button>
+          </div>
+          <input type="hidden" id="activeCampOpsId">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr><th>Donor Name</th><th>Blood Group</th><th>Phone</th><th>Status</th><th>Donation #</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="campOpsTbody"><tr><td colspan="6" class="text-muted text-center py-4">Loading camp registrations...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -971,6 +1119,29 @@
           document.getElementById('mReqPending').innerText = m.pendingRequestVerifications || 0;
           document.getElementById('mReqVerified').innerText = m.verifiedRequests || 0;
           document.getElementById('mReqStock').innerText = m.activeDonors + ' Active Donors';
+
+          // Live Event Stream
+          const tbody = document.getElementById('liveAuditStreamTbody');
+          if (tbody) {
+            tbody.innerHTML = '';
+            if (data.data.recentActivity && data.data.recentActivity.length > 0) {
+              data.data.recentActivity.forEach(a => {
+                const performer = a.performedBy?.fullName || a.performedBy?.name || 'System / Admin';
+                const timeStr = new Date(a.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                tbody.innerHTML += `
+                  <tr>
+                    <td><small class="font-monospace text-secondary">${timeStr}</small></td>
+                    <td><span class="badge bg-dark">${a.action}</span></td>
+                    <td>${performer} <small class="text-muted">(${a.userRole || 'ADMIN'})</small></td>
+                    <td><small class="font-monospace">${a.entityType || ''} (${a.entityId || 'N/A'})</small></td>
+                    <td><small>${a.reason || 'Operation logged'}</small></td>
+                  </tr>
+                `;
+              });
+            } else {
+              tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No recent activity logged.</td></tr>';
+            }
+          }
         }
       } catch (err) { console.error(err); }
     }
@@ -1204,6 +1375,18 @@
       } catch (err) { console.error(err); }
     }
 
+    let currentDonorStatusFilter = 'ALL';
+
+    function setDonorStatusFilter(status, btnEl) {
+      currentDonorStatusFilter = status;
+      const grp = document.getElementById('donorStatusFilterGroup');
+      if (grp) {
+        grp.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      }
+      if (btnEl) btnEl.classList.add('active');
+      loadUsersData();
+    }
+
     async function loadCampsData() {
       try {
         const data = await apiCall('/camps');
@@ -1220,7 +1403,8 @@
                 <td>${c.registeredCount || 0} / ${c.registrationLimit}</td>
                 <td><span class="badge ${isPending ? 'bg-warning text-dark' : 'bg-success'}">${c.status}</span></td>
                 <td>
-                  <button class="btn btn-sm btn-outline-info me-1 fw-bold" onclick="viewCampRegistrations('${c._id}', '${c.title}')"><i class="bi bi-people"></i> Donors</button>
+                  <button class="btn btn-sm btn-danger me-1 fw-bold" onclick="openCampOperationsModal('${c._id}', '${(c.title || '').replace(/'/g, "\\'")}')"><i class="bi bi-sliders"></i> Camp Operations</button>
+                  <button class="btn btn-sm btn-outline-info me-1 fw-bold" onclick="viewCampRegistrations('${c._id}', '${(c.title || '').replace(/'/g, "\\'")}')"><i class="bi bi-people"></i> Donors</button>
                   ${currentUser && ['ADMIN', 'SUPER_ADMIN'].includes(currentUser.role) && isPending ? `<button class="btn btn-sm btn-success fw-bold" onclick="updateCampStatus('${c._id}', 'PUBLISHED')"><i class="bi bi-check-circle"></i> Approve</button>` : ''}
                 </td>
               </tr>
@@ -1228,6 +1412,102 @@
           });
         } else {
           tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No donation drives registered.</td></tr>';
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    async function openCampOperationsModal(campId, campTitle) {
+      document.getElementById('activeCampOpsId').value = campId;
+      document.getElementById('campOpsModalTitle').innerText = 'Camp Drive Operations — ' + campTitle;
+      openModalFallback('campOperationsModal');
+      refreshCampOperations();
+    }
+
+    async function refreshCampOperations() {
+      const campId = document.getElementById('activeCampOpsId').value;
+      if (!campId) return;
+      try {
+        const data = await apiCall(`/camps/${campId}/registrations`);
+        const tbody = document.getElementById('campOpsTbody');
+        tbody.innerHTML = '';
+        if (data.success && data.data.registrations.length > 0) {
+          data.data.registrations.forEach(r => {
+            const donorName = r.userId?.fullName || r.userId?.name || 'Registered Donor';
+            const phone = r.userId?.phone || 'N/A';
+            const donNum = r.donationNumber ? `<span class="badge bg-dark font-monospace">${r.donationNumber}</span>` : '<span class="text-muted">N/A</span>';
+            const isCheckedIn = ['CHECKED_IN', 'ATTENDED'].includes(r.status);
+            const isDonated = r.status === 'DONATED';
+            const isRejected = ['REJECTED', 'DID_NOT_DONATE'].includes(r.status);
+
+            let actionsHtml = '';
+            if (r.status === 'REGISTERED') {
+              actionsHtml += `<button class="btn btn-sm btn-primary me-1 fw-bold mb-1" onclick="checkInCampDonor('${r._id}')"><i class="bi bi-box-arrow-in-right me-1"></i> Check In</button>`;
+            }
+            if (!isDonated && !isRejected) {
+              actionsHtml += `<button class="btn btn-sm btn-success me-1 fw-bold mb-1" onclick="markCampDonorDonated('${r._id}')"><i class="bi bi-check-circle-fill me-1"></i> Mark Donated</button>`;
+              actionsHtml += `<button class="btn btn-sm btn-outline-danger fw-bold mb-1" onclick="rejectCampDonor('${r._id}')"><i class="bi bi-x-circle me-1"></i> Reject</button>`;
+            }
+            if (isDonated) {
+              actionsHtml = `<span class="badge bg-success"><i class="bi bi-check2-all me-1"></i> Donated (${r.unitsDonated || 1} Unit)</span>`;
+            } else if (isRejected) {
+              actionsHtml = `<span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i> Rejected</span>`;
+            }
+
+            tbody.innerHTML += `
+              <tr>
+                <td><strong>${donorName}</strong></td>
+                <td><span class="badge bg-danger blood-badge">${r.bloodGroup}</span></td>
+                <td><i class="bi bi-telephone text-muted"></i> ${phone}</td>
+                <td><span class="badge ${isDonated ? 'bg-success' : isCheckedIn ? 'bg-info text-dark' : isRejected ? 'bg-danger' : 'bg-warning text-dark'}">${r.status}</span></td>
+                <td>${donNum}</td>
+                <td>${actionsHtml}</td>
+              </tr>
+            `;
+          });
+        } else {
+          tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No donors registered for this drive.</td></tr>';
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    async function checkInCampDonor(registrationId) {
+      try {
+        const data = await apiCall(`/camps/registrations/${registrationId}/check-in`, 'PATCH');
+        if (data.success) {
+          showToast('Donor checked in successfully!');
+          refreshCampOperations();
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    async function markCampDonorDonated(registrationId) {
+      const unitsStr = prompt('Enter units collected from donor (generates DON-XXXXXX & updates blood stock):', '1');
+      if (unitsStr === null) return;
+      const unitsDonated = parseInt(unitsStr, 10);
+      if (isNaN(unitsDonated) || unitsDonated <= 0) {
+        showToast('Invalid units quantity', false);
+        return;
+      }
+
+      try {
+        const data = await apiCall(`/camps/registrations/${registrationId}/status`, 'PATCH', { status: 'DONATED', unitsDonated });
+        if (data.success) {
+          const donNum = data.data.registration.donationNumber;
+          showToast(`Donation completed! Assigned Donation Number: ${donNum}`);
+          refreshCampOperations();
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    async function rejectCampDonor(registrationId) {
+      const reason = prompt('Enter rejection reason:');
+      if (!reason) return;
+
+      try {
+        const data = await apiCall(`/camps/registrations/${registrationId}/status`, 'PATCH', { status: 'DID_NOT_DONATE', rejectionReason: reason });
+        if (data.success) {
+          showToast('Registration marked DID_NOT_DONATE');
+          refreshCampOperations();
         }
       } catch (err) { console.error(err); }
     }
@@ -1295,21 +1575,32 @@
 
     async function loadUsersData() {
       try {
-        const data = await apiCall('/admin/users');
+        const search = (document.getElementById('donorSearchInput')?.value || '').trim();
+        const bloodGroup = document.getElementById('donorBloodGroupFilter')?.value || 'ALL';
+        const status = currentDonorStatusFilter;
+
+        const params = new URLSearchParams();
+        if (search) params.append('search', search);
+        if (bloodGroup !== 'ALL') params.append('bloodGroup', bloodGroup);
+        if (status !== 'ALL') params.append('status', status);
+
+        const data = await apiCall(`/admin/donors?${params.toString()}`);
         const tbody = document.getElementById('usersTbody');
         tbody.innerHTML = '';
-        if (data.success && data.data.users.length > 0) {
-          data.data.users.forEach(u => {
+        if (data.success && data.data.donors.length > 0) {
+          data.data.donors.forEach(u => {
+            const isEligible = !u.nextEligibleDate || new Date(u.nextEligibleDate) <= new Date();
             tbody.innerHTML += `
               <tr>
-                <td><strong>${u.fullName || u.name || 'Registered User'}</strong></td>
+                <td><strong>${u.fullName || u.name || 'Registered Donor'}</strong><br><small class="text-muted">${u.email || ''}</small></td>
                 <td><span class="badge bg-danger blood-badge">${u.bloodGroup || 'N/A'}</span></td>
                 <td><span class="badge ${u.isAvailable ? 'bg-success' : 'bg-secondary'}">${u.isAvailable ? 'Available' : 'Unavailable'}</span></td>
-                <td><span class="badge ${u.isEligible ? 'bg-success' : 'bg-warning text-dark'}">${u.isEligible ? 'Eligible' : 'Ineligible'}</span></td>
+                <td><span class="badge ${isEligible ? 'bg-success' : 'bg-warning text-dark'}">${isEligible ? 'Eligible' : 'Ineligible'}</span></td>
                 <td>${u.location?.city || 'N/A'}</td>
-                <td><span class="badge bg-dark">${u.role}</span></td>
+                <td><i class="bi bi-telephone text-muted"></i> <a href="tel:${u.phone}">${u.phone}</a></td>
                 <td><span class="badge ${u.accountStatus === 'ACTIVE' ? 'bg-success' : 'bg-danger'}">${u.accountStatus}</span></td>
                 <td>
+                  <button class="btn btn-sm btn-outline-info me-1 fw-bold" onclick="openDonorDetailsModal('${u._id}')"><i class="bi bi-eye"></i> History</button>
                   <button class="btn btn-sm ${u.accountStatus === 'ACTIVE' ? 'btn-outline-danger' : 'btn-outline-success'} fw-bold" onclick="toggleUserStatus('${u._id}', '${u.accountStatus === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE'}')">
                     ${u.accountStatus === 'ACTIVE' ? 'Suspend' : 'Activate'}
                   </button>
@@ -1318,7 +1609,107 @@
             `;
           });
         } else {
-          tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No users found.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No donors found matching criteria.</td></tr>';
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    async function openDonorDetailsModal(donorId) {
+      openModalFallback('donorDetailsModal');
+      try {
+        const data = await apiCall(`/admin/donors/${donorId}/history`);
+        if (data.success) {
+          const d = data.data.donor;
+          const isEligible = !d.nextEligibleDate || new Date(d.nextEligibleDate) <= new Date();
+          
+          document.getElementById('ddName').innerText = d.fullName || d.name || 'Donor Profile';
+          document.getElementById('ddBloodGroup').innerText = d.bloodGroup || 'N/A';
+          document.getElementById('ddAvailability').innerText = d.isAvailable ? 'Available' : 'Unavailable';
+          document.getElementById('ddAvailability').className = `badge ${d.isAvailable ? 'bg-success' : 'bg-secondary'}`;
+          document.getElementById('ddEligibility').innerText = isEligible ? 'Eligible to Donate' : 'Cooldown Active';
+          document.getElementById('ddEligibility').className = `badge ${isEligible ? 'bg-success' : 'bg-warning text-dark'}`;
+          document.getElementById('ddPhone').innerText = d.phone || 'N/A';
+          document.getElementById('ddEmail').innerText = d.email || 'N/A';
+          document.getElementById('ddCity').innerText = d.location?.city || 'N/A';
+          document.getElementById('ddNextEligible').innerText = d.nextEligibleDate ? new Date(d.nextEligibleDate).toLocaleDateString() : 'Immediate';
+          document.getElementById('ddDonationCount').innerText = data.data.physicalDonations?.length || 0;
+
+          // Physical Donations Table
+          const physTbody = document.getElementById('dhPhysicalTbody');
+          physTbody.innerHTML = '';
+          if (data.data.physicalDonations && data.data.physicalDonations.length > 0) {
+            data.data.physicalDonations.forEach(p => {
+              const numBadge = p.donationNumber ? `<span class="badge bg-dark font-monospace fs-6">${p.donationNumber}</span>` : '<span class="text-muted">Legacy</span>';
+              physTbody.innerHTML += `
+                <tr>
+                  <td>${numBadge}</td>
+                  <td><strong>${p.unitsDonated || 1} Unit(s)</strong></td>
+                  <td>${p.organizationId?.name || p.campId?.title || 'Hospital / Center'}</td>
+                  <td>${new Date(p.createdAt).toLocaleDateString()}</td>
+                  <td><span class="badge ${p.status === 'COMPLETED' ? 'bg-success' : 'bg-secondary'}">${p.status}</span></td>
+                </tr>
+              `;
+            });
+          } else {
+            physTbody.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-3">No physical donation records found.</td></tr>';
+          }
+
+          // Request Matches Table
+          const matchTbody = document.getElementById('dhMatchesTbody');
+          matchTbody.innerHTML = '';
+          if (data.data.matchHistory && data.data.matchHistory.length > 0) {
+            data.data.matchHistory.forEach(m => {
+              matchTbody.innerHTML += `
+                <tr>
+                  <td><small class="font-monospace">${m.bloodRequest?._id || 'Request'}</small></td>
+                  <td><span class="badge bg-danger">${m.requestedBloodGroup}</span></td>
+                  <td>${m.distanceKm ? m.distanceKm.toFixed(1) + ' km' : 'N/A'}</td>
+                  <td><span class="badge ${m.status === 'ACCEPTED' ? 'bg-success' : m.status === 'REJECTED' ? 'bg-danger' : 'bg-warning text-dark'}">${m.status}</span></td>
+                  <td>${new Date(m.createdAt).toLocaleDateString()}</td>
+                </tr>
+              `;
+            });
+          } else {
+            matchTbody.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-3">No request match history found.</td></tr>';
+          }
+
+          // Camp Registrations Table
+          const campTbody = document.getElementById('dhCampsTbody');
+          campTbody.innerHTML = '';
+          if (data.data.campRegistrations && data.data.campRegistrations.length > 0) {
+            data.data.campRegistrations.forEach(c => {
+              const numBadge = c.donationNumber ? `<span class="badge bg-dark font-monospace">${c.donationNumber}</span>` : '<span class="text-muted">N/A</span>';
+              campTbody.innerHTML += `
+                <tr>
+                  <td><strong>${c.campId?.title || 'Donation Drive'}</strong></td>
+                  <td>${c.campId?.organizerName || 'Organizer'}</td>
+                  <td>${c.checkInAt ? new Date(c.checkInAt).toLocaleTimeString() : 'Not Checked In'}</td>
+                  <td>${numBadge}</td>
+                  <td><span class="badge ${c.status === 'DONATED' ? 'bg-success' : 'bg-primary'}">${c.status}</span></td>
+                </tr>
+              `;
+            });
+          } else {
+            campTbody.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-3">No camp drive registrations.</td></tr>';
+          }
+
+          // Audit Logs Table
+          const auditTbody = document.getElementById('dhAuditTbody');
+          auditTbody.innerHTML = '';
+          if (data.data.auditLogs && data.data.auditLogs.length > 0) {
+            data.data.auditLogs.forEach(a => {
+              auditTbody.innerHTML += `
+                <tr>
+                  <td><small class="font-monospace">${new Date(a.createdAt).toLocaleString()}</small></td>
+                  <td><span class="badge bg-dark">${a.action}</span></td>
+                  <td>${a.performedBy?.fullName || a.performedBy?.name || 'System'}</td>
+                  <td>${a.reason || ''}</td>
+                </tr>
+              `;
+            });
+          } else {
+            auditTbody.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-3">No specific audit logs for donor.</td></tr>';
+          }
         }
       } catch (err) { console.error(err); }
     }

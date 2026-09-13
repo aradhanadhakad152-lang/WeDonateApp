@@ -116,6 +116,10 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    nextEligibleDate: {
+      type: Date,
+      default: null,
+    },
     isEligible: {
       type: Boolean,
       default: true,

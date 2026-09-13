@@ -207,6 +207,10 @@ exports.completeDonationRegistration = async (req, res) => {
 
     const finalUnits = unitsDonated && Number(unitsDonated) > 0 ? Number(unitsDonated) : (donation.unitsDonated || 1);
 
+    if (!donation.donationNumber) {
+      donation.donationNumber = `DON-${Math.floor(100000 + Math.random() * 900000)}`;
+    }
+
     donation.status = 'COMPLETED';
     donation.unitsDonated = finalUnits;
     donation.completedAt = new Date();
@@ -219,10 +223,10 @@ exports.completeDonationRegistration = async (req, res) => {
       { new: true, upsert: true }
     );
 
-    // Update donor eligibility if donor user is attached
+    // Update donor eligibility if donor user is attached (56-day standard cooldown)
     if (donation.donorId) {
       const now = new Date();
-      const nextEligible = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+      const nextEligible = new Date(now.getTime() + 56 * 24 * 60 * 60 * 1000);
       await User.findByIdAndUpdate(donation.donorId, {
         lastDonationDate: now,
         nextEligibleDate: nextEligible,

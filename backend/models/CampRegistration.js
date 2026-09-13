@@ -2,7 +2,16 @@
 
 const mongoose = require('mongoose');
 
-const REGISTRATION_STATUSES = ['REGISTERED', 'ATTENDED', 'DONATED', 'CANCELLED'];
+const REGISTRATION_STATUSES = [
+  'REGISTERED',
+  'CHECKED_IN',
+  'ATTENDED',
+  'APPROVED',
+  'DONATED',
+  'DID_NOT_DONATE',
+  'REJECTED',
+  'CANCELLED',
+];
 
 /**
  * CampRegistration Model — User Registrations for Donation Drives
@@ -31,6 +40,30 @@ const campRegistrationSchema = new mongoose.Schema(
       default: 'REGISTERED',
     },
     attendedAt: {
+      type: Date,
+      default: null,
+    },
+    checkInAt: {
+      type: Date,
+      default: null,
+    },
+    donationNumber: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
+    unitsDonated: {
+      type: Number,
+      default: 1,
+      min: 1,
+    },
+    rejectionReason: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    completedAt: {
       type: Date,
       default: null,
     },

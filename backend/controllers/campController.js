@@ -2,6 +2,8 @@
 
 const DonationCamp = require('../models/DonationCamp');
 const CampRegistration = require('../models/CampRegistration');
+const BloodInventory = require('../models/BloodInventory');
+const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
 const { sendSuccess, sendError } = require('../utils/apiResponse');
 const asyncHandler = require('../utils/asyncHandler');
@@ -242,6 +244,127 @@ const updateCampStatus = asyncHandler(async (req, res) => {
   });
 });
 
+// PATCH /api/v1/camps/registrations/:registrationId/check-in — Check In Registered Donor at Camp
+const checkInCampRegistration = asyncHandler(async (req, res) => {
+  const { registrationId } = req.params;
+
+  const registration = await CampRegistration.findById(registrationId).populate('campId');
+  if (!registration) {
+    return sendError(res, { statusCode: 404, message: 'Camp registration record not found' });
+  }
+
+  registration.status = 'CHECKED_IN';
+  registration.checkInAt = new Date();
+  registration.attendedAt = new Date();
+  await registration.save();
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: 'Donor checked in successfully',
+    data: { registration },
+  });
+});
+
+// PATCH /api/v1/camps/registrations/:registrationId/status — Mark Camp Donor Status (DONATED, REJECTED, etc.)
+const updateCampRegistrationStatus = asyncHandler(async (req, res) => {
+  const { registrationId } = req.params;
+  const { status, unitsDonated, rejectionReason } = req.body;
+  const user = req.user;
+
+  if (!['DONATED', 'DID_NOT_DONATE', 'REJECTED', 'CHECKED_IN', 'REGISTERED'].includes(status)) {
+    return sendError(res, { statusCode: 400, message: 'Invalid registration status' });
+  }
+
+  const registration = await CampRegistration.findById(registrationId).populate('campId');
+  if (!registration) {
+    return sendError(res, { statusCode: 404, message: 'Camp registration record not found' });
+  }
+
+  const camp = registration.campId;
+  const finalUnits = Number(unitsDonated) > 0 ? Number(unitsDonated) : (registration.unitsDonated || 1);
+
+  registration.status = status;
+
+  if (status === 'DONATED') {
+    if (!registration.donationNumber) {
+      registration.donationNumber = `DON-${Math.floor(100000 + Math.random() * 900000)}`;
+    }
+    registration.unitsDonated = finalUnits;
+    registration.completedAt = new Date();
+    await registration.save();
+
+    // Increment camp collected units
+    if (camp) {
+      camp.totalUnitsCollected = (camp.totalUnitsCollected || 0) + finalUnits;
+      await camp.save();
+    }
+
+    // ATOMICALLY INCREMENT INVENTORY STOCK for camp organization
+    const targetOrgId = camp ? camp.organizationId : registration.organizationId;
+    let inv = null;
+    if (targetOrgId) {
+      inv = await BloodInventory.findOneAndUpdate(
+        { organizationId: targetOrgId, bloodGroup: registration.bloodGroup },
+        { $inc: { availableUnits: finalUnits } },
+        { new: true, upsert: true }
+      );
+    }
+
+    // Update donor eligibility if donor user attached (56-day cooldown)
+    if (registration.userId) {
+      const now = new Date();
+      const nextEligible = new Date(now.getTime() + 56 * 24 * 60 * 60 * 1000);
+      await User.findByIdAndUpdate(registration.userId, {
+        lastDonationDate: now,
+        nextEligibleDonationDate: nextEligible,
+        nextEligibleDate: nextEligible,
+        isEligible: false,
+      }).catch((err) => logger.warn(`Camp donor eligibility update failed: ${err.message}`));
+    }
+
+    // Audit logs
+    await AuditLog.create({
+      performedBy: user._id,
+      userRole: user.role,
+      action: 'DONATION_COMPLETED',
+      entityType: 'CampRegistration',
+      entityId: registration._id.toString(),
+      newState: { status: 'DONATED', donationNumber: registration.donationNumber, unitsDonated: finalUnits },
+      reason: `Physical donation completed at camp '${camp ? camp.title : 'Drive'}'`,
+    });
+
+    if (inv) {
+      await AuditLog.create({
+        performedBy: user._id,
+        userRole: user.role,
+        action: 'INVENTORY_UPDATED',
+        entityType: 'BloodInventory',
+        entityId: inv._id.toString(),
+        newState: { bloodGroup: registration.bloodGroup, availableUnits: inv.availableUnits },
+        reason: `Stock increased by ${finalUnits} units from camp donation '${registration.donationNumber}'`,
+      });
+    }
+
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: `Donation completed successfully! Assigned donation number ${registration.donationNumber}`,
+      data: { registration, inventory: inv },
+    });
+  }
+
+  if (status === 'REJECTED') {
+    registration.rejectionReason = rejectionReason || 'Rejected during pre-donation screening';
+  }
+
+  await registration.save();
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: `Registration status updated to ${status}`,
+    data: { registration },
+  });
+});
+
 module.exports = {
   createCamp,
   getCamps,
@@ -249,4 +372,6 @@ module.exports = {
   getCampRegistrations,
   submitCampResults,
   updateCampStatus,
+  checkInCampRegistration,
+  updateCampRegistrationStatus,
 };
