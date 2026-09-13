@@ -10,6 +10,7 @@ const FinancialDonation = require('../models/FinancialDonation');
 const FundingCampaign = require('../models/FundingCampaign');
 const AuditLog = require('../models/AuditLog');
 const mongoose = require('mongoose');
+const axios = require('axios');
 const { sendSuccess, sendError } = require('../utils/apiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
@@ -200,7 +201,304 @@ function generateTemporaryPassword() {
   return pass.split('').sort(() => 0.5 - Math.random()).join('');
 }
 
-// GET /api/v1/admin/organizations — List Organizations with Search, Filter & Account Status
+/**
+ * Generate a unique normalized slugified login ID from organization name
+ * e.g., "Civil Hospital Mohali" -> "civilhospitalmohali" (or "civilhospitalmohali01" if collision exists)
+ */
+async function generateSlugifiedLoginId(orgName) {
+  let baseSlug = orgName
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
+  if (!baseSlug) baseSlug = 'organization';
+
+  let candidate = baseSlug;
+  let counter = 1;
+
+  while (true) {
+    const existingUser = await User.findOne({
+      $or: [
+        { email: `${candidate}@wedonate.org` },
+        { firebaseUid: `org_login_${candidate}` },
+      ],
+    });
+    if (!existingUser) {
+      return candidate;
+    }
+    const suffix = counter < 10 ? `0${counter}` : `${counter}`;
+    candidate = `${baseSlug}${suffix}`;
+    counter++;
+  }
+}
+
+// GET /api/v1/admin/organizations/search-places?query=Civil%20Hospital%20Mohali
+const searchGooglePlacesForOrganizations = asyncHandler(async (req, res) => {
+  const adminUser = req.user;
+  if (!['ADMIN', 'SUPER_ADMIN'].includes(adminUser.role)) {
+    return sendError(res, {
+      statusCode: 403,
+      message: 'Access denied: Admin privileges required to search places',
+    });
+  }
+
+  const { query } = req.query;
+  if (!query || typeof query !== 'string' || query.trim().length < 2) {
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Search query empty or too short',
+      data: { places: [] },
+    });
+  }
+
+  const input = query.trim();
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY && process.env.GOOGLE_MAPS_API_KEY !== 'your_google_maps_api_key_here'
+    ? process.env.GOOGLE_MAPS_API_KEY
+    : null;
+
+  let rawPlaces = [];
+
+  if (apiKey) {
+    try {
+      const response = await axios.post(
+        'https://places.googleapis.com/v1/places:searchText',
+        {
+          textQuery: input,
+          includedType: 'hospital',
+          maxResultCount: 10,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': apiKey,
+            'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.types,places.addressComponents',
+          },
+          timeout: 8000,
+        }
+      );
+      rawPlaces = (response.data.places || []).map((p) => {
+        const addrComps = p.addressComponents || [];
+        const cityComp = addrComps.find(c => c.types?.includes('locality') || c.types?.includes('administrative_area_level_2')) || {};
+        const stateComp = addrComps.find(c => c.types?.includes('administrative_area_level_1')) || {};
+        return {
+          googlePlaceId: p.id,
+          name: p.displayName?.text || input,
+          address: p.formattedAddress || '',
+          city: cityComp.longText || cityComp.shortText || 'Mohali',
+          state: stateComp.longText || stateComp.shortText || 'Punjab',
+          location: {
+            latitude: p.location?.latitude || 30.7046,
+            longitude: p.location?.longitude || 76.7179,
+          },
+          type: p.types?.includes('blood_bank') ? 'BLOOD_BANK' : 'HOSPITAL',
+        };
+      });
+    } catch (googleErr) {
+      logger.warn(`Google Places Text Search API error: ${googleErr.message}.`);
+    }
+  }
+
+  // Fallback search result generator if API key missing or 0 places returned
+  if (rawPlaces.length === 0) {
+    const slug = input.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const isBloodBank = input.toLowerCase().includes('blood') || input.toLowerCase().includes('bank');
+    rawPlaces = [
+      {
+        googlePlaceId: `place_${slug}_01`,
+        name: input,
+        address: `${input}, Sector 16, Mohali, Punjab`,
+        city: 'Mohali',
+        state: 'Punjab',
+        location: { latitude: 30.7046, longitude: 76.7179 },
+        type: isBloodBank ? 'BLOOD_BANK' : 'HOSPITAL',
+      },
+    ];
+  }
+
+  // Check duplicate registration status against existing Organization records in MongoDB
+  const placesWithStatus = await Promise.all(
+    rawPlaces.map(async (place) => {
+      let existingOrg = null;
+      if (place.googlePlaceId) {
+        existingOrg = await Organization.findOne({ googlePlaceId: place.googlePlaceId });
+      }
+      if (!existingOrg) {
+        const escapedName = place.name.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+        existingOrg = await Organization.findOne({
+          name: new RegExp(`^${escapedName}$`, 'i'),
+        });
+      }
+
+      if (existingOrg) {
+        const staffUser = await User.findOne({ organizationId: existingOrg._id }).select('email phone role accountStatus');
+        return {
+          ...place,
+          alreadyRegistered: true,
+          registeredOrgId: existingOrg._id,
+          accountStatus: staffUser?.accountStatus || 'ACTIVE',
+          loginId: staffUser?.email ? staffUser.email.replace(/@wedonate\.org$/, '') : null,
+        };
+      }
+
+      return {
+        ...place,
+        alreadyRegistered: false,
+        registeredOrgId: null,
+      };
+    })
+  );
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: `Found ${placesWithStatus.length} place result(s)`,
+    data: { places: placesWithStatus },
+  });
+});
+
+// POST /api/v1/admin/organizations/register — Register Organization from Google Place & Create Manager Account
+const registerOrganizationWithAccount = asyncHandler(async (req, res) => {
+  const adminUser = req.user;
+  if (!['ADMIN', 'SUPER_ADMIN'].includes(adminUser.role)) {
+    return sendError(res, {
+      statusCode: 403,
+      message: 'Access denied: Admin privileges required to register organizations',
+    });
+  }
+
+  const {
+    name,
+    type,
+    address,
+    city,
+    state,
+    pincode,
+    latitude,
+    longitude,
+    googlePlaceId,
+    contactPhone,
+    officialEmail,
+  } = req.body;
+
+  if (!name || !type) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'Organization name and type are required',
+    });
+  }
+
+  const orgType = type.toUpperCase() === 'BLOOD_BANK' ? 'BLOOD_BANK' : 'HOSPITAL';
+  const orgCity = (city || 'Mohali').trim();
+  const orgState = (state || 'Punjab').trim();
+  const lat = latitude ? parseFloat(latitude) : 30.7046;
+  const lng = longitude ? parseFloat(longitude) : 76.7179;
+
+  // Duplicate Check: Check Google Place ID first, then name + city
+  let existingOrg = null;
+  if (googlePlaceId) {
+    existingOrg = await Organization.findOne({ googlePlaceId });
+  }
+  if (!existingOrg) {
+    const escapedName = name.trim().replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+    const escapedCity = orgCity.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+    existingOrg = await Organization.findOne({
+      name: new RegExp(`^${escapedName}$`, 'i'),
+      'address.city': new RegExp(`^${escapedCity}$`, 'i'),
+    });
+  }
+
+  if (existingOrg) {
+    const existingStaff = await User.findOne({ organizationId: existingOrg._id });
+    return sendError(res, {
+      statusCode: 409,
+      message: 'This organization is already registered.',
+      data: {
+        alreadyRegistered: true,
+        organizationId: existingOrg._id,
+        organizationName: existingOrg.name,
+        accountStatus: existingStaff?.accountStatus || 'ACTIVE',
+        loginId: existingStaff?.email ? existingStaff.email.replace(/@wedonate\.org$/, '') : null,
+      },
+    });
+  }
+
+  // Generate Unique Login ID & Secure Password
+  const loginId = await generateSlugifiedLoginId(name);
+  const tempPassword = generateTemporaryPassword();
+
+  // Create Organization in MongoDB
+  const emailForOrg = (officialEmail || `${loginId}@wedonate.org`).toLowerCase();
+  const phoneForOrg = contactPhone || `+9198000${Math.floor(10000 + Math.random() * 90000)}`;
+
+  const organization = await Organization.create({
+    name: name.trim(),
+    type: orgType,
+    googlePlaceId: googlePlaceId || null,
+    address: {
+      street: address || '',
+      city: orgCity,
+      state: orgState,
+      pincode: pincode || '160055',
+      country: 'India',
+    },
+    location: {
+      type: 'Point',
+      coordinates: [lng, lat],
+    },
+    contactPhone: phoneForOrg,
+    officialEmail: emailForOrg,
+    authorizedPerson: {
+      name: `${name.trim()} Manager`,
+      phone: phoneForOrg,
+      email: emailForOrg,
+    },
+    status: 'APPROVED',
+  });
+
+  // Create Organization Manager User Account
+  const targetRole = orgType === 'BLOOD_BANK' ? 'BLOOD_BANK_MANAGER' : 'HOSPITAL_MANAGER';
+  const staffUser = await User.create({
+    firebaseUid: `org_login_${loginId}`,
+    phone: phoneForOrg,
+    email: `${loginId}@wedonate.org`,
+    fullName: `${organization.name} Manager`,
+    role: targetRole,
+    organizationId: organization._id,
+    password: tempPassword,
+    isVerified: true,
+    accountStatus: 'ACTIVE',
+  });
+
+  // Audit log
+  await AuditLog.create({
+    action: 'ORGANIZATION_REGISTERED',
+    performedBy: adminUser._id,
+    userRole: adminUser.role,
+    entityType: 'Organization',
+    entityId: organization._id.toString(),
+    reason: `Admin registered ${organization.name} (${orgType}) with loginId ${loginId}`,
+  });
+
+  logger.info(`Admin ${adminUser._id} registered Organization ${organization.name} (${orgType}) with loginId ${loginId}`);
+
+  return sendSuccess(res, {
+    statusCode: 201,
+    message: 'Organization registered and login account created successfully',
+    data: {
+      organization: {
+        id: organization._id,
+        name: organization.name,
+        type: organization.type,
+        city: organization.address.city,
+        address: organization.address.street || organization.address.city,
+        googlePlaceId: organization.googlePlaceId,
+      },
+      loginId,
+      temporaryPassword: tempPassword,
+      role: targetRole,
+    },
+  });
+});
+
+// GET /api/v1/admin/organizations — List Registered Organizations with Account Status
 const getOrganizationsList = asyncHandler(async (req, res) => {
   const { status, type, city, search } = req.query;
   const filter = {};
@@ -225,16 +523,19 @@ const getOrganizationsList = asyncHandler(async (req, res) => {
 
   const rawOrgs = await Organization.find(filter).sort({ createdAt: -1 });
 
-  // Attach linked manager User account status for each organization
-  const organizations = await Promise.all(
-    rawOrgs.map(async (org) => {
-      const orgJson = org.toJSON();
-      const staffUser = await User.findOne({ organizationId: org._id }).select('email phone role accountStatus isActive createdAt');
+  // Filter & Attach linked manager User account status for each organization
+  const organizations = [];
+  for (const org of rawOrgs) {
+    const orgJson = org.toJSON();
+    const staffUser = await User.findOne({ organizationId: org._id }).select('email phone role accountStatus isActive createdAt');
+    
+    // Only include registered organizations (having a linked staff User account or a googlePlaceId)
+    if (staffUser || org.googlePlaceId) {
       orgJson.account = staffUser
         ? {
             hasAccount: true,
             userId: staffUser._id,
-            loginId: staffUser.email || staffUser.phone,
+            loginId: staffUser.email ? staffUser.email.replace(/@wedonate\.org$/, '') : staffUser.phone,
             email: staffUser.email,
             phone: staffUser.phone,
             role: staffUser.role,
@@ -246,9 +547,9 @@ const getOrganizationsList = asyncHandler(async (req, res) => {
             hasAccount: false,
             accountStatus: 'NO_ACCOUNT',
           };
-      return orgJson;
-    })
-  );
+      organizations.push(orgJson);
+    }
+  }
 
   return sendSuccess(res, {
     statusCode: 200,
@@ -738,6 +1039,8 @@ module.exports = {
   updateUserStatus,
   updateUserAvailability,
   getOrganizationsList,
+  searchGooglePlacesForOrganizations,
+  registerOrganizationWithAccount,
   createOrganizationAccount,
   resetOrganizationAccountPassword,
   updateOrganizationAccountStatus,

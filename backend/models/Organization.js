@@ -33,6 +33,12 @@ const organizationSchema = new mongoose.Schema(
       trim: true,
       sparse: true,
     },
+    googlePlaceId: {
+      type: String,
+      trim: true,
+      sparse: true,
+      index: true,
+    },
     address: {
       street: { type: String, trim: true, default: '' },
       city: { type: String, required: true, trim: true },

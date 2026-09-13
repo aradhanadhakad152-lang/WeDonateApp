@@ -325,18 +325,46 @@
 
           <!-- ORGANIZATIONS TAB (ADMIN ONLY) -->
           <div class="tab-pane fade" id="tab-orgs">
-            <div class="card border-0 shadow-sm p-4 bg-white rounded-3">
-              <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-                <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-building"></i> Hospital & Blood Bank Management</h5>
-                <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="loadOrgsData()"><i class="bi bi-arrow-clockwise"></i> Refresh Organizations</button>
+            <div class="card border-0 shadow-sm p-4 bg-white rounded-3 mb-4">
+              <h5 class="fw-bold mb-3 text-dark"><i class="bi bi-geo-alt-fill text-danger me-2"></i> Add Hospital / Blood Bank</h5>
+              <p class="text-muted small mb-3">Search Google Places to find and register a hospital or blood bank organization into WE DONATE.</p>
+              
+              <div class="row g-2 mb-3">
+                <div class="col-md-9">
+                  <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" id="placesSearchInput" class="form-control border-start-0 ps-0" placeholder="Search hospital or blood bank (e.g. Civil Hospital Mohali)..." onkeyup="if(event.key==='Enter') searchGooglePlacesUI()">
+                    <button class="btn btn-danger fw-bold px-4" onclick="searchGooglePlacesUI()"><i class="bi bi-search me-1"></i> Search Places</button>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <button class="btn btn-outline-secondary w-100 fw-bold" onclick="clearPlacesSearch()"><i class="bi bi-x-circle me-1"></i> Clear Search</button>
+                </div>
               </div>
 
-              <!-- Search & Filter Controls -->
+              <!-- Google Places Search Results Container -->
+              <div id="placesResultsContainer" class="d-none mt-3">
+                <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-list-stars me-1"></i> Google Places Results</h6>
+                <div id="placesResultsList" class="row g-3"></div>
+              </div>
+            </div>
+
+            <!-- Registered Organizations Table Card -->
+            <div class="card border-0 shadow-sm p-4 bg-white rounded-3">
+              <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                <div>
+                  <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-building"></i> Registered Organizations</h5>
+                  <small class="text-muted">Organizations registered in the WE DONATE network with login accounts</small>
+                </div>
+                <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="loadOrgsData()"><i class="bi bi-arrow-clockwise me-1"></i> Refresh List</button>
+              </div>
+
+              <!-- Filter Controls -->
               <div class="row g-2 mb-3">
-                <div class="col-md-5">
+                <div class="col-md-6">
                   <div class="input-group input-group-sm">
-                    <span class="input-group-text"><i class="bi bi-search"></i></span>
-                    <input type="text" id="orgSearchInput" class="form-control" placeholder="Search by name, city, license, or org ID..." onkeyup="if(event.key==='Enter') loadOrgsData()">
+                    <span class="input-group-text"><i class="bi bi-search me-1"></i></span>
+                    <input type="text" id="orgSearchInput" class="form-control" placeholder="Search registered orgs by name, city, or ID..." onkeyup="if(event.key==='Enter') loadOrgsData()">
                     <button class="btn btn-outline-secondary fw-bold" onclick="loadOrgsData()">Search</button>
                   </div>
                 </div>
@@ -347,12 +375,11 @@
                     <option value="BLOOD_BANK">Blood Banks Only</option>
                   </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                   <select id="orgStatusFilter" class="form-select form-select-sm" onchange="loadOrgsData()">
-                    <option value="all">All Verification Statuses</option>
-                    <option value="APPROVED">Approved</option>
-                    <option value="PENDING_VERIFICATION">Pending Verification</option>
-                    <option value="SUSPENDED">Suspended</option>
+                    <option value="all">All Account Statuses</option>
+                    <option value="APPROVED">Active Accounts</option>
+                    <option value="SUSPENDED">Suspended Accounts</option>
                   </select>
                 </div>
               </div>
@@ -361,15 +388,15 @@
                 <table class="table table-hover align-middle">
                   <thead class="table-light">
                     <tr>
-                      <th>Organization Name & ID</th>
+                      <th>Organization Name</th>
                       <th>Type</th>
                       <th>City / Address</th>
-                      <th>Verification Status</th>
-                      <th>Account Status / Login ID</th>
-                      <th>Account Actions</th>
+                      <th>Account Status</th>
+                      <th>Login ID</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
-                  <tbody id="orgsTbody"><tr><td colspan="6" class="text-muted text-center py-4">Loading organizations...</td></tr></tbody>
+                  <tbody id="orgsTbody"><tr><td colspan="6" class="text-muted text-center py-4">Loading registered organizations...</td></tr></tbody>
                 </table>
               </div>
             </div>
@@ -516,6 +543,108 @@
           <button id="btnSubmitOrgAccount" class="btn btn-danger w-100 fw-bold py-2 shadow-sm mt-3" onclick="submitCreateOrgAccount()">
             Create Organization Login Account
           </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REGISTER ORGANIZATION CONFIRMATION MODAL -->
+  <div class="modal fade" id="registerOrgModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow">
+        <div class="modal-header bg-dark text-white">
+          <h5 class="modal-title fw-bold"><i class="bi bi-building-add me-2 text-danger"></i> Register Organization</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" onclick="closeModalFallback('registerOrgModal')"></button>
+        </div>
+        <div class="modal-body p-4">
+          <form id="registerOrgForm" onsubmit="event.preventDefault(); submitRegisterOrg();">
+            <input type="hidden" id="regGooglePlaceId">
+            <input type="hidden" id="regLatitude">
+            <input type="hidden" id="regLongitude">
+
+            <div class="mb-3">
+              <label class="form-label fw-bold small text-secondary">Organization Name</label>
+              <input type="text" id="regName" class="form-control fw-bold" required>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-bold small text-secondary">Organization Type</label>
+              <select id="regType" class="form-select fw-bold">
+                <option value="HOSPITAL">HOSPITAL</option>
+                <option value="BLOOD_BANK">BLOOD_BANK</option>
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-bold small text-secondary">Address</label>
+              <input type="text" id="regAddress" class="form-control">
+            </div>
+
+            <div class="row g-2 mb-3">
+              <div class="col-md-6">
+                <label class="form-label fw-bold small text-secondary">City</label>
+                <input type="text" id="regCity" class="form-control" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold small text-secondary">State</label>
+                <input type="text" id="regState" class="form-control" value="Punjab">
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-bold small text-secondary">Google Place ID</label>
+              <input type="text" id="regDisplayPlaceId" class="form-control font-monospace bg-light" readonly>
+            </div>
+
+            <div class="d-grid mt-4">
+              <button type="submit" id="btnSubmitRegisterOrg" class="btn btn-danger fw-bold py-2"><i class="bi bi-check-circle-fill me-1"></i> REGISTER & CREATE ACCOUNT</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CREDENTIALS SUCCESS DISPLAY MODAL (SHOWN ONCE) -->
+  <div class="modal fade" id="credentialsSuccessModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title fw-bold"><i class="bi bi-check-circle-fill me-2"></i> Organization Registered</h5>
+        </div>
+        <div class="modal-body p-4">
+          <div class="text-center mb-4">
+            <h4 id="credModalOrgName" class="fw-bold text-dark mb-1">Civil Hospital Mohali</h4>
+            <span id="credModalOrgType" class="badge bg-danger fs-6 px-3 py-1">Hospital</span>
+            <div id="credModalOrgCity" class="text-muted small mt-1">Mohali, Punjab</div>
+          </div>
+
+          <div class="bg-light p-3 rounded-3 border mb-3">
+            <div class="mb-3">
+              <label class="form-label fw-bold small text-secondary mb-1">OFFICIAL LOGIN ID</label>
+              <div class="input-group">
+                <input type="text" id="credModalLoginId" class="form-control font-monospace fw-bold fs-5 bg-white text-primary" readonly>
+                <button type="button" class="btn btn-outline-primary fw-bold" onclick="copyLoginIdText()"><i class="bi bi-clipboard me-1"></i> COPY LOGIN ID</button>
+              </div>
+            </div>
+
+            <div>
+              <label class="form-label fw-bold small text-secondary mb-1">TEMPORARY PASSWORD</label>
+              <div class="input-group">
+                <input type="text" id="credModalPassword" class="form-control font-monospace fw-bold fs-5 bg-white text-danger" readonly>
+                <button type="button" class="btn btn-outline-danger fw-bold" onclick="copyPasswordText()"><i class="bi bi-clipboard me-1"></i> COPY PASSWORD</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="alert alert-warning border-warning d-flex align-items-center gap-2 py-2 mb-4">
+            <i class="bi bi-exclamation-triangle-fill fs-4 text-warning"></i>
+            <div class="small fw-bold">Save these credentials now. The temporary password will not be shown again.</div>
+          </div>
+
+          <div class="d-grid">
+            <button type="button" class="btn btn-dark fw-bold py-2" onclick="closeModalFallback('credentialsSuccessModal'); loadOrgsData();"><i class="bi bi-check2-all me-1"></i> DONE</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1204,6 +1333,129 @@
           loadUsersData();
         }
       } catch (err) { console.error(err); }
+    }
+
+    async function searchGooglePlacesUI() {
+      const query = document.getElementById('placesSearchInput').value.trim();
+      if (!query || query.length < 2) {
+        showToast('Please enter at least 2 characters to search places', false);
+        return;
+      }
+
+      const container = document.getElementById('placesResultsContainer');
+      const list = document.getElementById('placesResultsList');
+      container.classList.remove('d-none');
+      list.innerHTML = '<div class="col-12 text-center text-muted py-3"><div class="spinner-border spinner-border-sm me-2"></div>Searching Google Places...</div>';
+
+      try {
+        const data = await apiCall(`/admin/organizations/search-places?query=${encodeURIComponent(query)}`);
+        list.innerHTML = '';
+        if (data.success && data.data.places && data.data.places.length > 0) {
+          data.data.places.forEach(p => {
+            const isRegistered = p.alreadyRegistered;
+            const btnHtml = isRegistered
+              ? `<span class="badge bg-secondary p-2"><i class="bi bi-check-circle me-1"></i> ALREADY REGISTERED (${p.accountStatus || 'ACTIVE'})</span>`
+              : `<button class="btn btn-sm btn-danger fw-bold px-3" onclick="openRegisterModalFromPlace('${encodeURIComponent(JSON.stringify(p))}')"><i class="bi bi-plus-circle me-1"></i> SELECT</button>`;
+
+            list.innerHTML += `
+              <div class="col-md-6">
+                <div class="card border p-3 shadow-sm h-100 bg-white">
+                  <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h6 class="fw-bold text-dark mb-0">${p.name}</h6>
+                    <span class="badge ${p.type === 'BLOOD_BANK' ? 'bg-primary' : 'bg-danger'}">${p.type}</span>
+                  </div>
+                  <p class="small text-muted mb-2"><i class="bi bi-geo-alt me-1"></i>${p.address || p.city}</p>
+                  <div class="small font-monospace text-secondary mb-3">Place ID: ${p.googlePlaceId || 'N/A'}</div>
+                  <div class="mt-auto d-flex justify-content-end">${btnHtml}</div>
+                </div>
+              </div>
+            `;
+          });
+        } else {
+          list.innerHTML = '<div class="col-12 text-muted text-center py-3">No matching Google Places results found.</div>';
+        }
+      } catch (err) {
+        list.innerHTML = `<div class="col-12 text-danger text-center py-3">Search error: ${err.message}</div>`;
+      }
+    }
+
+    function clearPlacesSearch() {
+      document.getElementById('placesSearchInput').value = '';
+      document.getElementById('placesResultsContainer').classList.add('d-none');
+      document.getElementById('placesResultsList').innerHTML = '';
+    }
+
+    function openRegisterModalFromPlace(encodedPlaceJson) {
+      const p = JSON.parse(decodeURIComponent(encodedPlaceJson));
+      document.getElementById('regName').value = p.name || '';
+      document.getElementById('regType').value = p.type || 'HOSPITAL';
+      document.getElementById('regAddress').value = p.address || '';
+      document.getElementById('regCity').value = p.city || 'Mohali';
+      document.getElementById('regState').value = p.state || 'Punjab';
+      document.getElementById('regGooglePlaceId').value = p.googlePlaceId || '';
+      document.getElementById('regDisplayPlaceId').value = p.googlePlaceId || 'N/A';
+      document.getElementById('regLatitude').value = p.location?.latitude || 30.7046;
+      document.getElementById('regLongitude').value = p.location?.longitude || 76.7179;
+
+      openModalFallback('registerOrgModal');
+    }
+
+    async function submitRegisterOrg() {
+      const name = document.getElementById('regName').value.trim();
+      const type = document.getElementById('regType').value;
+      const address = document.getElementById('regAddress').value.trim();
+      const city = document.getElementById('regCity').value.trim();
+      const state = document.getElementById('regState').value.trim();
+      const googlePlaceId = document.getElementById('regGooglePlaceId').value.trim();
+      const latitude = parseFloat(document.getElementById('regLatitude').value);
+      const longitude = parseFloat(document.getElementById('regLongitude').value);
+
+      if (!name || !type || !city) {
+        showToast('Name, Type, and City are required', false);
+        return;
+      }
+
+      try {
+        const resData = await apiCall('/admin/organizations/register', 'POST', {
+          name, type, address, city, state, googlePlaceId, latitude, longitude
+        });
+
+        if (resData.success) {
+          closeModalFallback('registerOrgModal');
+          const creds = resData.data;
+
+          document.getElementById('credModalOrgName').innerText = creds.organization.name;
+          document.getElementById('credModalOrgType').innerText = creds.organization.type;
+          document.getElementById('credModalOrgCity').innerText = `${creds.organization.address}, ${creds.organization.city}`;
+          document.getElementById('credModalLoginId').value = creds.loginId;
+          document.getElementById('credModalPassword').value = creds.temporaryPassword;
+
+          openModalFallback('credentialsSuccessModal');
+          showToast(`Organization '${creds.organization.name}' registered successfully!`);
+          clearPlacesSearch();
+          loadOrgsData();
+        }
+      } catch (err) {
+        if (err.message && err.message.includes('already registered')) {
+          showToast('This organization is already registered.', false);
+        }
+      }
+    }
+
+    function copyLoginIdText() {
+      const val = document.getElementById('credModalLoginId').value;
+      if (val) {
+        navigator.clipboard.writeText(val);
+        showToast('Login ID copied to clipboard!');
+      }
+    }
+
+    function copyPasswordText() {
+      const val = document.getElementById('credModalPassword').value;
+      if (val) {
+        navigator.clipboard.writeText(val);
+        showToast('Temporary password copied to clipboard!');
+      }
     }
 
     async function loadOrgsData() {

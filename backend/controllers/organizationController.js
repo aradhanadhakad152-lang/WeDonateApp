@@ -122,17 +122,25 @@ const registerOrganization = asyncHandler(async (req, res) => {
 
 // POST /api/v1/organizations/login — Organization Staff Login
 const loginOrganization = asyncHandler(async (req, res) => {
-  const { email, phone, password } = req.body;
+  const { email, loginId, phone, password } = req.body;
 
-  let query = {};
-  if (email) query.email = email.toLowerCase();
-  else if (phone) query.phone = phone;
-  else {
+  const rawInput = (email || loginId || phone || '').trim().toLowerCase();
+  if (!rawInput) {
     return sendError(res, {
       statusCode: 400,
-      message: 'Official email or contact phone is required',
+      message: 'Login ID, official email, or contact phone is required',
     });
   }
+
+  const slug = rawInput.split('@')[0];
+  const query = {
+    $or: [
+      { email: rawInput },
+      { email: `${rawInput}@wedonate.org` },
+      { email: `${slug}@wedonate.org` },
+      { phone: rawInput },
+    ],
+  };
 
   const user = await User.findOne(query).select('+password').populate('organizationId');
   if (!user || !user.organizationId) {

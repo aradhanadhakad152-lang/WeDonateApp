@@ -10,6 +10,8 @@ const {
   updateUserStatus,
   updateUserAvailability,
   getOrganizationsList,
+  searchGooglePlacesForOrganizations,
+  registerOrganizationWithAccount,
   createOrganizationAccount,
   resetOrganizationAccountPassword,
   updateOrganizationAccountStatus,
@@ -33,6 +35,8 @@ router.get('/dashboard', getAdminDashboardMetrics);
 router.get('/users', getUsersList);
 router.patch('/users/:id/status', updateUserStatus);
 router.patch('/users/:id/availability', updateUserAvailability);
+router.get('/organizations/search-places', searchGooglePlacesForOrganizations);
+router.post('/organizations/register', registerOrganizationWithAccount);
 router.get('/organizations', getOrganizationsList);
 router.post('/organizations/:id/account', createOrganizationAccount);
 router.post('/organizations/:id/account/reset-password', resetOrganizationAccountPassword);
