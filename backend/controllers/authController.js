@@ -193,18 +193,46 @@ const getMe = asyncHandler(async (req, res) => {
 const adminLogin = asyncHandler(async (req, res) => {
   const { email, phone, password } = req.body;
 
-  let user = null;
+  let query = null;
   if (email) {
-    user = await User.findOne({ email: email.toLowerCase() });
+    query = { email: email.toLowerCase() };
   } else if (phone) {
-    user = await User.findOne({ phone });
+    const rawPhone = String(phone).trim();
+    const cleanPhone = rawPhone.startsWith('+') ? rawPhone : `+91${rawPhone}`;
+    query = { $or: [{ phone: rawPhone }, { phone: cleanPhone }] };
   }
+
+  if (!query) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'Email or phone number is required',
+    });
+  }
+
+  const user = await User.findOne(query).select('+password');
 
   if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
     return sendError(res, {
       statusCode: 401,
       message: 'Invalid administrative credentials or unauthorized role',
     });
+  }
+
+  if (user.accountStatus === 'SUSPENDED') {
+    return sendError(res, {
+      statusCode: 403,
+      message: 'Account is suspended',
+    });
+  }
+
+  if (user.password && password) {
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch) {
+      return sendError(res, {
+        statusCode: 401,
+        message: 'Invalid administrative credentials',
+      });
+    }
   }
 
   const tokens = generateTokenPair(user);
