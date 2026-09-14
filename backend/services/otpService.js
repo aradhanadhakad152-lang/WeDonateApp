@@ -112,9 +112,122 @@ const sendSMS = async (phone, otpCode, purpose = 'VERIFICATION') => {
   };
 };
 
+/**
+ * Sends OTP via Meta WhatsApp Cloud API using approved Authentication template (wedonate_otp).
+ */
+const sendOTPViaWhatsApp = async (phone, otpCode, purpose = 'LOGIN') => {
+  const normalized = normalizePhone(phone);
+  const recipientPhone = normalized.replace('+', '');
+
+  const whatsappEnabled = process.env.WHATSAPP_ENABLED !== 'false';
+  const provider = (process.env.WHATSAPP_PROVIDER || 'META_CLOUD_API').toUpperCase();
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN || process.env.WHATSAPP_API_KEY;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const templateName = process.env.WHATSAPP_OTP_TEMPLATE_NAME || 'wedonate_otp';
+  const templateLanguage = process.env.WHATSAPP_OTP_TEMPLATE_LANGUAGE || 'en';
+
+  if (!whatsappEnabled) {
+    logger.warn(`[WHATSAPP OTP] Service disabled via WHATSAPP_ENABLED=false`);
+    return {
+      success: false,
+      error: 'WhatsApp OTP service is currently disabled in backend configuration.',
+      providerConfigured: false,
+    };
+  }
+
+  if (process.env.NODE_ENV === 'test' || provider === 'MOCK') {
+    logger.info(`[MOCK WHATSAPP OTP] Dispatched 6-digit OTP to ${normalized} (Purpose: ${purpose})`);
+    return { success: true, provider: 'MOCK', phone: normalized };
+  }
+
+  if (provider === 'META_CLOUD_API') {
+    if (!accessToken || !phoneNumberId) {
+      const configErr = 'Meta WhatsApp Cloud API credentials missing on backend (WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID).';
+      logger.error(`[WHATSAPP OTP CONFIG ERROR] ${configErr}`);
+      return {
+        success: false,
+        error: 'WhatsApp API credentials missing from backend server configuration.',
+        providerConfigured: false,
+      };
+    }
+
+    try {
+      const metaUrl = `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`;
+
+      const payload = {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: recipientPhone,
+        type: 'template',
+        template: {
+          name: templateName,
+          language: { code: templateLanguage },
+          components: [
+            {
+              type: 'body',
+              parameters: [
+                {
+                  type: 'text',
+                  text: String(otpCode),
+                },
+              ],
+            },
+          ],
+        },
+      };
+
+      logger.info(`[META WHATSAPP OTP DISPATCH] Template: '${templateName}', Recipient: ${recipientPhone.slice(0, 4)}***${recipientPhone.slice(-2)}`);
+
+      const response = await axios.post(metaUrl, payload, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 10000,
+      });
+
+      if (response.data && (response.data.messages || response.status === 200)) {
+        const messageId = response.data.messages?.[0]?.id || 'META_WA_OK';
+        logger.info(`[META WHATSAPP OTP SUCCESS] Message ID: ${messageId}`);
+        return {
+          success: true,
+          provider: 'META_CLOUD_API',
+          messageId,
+          phone: normalized,
+        };
+      } else {
+        const errMsg = response.data?.error?.message || 'Meta WhatsApp API returned error response';
+        logger.error(`[META WHATSAPP OTP ERROR] ${errMsg}`);
+        return {
+          success: false,
+          error: 'Meta WhatsApp API error: ' + errMsg,
+          provider: 'META_CLOUD_API',
+        };
+      }
+    } catch (error) {
+      const metaErrMsg = error.response?.data?.error?.message || error.message || 'Failed to dispatch WhatsApp OTP';
+      const status = error.response?.status || 500;
+      logger.error(`[META WHATSAPP OTP HTTP ERROR] ${metaErrMsg} [HTTP ${status}]`);
+      return {
+        success: false,
+        error: metaErrMsg,
+        provider: 'META_CLOUD_API',
+      };
+    }
+  }
+
+  return {
+    success: false,
+    error: `Unsupported WHATSAPP_PROVIDER '${provider}'. Set WHATSAPP_PROVIDER=META_CLOUD_API on Render.`,
+    providerConfigured: false,
+  };
+};
+
 module.exports = {
   normalizePhone,
   generate6DigitCode,
   hashOTP,
   sendSMS,
+  sendOTPViaWhatsApp,
 };
+

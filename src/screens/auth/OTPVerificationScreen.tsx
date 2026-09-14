@@ -24,7 +24,7 @@ export const OTPVerificationScreen: React.FC<OTPVerificationScreenProps> = ({
   const [otpCode, setOtpCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [resendTimer, setResendTimer] = useState(30);
+  const [resendTimer, setResendTimer] = useState(60);
 
   useEffect(() => {
     if (resendTimer > 0) {
@@ -39,7 +39,7 @@ export const OTPVerificationScreen: React.FC<OTPVerificationScreenProps> = ({
     setErrorMessage('');
     const code = otpCode.trim();
     if (code.length < 6) {
-      setErrorMessage('Please enter the 6-digit SMS verification code');
+      setErrorMessage('Please enter the 6-digit WhatsApp verification code');
       return;
     }
 
@@ -51,7 +51,10 @@ export const OTPVerificationScreen: React.FC<OTPVerificationScreenProps> = ({
       onSuccess(user);
     } catch (error: any) {
       setIsLoading(false);
-      const msg = error?.response?.data?.message || error?.message || 'Invalid OTP code. Please check your SMS and try again.';
+      const msg =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Invalid OTP code. Please check your WhatsApp messages and try again.';
       setErrorMessage(msg);
       Alert.alert('Verification Failed', msg);
     }
@@ -62,39 +65,40 @@ export const OTPVerificationScreen: React.FC<OTPVerificationScreenProps> = ({
     setIsLoading(true);
     setErrorMessage('');
     try {
-      await sendSMSOTP(phoneNumber, purpose);
+      await sendSMSOTP(phoneNumber, purpose, fullName);
       setIsLoading(false);
-      setResendTimer(30);
-      Alert.alert('OTP Resent', `A new 6-digit OTP code has been sent to ${phoneNumber}`);
+      setResendTimer(60);
+      Alert.alert('WhatsApp OTP Resent', `A new 6-digit OTP code has been sent to your WhatsApp number ${phoneNumber}`);
     } catch (error: any) {
       setIsLoading(false);
-      const msg = error?.response?.data?.message || error?.message || 'Failed to resend OTP.';
+      const msg = error?.response?.data?.message || error?.message || 'Failed to resend WhatsApp OTP.';
       setErrorMessage(msg);
       Alert.alert('Resend Failed', msg);
     }
   };
 
   // Mask phone for display (e.g. +91 98765 XXXXX)
-  const maskedPhone = phoneNumber.length >= 10
-    ? `${phoneNumber.slice(0, 3)} ${phoneNumber.slice(3, 8)} XXXXX`
-    : phoneNumber;
+  const maskedPhone =
+    phoneNumber.length >= 10
+      ? `${phoneNumber.slice(0, 3)} ${phoneNumber.slice(3, 8)} XXXXX`
+      : phoneNumber;
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backText}>← Back</Text>
+          <Text style={styles.backText}>← Change Number</Text>
         </TouchableOpacity>
 
         {/* Circular Logo Header */}
         <View style={styles.circularBadgeHeader}>
-          <Text style={styles.badgeShieldIcon}>🛡️</Text>
-          <Text style={styles.badgeText}>VERIFY</Text>
+          <Text style={styles.badgeShieldIcon}>💬</Text>
+          <Text style={styles.badgeText}>WHATSAPP</Text>
         </View>
 
-        <Text style={styles.title}>OTP Verification</Text>
+        <Text style={styles.title}>WhatsApp OTP</Text>
         <Text style={styles.subtitle}>
-          Enter the 6-digit code sent to <Text style={styles.phoneHighlight}>{maskedPhone}</Text>
+          Enter the 6-digit code sent to WhatsApp <Text style={styles.phoneHighlight}>{maskedPhone}</Text>
         </Text>
 
         <View style={styles.formGroup}>
@@ -122,9 +126,9 @@ export const OTPVerificationScreen: React.FC<OTPVerificationScreenProps> = ({
         >
           <Text style={styles.timerText}>
             {resendTimer > 0 ? (
-              <>Resend OTP in <Text style={styles.timerBold}>00:{resendTimer < 10 ? `0${resendTimer}` : resendTimer}</Text></>
+              <>Resend WhatsApp OTP in <Text style={styles.timerBold}>00:{resendTimer < 10 ? `0${resendTimer}` : resendTimer}</Text></>
             ) : (
-              <Text style={styles.resendActive}>Didn't receive code? <Text style={styles.timerBold}>Resend OTP</Text></Text>
+              <Text style={styles.resendActive}>Didn't receive code? <Text style={styles.timerBold}>Resend WhatsApp OTP</Text></Text>
             )}
           </Text>
         </TouchableOpacity>

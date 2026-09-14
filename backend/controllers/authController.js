@@ -409,7 +409,7 @@ const sendOTP = asyncHandler(async (req, res) => {
     });
   }
 
-  const { normalizePhone, generate6DigitCode, hashOTP, sendSMS } = require('../services/otpService');
+  const { normalizePhone, generate6DigitCode, hashOTP, sendOTPViaWhatsApp } = require('../services/otpService');
   const OtpVerification = require('../models/OtpVerification');
 
   const normalizedPhone = normalizePhone(phone);
@@ -420,38 +420,23 @@ const sendOTP = asyncHandler(async (req, res) => {
     });
   }
 
-  // 1. Resend Cooldown Check (30 seconds)
+  // 1. Resend Cooldown Check (60 seconds)
   const recentOtp = await OtpVerification.findOne({
     phone: normalizedPhone,
     purpose: validPurpose,
-    createdAt: { $gt: new Date(Date.now() - 30 * 1000) },
+    createdAt: { $gt: new Date(Date.now() - 60 * 1000) },
   });
 
   if (recentOtp) {
     return sendError(res, {
       statusCode: 429,
-      message: 'Please wait 30 seconds before requesting another OTP code.',
+      message: 'Please wait 60 seconds before requesting another WhatsApp OTP code.',
     });
   }
 
-  // 2. User Existence Verification per Purpose
+  // 2. Account Status Check (If existing non-citizen/suspended user)
   const existingUser = await User.findOne({ phone: normalizedPhone });
-
-  if (validPurpose === 'REGISTER') {
-    if (existingUser) {
-      return sendError(res, {
-        statusCode: 400,
-        message: 'An account already exists for this mobile number. Please login instead.',
-      });
-    }
-  } else if (validPurpose === 'LOGIN') {
-    if (!existingUser) {
-      return sendError(res, {
-        statusCode: 404,
-        message: 'No registered Citizen account found for this mobile number. Please register first.',
-      });
-    }
-
+  if (existingUser) {
     if (['HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(existingUser.role)) {
       return sendError(res, {
         statusCode: 403,
@@ -467,10 +452,16 @@ const sendOTP = asyncHandler(async (req, res) => {
     }
   }
 
-  // 3. Generate 6-digit OTP code & Store SHA-256 hash
+  // 3. Invalidate Previous Active OTP Records
+  await OtpVerification.updateMany(
+    { phone: normalizedPhone, purpose: validPurpose, verifiedAt: null },
+    { $set: { expiresAt: new Date() } }
+  );
+
+  // 4. Generate Cryptographically Secure 6-Digit OTP & Store SHA-256 Hash
   const otpCode = generate6DigitCode();
   const otpHash = hashOTP(otpCode);
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes TTL
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes TTL
 
   await OtpVerification.create({
     phone: normalizedPhone,
@@ -480,19 +471,19 @@ const sendOTP = asyncHandler(async (req, res) => {
     attempts: 0,
   });
 
-  // 4. Dispatch SMS via OTP Provider
-  const smsResult = await sendSMS(normalizedPhone, otpCode, validPurpose);
+  // 5. Dispatch OTP via Meta WhatsApp Cloud API
+  const waResult = await sendOTPViaWhatsApp(normalizedPhone, otpCode, validPurpose);
 
-  if (!smsResult.success) {
-    if (smsResult.providerConfigured === false) {
+  if (!waResult.success) {
+    if (waResult.providerConfigured === false) {
       return sendError(res, {
         statusCode: 503,
-        message: smsResult.error,
+        message: waResult.error,
       });
     }
     return sendError(res, {
       statusCode: 500,
-      message: smsResult.error || 'Failed to deliver SMS OTP. Please try again.',
+      message: waResult.error || 'Failed to deliver WhatsApp OTP. Please try again.',
     });
   }
 
@@ -500,12 +491,12 @@ const sendOTP = asyncHandler(async (req, res) => {
 
   return sendSuccess(res, {
     statusCode: 200,
-    message: `OTP sent successfully via SMS to ${maskedPhone}`,
+    message: `OTP sent successfully via WhatsApp to ${maskedPhone}`,
     data: {
       phone: normalizedPhone,
       purpose: validPurpose,
-      expiresInSeconds: 300,
-      resendCooldownSeconds: 30,
+      expiresInSeconds: 600,
+      resendCooldownSeconds: 60,
     },
   });
 });
@@ -555,7 +546,7 @@ const verifyOTP = asyncHandler(async (req, res) => {
   if (new Date() > new Date(otpRecord.expiresAt)) {
     return sendError(res, {
       statusCode: 400,
-      message: 'OTP code has expired. Please request a new OTP code.',
+      message: 'WhatsApp OTP code has expired. Please request a new OTP code.',
     });
   }
 
@@ -590,34 +581,28 @@ const verifyOTP = asyncHandler(async (req, res) => {
   // 5. Account Upsert / Login Flow
   let user = await User.findOne({ phone: normalizedPhone });
 
-  if (validPurpose === 'REGISTER') {
-    if (!user) {
-      user = new User({
-        firebaseUid: `citizen_otp_${normalizedPhone.replace('+', '')}`,
-        phone: normalizedPhone,
-        fullName: (fullName || 'Citizen Donor').trim(),
-        role: 'CITIZEN',
-        accountStatus: 'ACTIVE',
-        isActive: true,
-        isVerified: true,
-      });
-    } else {
-      user.isVerified = true;
-      if (fullName && !user.fullName) user.fullName = fullName.trim();
-    }
-  } else { // LOGIN
-    if (!user) {
-      return sendError(res, {
-        statusCode: 404,
-        message: 'Account not found for this mobile number. Please register first.',
-      });
-    }
-
+  if (!user) {
+    user = new User({
+      firebaseUid: `citizen_otp_${normalizedPhone.replace('+', '')}`,
+      phone: normalizedPhone,
+      fullName: (fullName || 'Citizen User').trim(),
+      name: (fullName || 'Citizen User').trim(),
+      role: 'CITIZEN',
+      accountStatus: 'ACTIVE',
+      isActive: true,
+      isVerified: true,
+    });
+  } else {
     if (user.accountStatus === 'SUSPENDED') {
       return sendError(res, {
         statusCode: 403,
         message: 'Your citizen account is currently suspended. Please contact support.',
       });
+    }
+    user.isVerified = true;
+    if (fullName && (!user.fullName || !user.name)) {
+      user.fullName = fullName.trim();
+      user.name = fullName.trim();
     }
   }
 
@@ -638,11 +623,11 @@ const verifyOTP = asyncHandler(async (req, res) => {
 
   await user.save();
 
-  logger.info(`Citizen authenticated via SMS OTP: ${user._id} (${user.phone}) Purpose: ${validPurpose}`);
+  logger.info(`Citizen authenticated via WhatsApp OTP: ${user._id} (${user.phone}) Purpose: ${validPurpose}`);
 
   return sendSuccess(res, {
-    statusCode: validPurpose === 'REGISTER' ? 201 : 200,
-    message: validPurpose === 'REGISTER' ? 'Citizen account created and verified successfully' : 'OTP verification successful',
+    statusCode: 200,
+    message: 'WhatsApp OTP verification successful',
     data: {
       user: user.toProfileJSON(),
       tokens: {

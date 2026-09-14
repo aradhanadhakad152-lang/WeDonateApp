@@ -162,21 +162,23 @@ export const verifyOTPAndLogin = async (
 };
 
 // ============================================================================
-// PRODUCTION SMS OTP AUTHENTICATION (MSG91 / SERVER-SIDE OTP)
+// ============================================================================
+// SERVER-SIDE WHATSAPP OTP AUTHENTICATION (META CLOUD API)
 // ============================================================================
 
 export const sendSMSOTP = async (
   phone: string,
-  purpose: 'LOGIN' | 'REGISTER' = 'LOGIN'
+  purpose: 'LOGIN' | 'REGISTER' = 'LOGIN',
+  fullName?: string
 ): Promise<{ phone: string; purpose: string }> => {
   try {
     const response = await api.post<ApiSuccessResponse<{ phone: string; purpose: string }>>(
       '/auth/send-otp',
-      { phone, purpose }
+      { phone, purpose, fullName }
     );
     return response.data.data!;
   } catch (error) {
-    console.error('Send OTP failed:', error);
+    console.error('Send WhatsApp OTP failed:', error);
     throw error;
   }
 };
@@ -204,10 +206,14 @@ export const verifySMSOTP = async (
 
     return user;
   } catch (error) {
-    console.error('Verify OTP failed:', error);
+    console.error('Verify WhatsApp OTP failed:', error);
     throw error;
   }
 };
+
+export const sendWhatsAppOTP = sendSMSOTP;
+export const verifyWhatsAppOTP = verifySMSOTP;
+
 
 // ============================================================================
 // LOGOUT

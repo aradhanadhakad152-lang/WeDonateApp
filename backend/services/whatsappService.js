@@ -44,10 +44,11 @@ const formatWhatsAppMessage = (details) => {
   const bloodGroup = details.bloodGroup || 'Emergency';
   const hospital = details.hospitalName || 'Nearby Medical Facility';
   const distance = details.formattedDistance || 'Nearby';
+  const patientStr = details.patientName ? ` for *${details.patientName}*` : '';
 
   return (
     `🚨 *WE DONATE EMERGENCY BLOOD ALERT* 🚨\n\n` +
-    `Urgent *${bloodGroup}* blood is required at *${hospital}* (${distance} from your location).\n\n` +
+    `Urgent *${bloodGroup}* blood is required${patientStr} at *${hospital}* (${distance} from your location).\n\n` +
     `You are a compatible registered donor nearby. Please open your WE DONATE app to view details and confirm if you can donate.\n\n` +
     `🩸 *Every minute counts!* Tap link below to view request & respond:\n` +
     `https://wedonateapp.onrender.com/portal/`
