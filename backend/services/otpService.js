@@ -154,86 +154,97 @@ const sendOTPViaWhatsApp = async (phone, otpCode, purpose = 'LOGIN') => {
     try {
       const metaUrl = `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`;
 
-      const payload = {
-        messaging_product: 'whatsapp',
-        recipient_type: 'individual',
-        to: recipientPhone,
-        type: 'template',
-        template: {
-          name: templateName,
-          language: { code: templateLanguage },
-          components: [
-            {
-              type: 'body',
-              parameters: [
-                {
-                  type: 'text',
-                  text: String(otpCode),
-                },
-              ],
-            },
-          ],
-        },
-      };
+      const candidates = [
+        { name: templateName, lang: templateLanguage, multiParam: false },
+        { name: templateName, lang: templateLanguage === 'en' ? 'en_US' : 'en', multiParam: false },
+        { name: templateName, lang: 'en_IN', multiParam: false },
+        { name: templateName, lang: 'en_GB', multiParam: false },
+        { name: 'emergency_blood_alert', lang: 'en', multiParam: true },
+        { name: 'emergency_blood_alert', lang: 'en_US', multiParam: true },
+      ];
 
-      logger.info(`[META WHATSAPP OTP DISPATCH] Template: '${templateName}', Language: '${templateLanguage}', Recipient: ${recipientPhone.slice(0, 4)}***${recipientPhone.slice(-2)}`);
+      let lastError = null;
+      let successfulResult = null;
 
-      let response;
-      try {
-        response = await axios.post(metaUrl, payload, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
+      for (const candidate of candidates) {
+        const payloadComponents = candidate.multiParam
+          ? [
+              {
+                type: 'body',
+                parameters: [
+                  { type: 'text', text: String(otpCode) },
+                  { type: 'text', text: 'WE DONATE Verification' },
+                  { type: 'text', text: 'Immediate' },
+                ],
+              },
+            ]
+          : [
+              {
+                type: 'body',
+                parameters: [
+                  { type: 'text', text: String(otpCode) },
+                ],
+              },
+            ];
+
+        const payload = {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: recipientPhone,
+          type: 'template',
+          template: {
+            name: candidate.name,
+            language: { code: candidate.lang },
+            components: payloadComponents,
           },
-          timeout: 10000,
-        });
-      } catch (firstErr) {
-        const metaCode = firstErr.response?.data?.error?.code;
-        const metaMsg = firstErr.response?.data?.error?.message || '';
+        };
 
-        // Fallback Retry: If language code 'en' returned 132001 (Template translation missing), retry with 'en_US'
-        if ((metaCode === 132001 || metaMsg.includes('translation')) && (templateLanguage === 'en' || templateLanguage === 'en_US')) {
-          const alternateLang = templateLanguage === 'en' ? 'en_US' : 'en';
-          logger.warn(`[META WHATSAPP OTP RETRY] Language '${templateLanguage}' returned 132001. Retrying with alternate language '${alternateLang}'...`);
-          
-          const fallbackPayload = {
-            ...payload,
-            template: {
-              ...payload.template,
-              language: { code: alternateLang },
-            },
-          };
+        try {
+          logger.info(`[META WHATSAPP OTP ATTEMPT] Template: '${candidate.name}', Language: '${candidate.lang}', Recipient: ${recipientPhone.slice(0, 4)}***${recipientPhone.slice(-2)}`);
 
-          response = await axios.post(metaUrl, fallbackPayload, {
+          const response = await axios.post(metaUrl, payload, {
             headers: {
               Authorization: `Bearer ${accessToken}`,
               'Content-Type': 'application/json',
             },
             timeout: 10000,
           });
-        } else {
-          throw firstErr;
+
+          if (response.data && (response.data.messages || response.status === 200)) {
+            const messageId = response.data.messages?.[0]?.id || 'META_WA_OK';
+            logger.info(`[META WHATSAPP OTP SUCCESS] Template '${candidate.name}' (${candidate.lang}) Message ID: ${messageId}`);
+            successfulResult = {
+              success: true,
+              provider: 'META_CLOUD_API',
+              templateUsed: candidate.name,
+              languageUsed: candidate.lang,
+              messageId,
+              phone: normalized,
+            };
+            break;
+          }
+        } catch (err) {
+          const metaCode = err.response?.data?.error?.code;
+          const metaMsg = err.response?.data?.error?.message || err.message;
+          logger.warn(`[META WHATSAPP OTP CANDIDATE FAILED] Template '${candidate.name}' (${candidate.lang}) Code ${metaCode}: ${metaMsg}`);
+          lastError = metaMsg;
+
+          if (metaCode && ![132000, 132001, 100].includes(metaCode) && !metaMsg.includes('translation') && !metaMsg.includes('template')) {
+            break;
+          }
         }
       }
 
-      if (response.data && (response.data.messages || response.status === 200)) {
-        const messageId = response.data.messages?.[0]?.id || 'META_WA_OK';
-        logger.info(`[META WHATSAPP OTP SUCCESS] Message ID: ${messageId}`);
-        return {
-          success: true,
-          provider: 'META_CLOUD_API',
-          messageId,
-          phone: normalized,
-        };
-      } else {
-        const errMsg = response.data?.error?.message || 'Meta WhatsApp API returned error response';
-        logger.error(`[META WHATSAPP OTP ERROR] ${errMsg}`);
-        return {
-          success: false,
-          error: 'Meta WhatsApp API error: ' + errMsg,
-          provider: 'META_CLOUD_API',
-        };
+      if (successfulResult) {
+        return successfulResult;
       }
+
+      logger.error(`[META WHATSAPP OTP ALL CANDIDATES FAILED] Last error: ${lastError}`);
+      return {
+        success: false,
+        error: lastError || 'Failed to send WhatsApp OTP. Please verify template configuration in Meta WhatsApp Manager.',
+        provider: 'META_CLOUD_API',
+      };
     } catch (error) {
       const metaErrMsg = error.response?.data?.error?.message || error.message || 'Failed to dispatch WhatsApp OTP';
       const status = error.response?.status || 500;
