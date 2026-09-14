@@ -176,15 +176,45 @@ const sendOTPViaWhatsApp = async (phone, otpCode, purpose = 'LOGIN') => {
         },
       };
 
-      logger.info(`[META WHATSAPP OTP DISPATCH] Template: '${templateName}', Recipient: ${recipientPhone.slice(0, 4)}***${recipientPhone.slice(-2)}`);
+      logger.info(`[META WHATSAPP OTP DISPATCH] Template: '${templateName}', Language: '${templateLanguage}', Recipient: ${recipientPhone.slice(0, 4)}***${recipientPhone.slice(-2)}`);
 
-      const response = await axios.post(metaUrl, payload, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 10000,
-      });
+      let response;
+      try {
+        response = await axios.post(metaUrl, payload, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000,
+        });
+      } catch (firstErr) {
+        const metaCode = firstErr.response?.data?.error?.code;
+        const metaMsg = firstErr.response?.data?.error?.message || '';
+
+        // Fallback Retry: If language code 'en' returned 132001 (Template translation missing), retry with 'en_US'
+        if ((metaCode === 132001 || metaMsg.includes('translation')) && (templateLanguage === 'en' || templateLanguage === 'en_US')) {
+          const alternateLang = templateLanguage === 'en' ? 'en_US' : 'en';
+          logger.warn(`[META WHATSAPP OTP RETRY] Language '${templateLanguage}' returned 132001. Retrying with alternate language '${alternateLang}'...`);
+          
+          const fallbackPayload = {
+            ...payload,
+            template: {
+              ...payload.template,
+              language: { code: alternateLang },
+            },
+          };
+
+          response = await axios.post(metaUrl, fallbackPayload, {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            timeout: 10000,
+          });
+        } else {
+          throw firstErr;
+        }
+      }
 
       if (response.data && (response.data.messages || response.status === 200)) {
         const messageId = response.data.messages?.[0]?.id || 'META_WA_OK';
