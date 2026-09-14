@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { sendSMSOTP } from '../../services/authService';
+import { devLogin } from '../../services/authService';
+import { useAuthStore } from '../../store/authStore';
 import { User } from '../../types/user.types';
 import { COLORS, SHADOWS } from '../../theme/colors';
 
@@ -9,10 +10,9 @@ interface PhoneLoginScreenProps {
   onSendOTP?: (phoneNumber: string, purpose: 'LOGIN' | 'REGISTER', fullName?: string) => void;
 }
 
-export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onSuccess, onSendOTP }) => {
-  const [mode, setMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
+export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onSuccess }) => {
   const [phoneNumber, setPhoneNumber] = useState('9876543210');
-  const [fullName, setFullName] = useState('');
+  const [fullName, setFullName] = useState('Ramesh Kumar');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -29,35 +29,34 @@ export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onSuccess, o
     }
   };
 
-  const handleSendOTP = async () => {
+  const handleDirectLogin = async () => {
     setErrorMessage('');
-    const trimmed = phoneNumber.trim();
+    const trimmedPhone = phoneNumber.trim();
+    const trimmedName = fullName.trim();
 
-    if (trimmed.length < 10) {
+    if (!trimmedName) {
+      setErrorMessage('Please enter your full name');
+      return;
+    }
+
+    if (trimmedPhone.length < 10) {
       setErrorMessage('Please enter a valid 10-digit mobile phone number');
       return;
     }
 
-    if (mode === 'REGISTER' && !fullName.trim()) {
-      setErrorMessage('Please enter your full name for registration');
-      return;
-    }
-
-    const formattedPhone = trimmed.startsWith('+') ? trimmed : `+91${trimmed}`;
+    const formattedPhone = trimmedPhone.startsWith('+') ? trimmedPhone : `+91${trimmedPhone}`;
 
     setIsLoading(true);
     try {
-      await sendSMSOTP(formattedPhone, mode);
+      const user = await devLogin(formattedPhone, trimmedName);
       setIsLoading(false);
-
-      if (onSendOTP) {
-        onSendOTP(formattedPhone, mode, fullName.trim() || undefined);
-      }
+      useAuthStore.getState().setUser(user);
+      onSuccess(user);
     } catch (error: any) {
       setIsLoading(false);
-      const msg = error?.response?.data?.message || error?.message || 'Failed to send OTP. Please check connection.';
+      const msg = error?.response?.data?.message || error?.message || 'Authentication request failed. Please try again.';
       setErrorMessage(msg);
-      Alert.alert('OTP Dispatch Failed', msg);
+      Alert.alert('Authentication Failed', msg);
     }
   };
 
@@ -70,40 +69,25 @@ export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onSuccess, o
           <Text style={styles.badgeText}>WE DONATE</Text>
         </View>
 
-        <Text style={styles.title}>{mode === 'LOGIN' ? 'Citizen Sign In' : 'Register New Account'}</Text>
-        <Text style={styles.subtitle}>Production SMS OTP Authentication</Text>
+        <Text style={styles.title}>Citizen Authentication</Text>
+        <Text style={styles.subtitle}>Enter mobile number & full name to sign in</Text>
 
-        {/* Mode Switcher Tabs */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tabButton, mode === 'LOGIN' && styles.tabButtonActive]}
-            onPress={() => { setMode('LOGIN'); setErrorMessage(''); }}
-          >
-            <Text style={[styles.tabText, mode === 'LOGIN' && styles.tabTextActive]}>LOGIN</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tabButton, mode === 'REGISTER' && styles.tabButtonActive]}
-            onPress={() => { setMode('REGISTER'); setErrorMessage(''); }}
-          >
-            <Text style={[styles.tabText, mode === 'REGISTER' && styles.tabTextActive]}>REGISTER</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Full Name for Registration Mode */}
-        {mode === 'REGISTER' && (
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>FULL NAME</Text>
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.inputName}
-                placeholder="e.g. Ramesh Kumar"
-                placeholderTextColor="#94A3B8"
-                value={fullName}
-                onChangeText={setFullName}
-              />
-            </View>
+        {/* Full Name Input */}
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>FULL NAME</Text>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.inputName}
+              placeholder="e.g. Ramesh Kumar"
+              placeholderTextColor="#94A3B8"
+              value={fullName}
+              onChangeText={(text) => {
+                setFullName(text);
+                if (errorMessage) setErrorMessage('');
+              }}
+            />
           </View>
-        )}
+        </View>
 
         {/* Mobile Number Input */}
         <View style={styles.formGroup}>
@@ -139,14 +123,14 @@ export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onSuccess, o
 
         <TouchableOpacity
           style={[styles.btnCoralWide, isLoading && styles.btnDisabled]}
-          onPress={handleSendOTP}
+          onPress={handleDirectLogin}
           disabled={isLoading}
           activeOpacity={0.85}
         >
           {isLoading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.btnCoralWideText}>Send OTP  ➔</Text>
+            <Text style={styles.btnCoralWideText}>Login / Register  ➔</Text>
           )}
         </TouchableOpacity>
       </ScrollView>
