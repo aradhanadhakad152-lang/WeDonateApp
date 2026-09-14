@@ -549,6 +549,42 @@
     </div>
   </div>
 
+  <!-- MODAL: EMERGENCY NOTIFICATION CAMPAIGN DETAILS -->
+  <div class="modal fade" id="campaignModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header border-0 pb-0">
+          <h5 class="modal-title fw-bold text-dark" id="campaignModalTitle">🩸 Emergency Notification Campaign</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <input type="hidden" id="activeCampaignRequestId">
+          <div id="campaignHeaderStats" class="row g-3 mb-4">
+            <!-- Populated via JS -->
+          </div>
+          <div class="card p-3 mb-4 border-0 bg-light">
+            <h6 class="fw-bold mb-2"><i class="bi bi-broadcast me-1 text-danger"></i> Campaign Controls</h6>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-success fw-bold" onclick="retryActiveCampaignBatch()"><i class="bi bi-play-circle-fill me-1"></i> Dispatch Next Batch / Retry</button>
+              <button class="btn btn-sm btn-outline-danger fw-bold" onclick="stopActiveCampaign()"><i class="bi bi-stop-circle-fill me-1"></i> Stop Campaign</button>
+            </div>
+          </div>
+          <h6 class="fw-bold mb-2"><i class="bi bi-people-fill me-1"></i> Matched Donors & Delivery History</h6>
+          <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+              <thead class="table-light">
+                <tr><th>Donor Name</th><th>Blood Group</th><th>Distance</th><th>Status</th><th>Contact</th></tr>
+              </thead>
+              <tbody id="campaignMatchesTbody">
+                <tr><td colspan="5" class="text-center text-muted py-3">Loading campaign details...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL: CREATE / MANAGING ORG LOGIN ACCOUNT -->
   <div class="modal fade" id="createOrgAccountModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
@@ -1214,6 +1250,7 @@
                 <td><i class="bi bi-telephone"></i> <a href="tel:${r.contactPhone}">${r.contactPhone}</a></td>
                 <td><span class="badge bg-secondary">${r.status}</span></td>
                 <td>
+                  <button class="btn btn-sm btn-outline-info me-1 fw-bold" onclick="viewRequestNotificationCampaign('${r._id}')"><i class="bi bi-broadcast"></i> Campaign</button>
                   ${actionHtml}
                 </td>
               </tr>
@@ -1221,6 +1258,94 @@
           });
         } else {
           tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No blood requests found matching criteria.</td></tr>';
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    async function viewRequestNotificationCampaign(id) {
+      document.getElementById('activeCampaignRequestId').value = id;
+      openModalFallback('campaignModal');
+      await refreshCampaignModalDetails();
+    }
+
+    async function refreshCampaignModalDetails() {
+      const id = document.getElementById('activeCampaignRequestId').value;
+      if (!id) return;
+
+      try {
+        const basePath = currentOrg ? '/organizations/requests' : '/admin/requests';
+        const data = await apiCall(`${basePath}/${id}/notifications`);
+        if (!data.success) return;
+
+        const info = data.data;
+        const camp = info.campaign || {};
+
+        document.getElementById('campaignModalTitle').innerText = `🩸 Campaign — ${info.bloodGroup} at ${info.hospitalName}`;
+
+        const statsDiv = document.getElementById('campaignHeaderStats');
+        statsDiv.innerHTML = `
+          <div class="col-md-3"><div class="card p-2 text-center bg-white border"><small class="text-muted fw-bold">TOTAL MATCHED</small><h4 class="fw-bold mb-0">${info.matchedCount || 0}</h4></div></div>
+          <div class="col-md-3"><div class="card p-2 text-center bg-white border"><small class="text-muted fw-bold">NOTIFIED</small><h4 class="fw-bold mb-0 text-primary">${camp.totalNotifiedDonors || 0}</h4></div></div>
+          <div class="col-md-3"><div class="card p-2 text-center bg-white border"><small class="text-muted fw-bold">ACCEPTED</small><h4 class="fw-bold mb-0 text-success">${camp.acceptedCount || 0}</h4></div></div>
+          <div class="col-md-3"><div class="card p-2 text-center bg-white border"><small class="text-muted fw-bold">CURRENT BATCH</small><h4 class="fw-bold mb-0 text-dark">#${camp.currentBatchIndex || 0}</h4></div></div>
+          <div class="col-12 mt-2">
+            <div class="p-2 bg-light rounded d-flex justify-content-between small">
+              <span><strong>FCM Dispatched:</strong> ${info.channelSummary?.fcm?.dispatched || 0}</span>
+              <span><strong>WhatsApp Dispatched:</strong> ${info.channelSummary?.whatsApp?.dispatched || 0} (${info.channelSummary?.whatsApp?.simulated || 0} Simulated)</span>
+              <span><strong>SMS Dispatched:</strong> ${info.channelSummary?.sms?.dispatched || 0}</span>
+              <span><strong>Status:</strong> ${camp.isStopped ? `<span class="badge bg-danger">Stopped: ${camp.stopReason || ''}</span>` : '<span class="badge bg-success">Active Campaign</span>'}</span>
+            </div>
+          </div>
+        `;
+
+        const tbody = document.getElementById('campaignMatchesTbody');
+        tbody.innerHTML = '';
+        if (info.matches && info.matches.length > 0) {
+          info.matches.forEach(m => {
+            const donorName = m.donor?.name || 'Matched Donor';
+            const bg = m.donor?.bloodGroup || 'N/A';
+            const dist = m.distanceKm ? `${m.distanceKm.toFixed(1)} km` : 'N/A';
+            const isAccepted = m.status === 'ACCEPTED';
+            const phone = m.donor?.phone ? `<a href="tel:${m.donor.phone}" class="btn btn-sm btn-success fw-bold py-0"><i class="bi bi-telephone-fill"></i> ${m.donor.phone}</a>` : '<span class="text-muted small">Hidden before accept</span>';
+
+            tbody.innerHTML += `
+              <tr>
+                <td><strong>${donorName}</strong></td>
+                <td><span class="badge bg-danger blood-badge">${bg}</span></td>
+                <td>${dist}</td>
+                <td><span class="badge ${isAccepted ? 'bg-success' : m.status === 'REJECTED' ? 'bg-danger' : m.status === 'NOTIFIED' ? 'bg-info text-dark' : 'bg-secondary'}">${m.status}</span></td>
+                <td>${phone}</td>
+              </tr>
+            `;
+          });
+        } else {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No matched donors for this request.</td></tr>';
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    async function retryActiveCampaignBatch() {
+      const id = document.getElementById('activeCampaignRequestId').value;
+      if (!id) return;
+      try {
+        const data = await apiCall(`/admin/requests/${id}/notifications/retry`, 'POST', {});
+        if (data.success) {
+          showToast(data.message || 'Notification batch retry triggered');
+          refreshCampaignModalDetails();
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    async function stopActiveCampaign() {
+      const id = document.getElementById('activeCampaignRequestId').value;
+      if (!id) return;
+      const reason = prompt('Enter reason for stopping notification campaign:', 'Manually stopped by operator');
+      if (reason === null) return;
+      try {
+        const data = await apiCall(`/admin/requests/${id}/notifications/stop`, 'POST', { reason });
+        if (data.success) {
+          showToast('Emergency notification campaign stopped');
+          refreshCampaignModalDetails();
         }
       } catch (err) { console.error(err); }
     }

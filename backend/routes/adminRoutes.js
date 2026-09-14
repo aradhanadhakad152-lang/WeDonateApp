@@ -23,6 +23,9 @@ const {
   verifyRequestByAdmin,
   getAuditLogs,
   getWhatsAppConfigStatusController,
+  getRequestNotificationHistory,
+  retryRequestNotificationBatch,
+  stopRequestNotificationCampaign,
 } = require('../controllers/adminController');
 
 const { getAdminRevenueStats } = require('../controllers/serviceFeeController');
@@ -54,6 +57,9 @@ router.patch('/organizations/:id/status', updateOrganizationStatus);
 router.get('/requests/pending', getPendingRequestsForAdmin);
 router.get('/requests', getAllRequestsForAdmin);
 router.patch('/requests/:id/verify', verifyRequestByAdmin);
+router.get('/requests/:id/notifications', getRequestNotificationHistory);
+router.post('/requests/:id/notifications/retry', retryRequestNotificationBatch);
+router.post('/requests/:id/notifications/stop', stopRequestNotificationCampaign);
 router.get('/audit-logs', getAuditLogs);
 router.get('/whatsapp-config', getWhatsAppConfigStatusController);
 

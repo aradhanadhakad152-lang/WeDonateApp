@@ -12,7 +12,18 @@ const NOTIFICATION_TYPES = [
   'MATCH_EXPIRED',
 ];
 
-const NOTIFICATION_STATUSES = ['PENDING', 'SENT', 'FAILED', 'OPENED', 'EXPIRED'];
+const NOTIFICATION_STATUSES = [
+  'QUEUED',
+  'DISPATCHED',
+  'DELIVERED',
+  'FAILED',
+  'SIMULATED',
+  'NOT_CONFIGURED',
+  'PENDING',
+  'SENT',
+  'OPENED',
+  'EXPIRED',
+];
 
 /**
  * Notification Model — Production Grade
@@ -68,6 +79,10 @@ const notificationSchema = new mongoose.Schema(
       type: String,
       default: 'we_donate_emergency',
     },
+    batchIndex: {
+      type: Number,
+      default: 0,
+    },
 
     // Status & Read State
     status: {
@@ -76,7 +91,7 @@ const notificationSchema = new mongoose.Schema(
         values: NOTIFICATION_STATUSES,
         message: `Notification status must be one of: ${NOTIFICATION_STATUSES.join(', ')}`,
       },
-      default: 'PENDING',
+      default: 'QUEUED',
       index: true,
     },
     isRead: {
@@ -92,8 +107,16 @@ const notificationSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    deliveryConfirmedAt: {
+      type: Date,
+      default: null,
+    },
     providerMessageId: {
       type: String,
+      default: null,
+    },
+    providerResponse: {
+      type: mongoose.Schema.Types.Mixed,
       default: null,
     },
     error: {

@@ -177,6 +177,24 @@ const bloodRequestSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    // Emergency Donor Notification Campaign & Batch Tracking
+    notificationCampaign: {
+      currentBatchIndex: { type: Number, default: 0 },
+      batchSize: { type: Number, default: 5 },
+      responseWindowMinutes: { type: Number, default: 10 },
+      lastBatchDispatchedAt: { type: Date, default: null },
+      nextBatchScheduledAt: { type: Date, default: null },
+      isStopped: { type: Boolean, default: false },
+      stopReason: { type: String, default: null },
+      totalMatchedDonors: { type: Number, default: 0 },
+      totalNotifiedDonors: { type: Number, default: 0 },
+      acceptedCount: { type: Number, default: 0 },
+      rejectedCount: { type: Number, default: 0 },
+      fcmDispatchedCount: { type: Number, default: 0 },
+      whatsAppDispatchedCount: { type: Number, default: 0 },
+      smsDispatchedCount: { type: Number, default: 0 },
+    },
   },
   {
     timestamps: true,

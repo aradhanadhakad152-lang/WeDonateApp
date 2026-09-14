@@ -58,6 +58,7 @@ const findAndMatchNearbyDonors = async (requestId, radiusKmOverride) => {
     isActive: true,
     accountStatus: 'ACTIVE',
     isDonor: true,
+    isAvailable: true,
     donorStatus: 'AVAILABLE',
     isEligible: true,
     bloodGroup: { $in: compatibleGroups },
@@ -136,57 +137,12 @@ const findAndMatchNearbyDonors = async (requestId, radiusKmOverride) => {
     await bloodRequest.save();
   }
 
-  // 7. Multi-Channel Notification Integration: Trigger FCM Push & WhatsApp Alerts
-  if (createdMatches.length > 0) {
-    try {
-      const { sendNotificationToUser } = require('./notificationService');
-      const { sendEmergencySMS, SMS_MAX_DONORS_PER_REQUEST } = require('./smsService');
-      const { sendEmergencyWhatsAppAlert, WHATSAPP_MAX_DONORS_PER_REQUEST } = require('./whatsappService');
-
-      let smsCount = 0;
-      let whatsappCount = 0;
-
-      for (const m of createdMatches) {
-        const formattedDist = m.distanceKm < 1 ? `${Math.round(m.distanceKm * 1000)} m` : `${m.distanceKm.toFixed(1)} km`;
-
-        // 1. Send FCM Push Notification to Donor App
-        await sendNotificationToUser(
-          m.donor,
-          'BLOOD_REQUEST',
-          '🚨 Emergency Blood Alert',
-          `Urgent ${bloodRequest.bloodGroup} blood needed ${formattedDist} from your location at ${bloodRequest.hospitalName}.`,
-          { bloodGroup: bloodRequest.bloodGroup, distanceKm: String(m.distanceKm) },
-          bloodRequest._id,
-          m._id
-        );
-
-        const donorUser = candidateDonors.find((d) => d._id.toString() === m.donor.toString());
-
-        // 2. Send Emergency WhatsApp Alert to Same Matched Donors
-        if (donorUser && donorUser.phone && whatsappCount < WHATSAPP_MAX_DONORS_PER_REQUEST) {
-          await sendEmergencyWhatsAppAlert(donorUser.phone, {
-            bloodGroup: bloodRequest.bloodGroup,
-            patientName: bloodRequest.patientName,
-            hospitalName: bloodRequest.hospitalName,
-            formattedDistance: formattedDist,
-            requestId: String(bloodRequest._id),
-            matchId: String(m._id),
-          });
-          whatsappCount++;
-        }
-
-        // 3. Send Emergency SMS Alert (Fallback / supplementary alert)
-        if (donorUser && donorUser.phone && smsCount < SMS_MAX_DONORS_PER_REQUEST) {
-          await sendEmergencySMS(
-            donorUser.phone,
-            `WE DONATE Emergency Alert: ${bloodRequest.bloodGroup} blood is urgently required near your location. Open WeDonate app to view request.`
-          );
-          smsCount++;
-        }
-      }
-    } catch (notifErr) {
-      logger.error(`Notification trigger error during matching: ${notifErr.message}`);
-    }
+  // 7. Multi-Channel Notification Integration: Trigger Batched Emergency Campaign
+  try {
+    const { dispatchNotificationBatchForRequest } = require('./notificationCampaignService');
+    await dispatchNotificationBatchForRequest(bloodRequest._id);
+  } catch (notifErr) {
+    logger.error(`Notification campaign trigger error during matching: ${notifErr.message}`);
   }
 
   logger.info(`Donor Matching completed for request ${requestId}: found ${rankedCandidates.length} candidate(s), created ${createdMatches.length} new match(es) within ${radiusKm}km`);

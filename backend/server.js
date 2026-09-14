@@ -249,6 +249,12 @@ const startServer = async () => {
       logger.info(`WE DONATE API running on port ${PORT}`);
       logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
       logger.info(`Health check: http://localhost:${PORT}/api/health`);
+
+      // Initialize periodic emergency notification batch processing worker (runs every 60 seconds)
+      const { processPendingNotificationBatches } = require('./services/notificationCampaignService');
+      setInterval(() => {
+        processPendingNotificationBatches().catch((err) => logger.error(`Pending batch worker error: ${err.message}`));
+      }, 60 * 1000);
     });
 
     // ============================================

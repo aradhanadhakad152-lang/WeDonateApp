@@ -11,6 +11,7 @@ const BloodInventory = require('../models/BloodInventory');
 const FinancialDonation = require('../models/FinancialDonation');
 const FundingCampaign = require('../models/FundingCampaign');
 const AuditLog = require('../models/AuditLog');
+const Notification = require('../models/Notification');
 const mongoose = require('mongoose');
 const axios = require('axios');
 const { sendSuccess, sendError } = require('../utils/apiResponse');
@@ -1154,6 +1155,165 @@ const getDonorDetailsHistory = asyncHandler(async (req, res) => {
   });
 });
 
+// GET /api/v1/admin/requests/:id/notifications — View Notification Campaign History & Metrics
+const getRequestNotificationHistory = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const bloodRequest = await BloodRequest.findById(id);
+  if (!bloodRequest) {
+    return sendError(res, {
+      statusCode: 404,
+      message: 'Blood request not found',
+    });
+  }
+
+  // Authorization check for hospital role
+  if (req.user.role === 'HOSPITAL_MANAGER' && bloodRequest.targetOrganizationId && bloodRequest.targetOrganizationId.toString() !== req.user.organizationId?.toString()) {
+    return sendError(res, {
+      statusCode: 403,
+      message: 'Unauthorized: Hospital can only view notification history for its own organization requests',
+    });
+  }
+
+  const matches = await DonorMatch.find({ bloodRequest: bloodRequest._id })
+    .populate('donor', 'fullName name bloodGroup isAvailable isEligible phone location')
+    .sort({ distanceKm: 1 });
+
+  const notifications = await Notification.find({ bloodRequest: bloodRequest._id })
+    .populate('user', 'fullName name phone bloodGroup')
+    .sort({ createdAt: -1 });
+
+  const fcmNotifs = notifications.filter((n) => n.channel === 'FCM');
+  const waNotifs = notifications.filter((n) => n.channel === 'WHATSAPP');
+  const smsNotifs = notifications.filter((n) => n.channel === 'SMS');
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: 'Notification campaign history retrieved successfully',
+    data: {
+      requestId: bloodRequest._id,
+      bloodGroup: bloodRequest.bloodGroup,
+      hospitalName: bloodRequest.hospitalName,
+      urgency: bloodRequest.urgency,
+      status: bloodRequest.status,
+      campaign: bloodRequest.notificationCampaign,
+      matchedCount: matches.length,
+      matches: matches.map((m) => ({
+        matchId: m._id,
+        donor: {
+          id: m.donor?._id,
+          name: m.donor?.fullName || m.donor?.name || 'Candidate Donor',
+          bloodGroup: m.donor?.bloodGroup,
+          phone: m.status === 'ACCEPTED' ? m.donor?.phone : undefined, // Phone hidden unless accepted
+        },
+        distanceKm: m.distanceKm,
+        status: m.status,
+        matchedAt: m.matchedAt,
+        respondedAt: m.respondedAt,
+      })),
+      channelSummary: {
+        fcm: {
+          total: fcmNotifs.length,
+          dispatched: fcmNotifs.filter((n) => ['SENT', 'DISPATCHED', 'DELIVERED', 'SIMULATED'].includes(n.status)).length,
+          failed: fcmNotifs.filter((n) => n.status === 'FAILED').length,
+        },
+        whatsApp: {
+          total: waNotifs.length,
+          dispatched: waNotifs.filter((n) => n.status === 'DISPATCHED').length,
+          simulated: waNotifs.filter((n) => n.status === 'SIMULATED').length,
+          notConfigured: waNotifs.filter((n) => n.status === 'NOT_CONFIGURED').length,
+          failed: waNotifs.filter((n) => n.status === 'FAILED').length,
+        },
+        sms: {
+          total: smsNotifs.length,
+          dispatched: smsNotifs.filter((n) => n.status === 'DISPATCHED').length,
+          failed: smsNotifs.filter((n) => n.status === 'FAILED').length,
+        },
+      },
+      notifications: notifications.map((n) => ({
+        id: n._id,
+        recipient: n.user?.fullName || n.user?.name || 'Donor',
+        channel: n.channel,
+        type: n.type,
+        status: n.status,
+        batchIndex: n.batchIndex,
+        sentAt: n.sentAt,
+        providerMessageId: n.providerMessageId,
+        error: n.error,
+      })),
+    },
+  });
+});
+
+// POST /api/v1/admin/requests/:id/notifications/retry — Retry/Force Next Notification Batch
+const retryRequestNotificationBatch = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const adminUser = req.user;
+
+  const bloodRequest = await BloodRequest.findById(id);
+  if (!bloodRequest) {
+    return sendError(res, {
+      statusCode: 404,
+      message: 'Blood request not found',
+    });
+  }
+
+  const { dispatchNotificationBatchForRequest } = require('../services/notificationCampaignService');
+
+  // Reset isStopped if manual retry initiated
+  if (bloodRequest.notificationCampaign?.isStopped) {
+    bloodRequest.notificationCampaign.isStopped = false;
+    bloodRequest.notificationCampaign.stopReason = null;
+    await bloodRequest.save();
+  }
+
+  const result = await dispatchNotificationBatchForRequest(bloodRequest._id, { forceNext: true });
+
+  await AuditLog.create({
+    performedBy: adminUser._id,
+    userRole: adminUser.role,
+    action: 'RETRY_NOTIFICATION_CAMPAIGN',
+    entityType: 'BloodRequest',
+    entityId: bloodRequest._id.toString(),
+    newState: result,
+    reason: 'Manual operator trigger for notification batch dispatch',
+  });
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: result.dispatched
+      ? `Notification batch ${result.batchIndex} successfully dispatched to ${result.batchSize} donor(s)`
+      : result.reason || 'No notification batch dispatched',
+    data: result,
+  });
+});
+
+// POST /api/v1/admin/requests/:id/notifications/stop — Stop Emergency Notification Campaign
+const stopRequestNotificationCampaign = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+  const adminUser = req.user;
+
+  const { stopNotificationCampaign } = require('../services/notificationCampaignService');
+  const campaign = await stopNotificationCampaign(id, reason || 'Stopped by operator');
+
+  await AuditLog.create({
+    performedBy: adminUser._id,
+    userRole: adminUser.role,
+    action: 'STOP_NOTIFICATION_CAMPAIGN',
+    entityType: 'BloodRequest',
+    entityId: String(id),
+    newState: campaign,
+    reason: reason || 'Operator stopped notification campaign',
+  });
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: 'Emergency notification campaign stopped successfully',
+    data: { campaign },
+  });
+});
+
 module.exports = {
   getAdminDashboardMetrics,
   getUsersList,
@@ -1173,4 +1333,7 @@ module.exports = {
   verifyRequestByAdmin,
   getAuditLogs,
   getWhatsAppConfigStatusController,
+  getRequestNotificationHistory,
+  retryRequestNotificationBatch,
+  stopRequestNotificationCampaign,
 };

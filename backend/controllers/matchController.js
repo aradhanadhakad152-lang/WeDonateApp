@@ -219,14 +219,37 @@ const acceptMatch = asyncHandler(async (req, res) => {
   match.respondedAt = new Date();
   await match.save();
 
-  // Atomic Update BloodRequest Status
+  // Atomic Update BloodRequest Status & Campaign Metrics
   if (['OPEN', 'HOSPITAL_VERIFIED', 'ADMIN_VERIFIED', 'MATCHING'].includes(bloodRequest.status)) {
     bloodRequest.status = 'DONOR_RESPONDED';
   }
   if (!bloodRequest.acceptedDonorId) {
     bloodRequest.acceptedDonorId = donorUser._id;
   }
+  if (!bloodRequest.notificationCampaign) {
+    bloodRequest.notificationCampaign = {};
+  }
+  bloodRequest.notificationCampaign.acceptedCount = (bloodRequest.notificationCampaign.acceptedCount || 0) + 1;
+  bloodRequest.notificationCampaign.isStopped = true;
+  bloodRequest.notificationCampaign.stopReason = 'DONOR_ACCEPTED';
+  bloodRequest.notificationCampaign.nextBatchScheduledAt = null;
   await bloodRequest.save();
+
+  // Record Audit Log for Donor Acceptance
+  try {
+    const AuditLog = require('../models/AuditLog');
+    await AuditLog.create({
+      performedBy: donorUser._id,
+      userRole: donorUser.role,
+      action: 'DONOR_ACCEPTED_REQUEST',
+      entityType: 'BloodRequest',
+      entityId: bloodRequest._id.toString(),
+      newState: { status: bloodRequest.status, acceptedDonorId: donorUser._id.toString() },
+      reason: 'Donor accepted emergency blood request',
+    });
+  } catch (auditErr) {
+    logger.warn(`AuditLog creation error for donor acceptance: ${auditErr.message}`);
+  }
 
   // Trigger FCM Notification to Requester
   try {
@@ -310,6 +333,30 @@ const rejectMatch = asyncHandler(async (req, res) => {
     match.rejectionReason = reason;
   }
   await match.save();
+
+  // Update BloodRequest campaign rejected count
+  const bloodRequest = await BloodRequest.findById(match.bloodRequest);
+  if (bloodRequest) {
+    if (!bloodRequest.notificationCampaign) bloodRequest.notificationCampaign = {};
+    bloodRequest.notificationCampaign.rejectedCount = (bloodRequest.notificationCampaign.rejectedCount || 0) + 1;
+    await bloodRequest.save();
+
+    // Record Audit Log for Donor Rejection
+    try {
+      const AuditLog = require('../models/AuditLog');
+      await AuditLog.create({
+        performedBy: donorUser._id,
+        userRole: donorUser.role,
+        action: 'DONOR_REJECTED_REQUEST',
+        entityType: 'BloodRequest',
+        entityId: bloodRequest._id.toString(),
+        newState: { matchId: match._id.toString(), status: 'REJECTED' },
+        reason: reason || 'Donor declined blood request',
+      });
+    } catch (auditErr) {
+      logger.warn(`AuditLog creation error for donor rejection: ${auditErr.message}`);
+    }
+  }
 
   // Trigger FCM Notification to Requester
   try {

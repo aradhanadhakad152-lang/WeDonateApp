@@ -148,7 +148,7 @@ const userSchema = new mongoose.Schema(
       updatedAt: { type: Date, default: null },
     },
 
-    // Notifications
+    // Notifications & Preferences
     deviceToken: {
       type: String,
       default: null,
@@ -158,6 +158,11 @@ const userSchema = new mongoose.Schema(
         type: String,
       },
     ],
+    notificationPreferences: {
+      emergencyFCM: { type: Boolean, default: true },
+      emergencyWhatsApp: { type: Boolean, default: true },
+      emergencySMS: { type: Boolean, default: true },
+    },
 
     // Account Status & Authorization
     role: {
