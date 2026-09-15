@@ -26,6 +26,13 @@ const {
   getRequestNotificationHistory,
   retryRequestNotificationBatch,
   stopRequestNotificationCampaign,
+  getPendingVerificationsQueue,
+  getAdminDonations,
+  createAdminDonationRecord,
+  getAdminCampaigns,
+  createAdminCampaign,
+  getAdminReports,
+  getAdminNotifications,
 } = require('../controllers/adminController');
 
 const { getAdminRevenueStats } = require('../controllers/serviceFeeController');
@@ -62,5 +69,12 @@ router.post('/requests/:id/notifications/retry', retryRequestNotificationBatch);
 router.post('/requests/:id/notifications/stop', stopRequestNotificationCampaign);
 router.get('/audit-logs', getAuditLogs);
 router.get('/whatsapp-config', getWhatsAppConfigStatusController);
+router.get('/verifications', getPendingVerificationsQueue);
+router.get('/donations', getAdminDonations);
+router.post('/donations', createAdminDonationRecord);
+router.get('/campaigns', getAdminCampaigns);
+router.post('/campaigns', createAdminCampaign);
+router.get('/reports', getAdminReports);
+router.get('/notifications', getAdminNotifications);
 
 module.exports = router;
