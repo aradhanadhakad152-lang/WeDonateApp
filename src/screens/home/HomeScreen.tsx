@@ -16,6 +16,7 @@ import { COLORS, SHADOWS } from '../../theme/colors';
 interface HomeScreenProps {
   onNavigateToProfile: () => void;
   onRequestBlood: () => void;
+  onNavigateToAvailableRequests?: () => void;
   onOpenMap?: () => void;
   onNavigateToCamps?: () => void;
   onNavigateToFunding?: () => void;
@@ -28,6 +29,7 @@ type HistoryFilter = 'ALL' | 'OPEN' | 'EXPIRED';
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   onNavigateToProfile,
   onRequestBlood,
+  onNavigateToAvailableRequests,
   onOpenMap,
   onNavigateToCamps,
   onNavigateToFunding,
@@ -277,9 +279,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <View style={styles.coreActionGrid}>
               <TouchableOpacity style={styles.actionCardBtn} onPress={onRequestBlood} activeOpacity={0.85}>
                 <View style={[styles.actionIconBox, styles.iconRed]}>
-                  <Text style={styles.actionIconText}>📋</Text>
+                  <Text style={styles.actionIconText}>🩸</Text>
                 </View>
                 <Text style={styles.actionLabel}>Request Blood</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.actionCardBtn} onPress={onNavigateToAvailableRequests || onNavigateToOpportunities || (() => setActiveTab('Requests'))} activeOpacity={0.85}>
+                <View style={[styles.actionIconBox, styles.iconRed]}>
+                  <Text style={styles.actionIconText}>❤️</Text>
+                </View>
+                <Text style={[styles.actionLabel, { color: COLORS.primary, fontWeight: '800' }]}>I CAN DONATE</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.actionCardBtn} onPress={onOpenMap || (() => setActiveTab('Search'))} activeOpacity={0.85}>
@@ -293,7 +302,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 <View style={[styles.actionIconBox, styles.iconGreen]}>
                   <Text style={styles.actionIconText}>💓</Text>
                 </View>
-                <Text style={styles.actionLabel}>Donation Opportunities</Text>
+                <Text style={styles.actionLabel}>Opportunities</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.actionCardBtn} onPress={onNavigateToCamps || (() => Alert.alert('Blood Camps', 'Opening Camps Drive...'))} activeOpacity={0.85}>

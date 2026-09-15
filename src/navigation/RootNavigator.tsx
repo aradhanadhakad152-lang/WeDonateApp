@@ -26,6 +26,7 @@ type ScreenState =
   | 'Home'
   | 'DonorProfile'
   | 'RequestBlood'
+  | 'AvailableBloodRequests'
   | 'RequestDetails'
   | 'NearbyDonorsMap'
   | 'DonationCamps'
@@ -115,11 +116,22 @@ export const RootNavigator: React.FC = () => {
         <HomeScreen
           onNavigateToProfile={() => setCurrentScreen('DonorProfile')}
           onRequestBlood={() => setCurrentScreen('RequestBlood')}
+          onNavigateToAvailableRequests={() => setCurrentScreen('AvailableBloodRequests')}
           onOpenMap={() => setCurrentScreen('NearbyDonorsMap')}
           onNavigateToCamps={() => setCurrentScreen('DonationCamps')}
           onNavigateToFunding={() => setCurrentScreen('Funding')}
           onNavigateToOpportunities={() => setCurrentScreen('MyDonationOpportunities')}
           onLogout={() => setCurrentScreen('PhoneLogin')}
+        />
+      )}
+
+      {currentScreen === 'AvailableBloodRequests' && (
+        <AvailableBloodRequestsScreen
+          onBack={() => setCurrentScreen('Home')}
+          onSelectRequest={(req) => {
+            setActiveRequest(req);
+            setCurrentScreen('RequestDetails');
+          }}
         />
       )}
 
