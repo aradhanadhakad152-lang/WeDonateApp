@@ -13,6 +13,7 @@ import { DonationCampsScreen } from '../screens/camps/DonationCampsScreen';
 import { FundingScreen } from '../screens/funding/FundingScreen';
 import { IncomingBloodRequestScreen } from '../screens/donor/IncomingBloodRequestScreen';
 import { MyDonationOpportunitiesScreen } from '../screens/donor/MyDonationOpportunitiesScreen';
+import { AvailableBloodRequestsScreen } from '../screens/requests/AvailableBloodRequestsScreen';
 import { initializeNotifications, setupNotificationListeners } from '../services/notificationService';
 import { DonorMatch } from '../services/matchService';
 import { User } from '../types/user.types';

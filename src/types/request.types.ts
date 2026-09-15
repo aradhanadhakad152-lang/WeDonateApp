@@ -1,6 +1,18 @@
 import { BloodGroup } from './user.types';
 
-export type RequestStatus = 'OPEN' | 'MATCHING' | 'ACCEPTED' | 'FULFILLED' | 'CANCELLED' | 'EXPIRED';
+export type RequestStatus =
+  | 'OPEN'
+  | 'MATCHING'
+  | 'ACCEPTED'
+  | 'FULFILLED'
+  | 'CANCELLED'
+  | 'EXPIRED'
+  | 'DONOR_RESPONDED'
+  | 'VERIFICATION_PENDING'
+  | 'HOSPITAL_VERIFIED'
+  | 'ADMIN_VERIFIED'
+  | 'DONOR_CONFIRMED'
+  | 'REJECTED';
 export type UrgencyLevel = 'CRITICAL' | 'HIGH' | 'URGENT' | 'NORMAL';
 
 export interface RequestLocation {
