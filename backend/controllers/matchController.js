@@ -460,6 +460,123 @@ const getMatchById = asyncHandler(async (req, res) => {
   });
 });
 
+// POST /api/v1/matches/invite — Invite a specific donor to an emergency blood request (Requester action)
+const inviteDonorToRequest = asyncHandler(async (req, res) => {
+  const requesterUser = req.user;
+  const { donorId, requestId: inputRequestId } = req.body;
+
+  if (!donorId || !mongoose.Types.ObjectId.isValid(donorId)) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'Valid donorId is required',
+    });
+  }
+
+  const User = require('../models/User');
+  const donorUser = await User.findById(donorId);
+  if (!donorUser) {
+    return sendError(res, {
+      statusCode: 404,
+      message: 'Donor user not found',
+    });
+  }
+
+  // Find active blood request created by requester
+  let bloodRequest = null;
+  if (inputRequestId && mongoose.Types.ObjectId.isValid(inputRequestId)) {
+    bloodRequest = await BloodRequest.findOne({ _id: inputRequestId, requesterId: requesterUser._id });
+  } else {
+    bloodRequest = await BloodRequest.findOne({
+      requesterId: requesterUser._id,
+      status: { $in: ['OPEN', 'MATCHING', 'VERIFICATION_PENDING', 'HOSPITAL_VERIFIED', 'ADMIN_VERIFIED', 'DONOR_RESPONDED'] },
+    }).sort({ createdAt: -1 });
+  }
+
+  if (!bloodRequest) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'You must have an active emergency blood request to invite donors. Please create a blood request first.',
+    });
+  }
+
+  // Calculate distance if coordinates available
+  let distanceKm = 0;
+  if (
+    donorUser.location &&
+    Array.isArray(donorUser.location.coordinates) &&
+    donorUser.location.coordinates.length === 2 &&
+    bloodRequest.hospitalLatitude &&
+    bloodRequest.hospitalLongitude
+  ) {
+    const [dLng, dLat] = donorUser.location.coordinates;
+    if (dLat && dLng) {
+      const { calculateDistanceKm } = require('../utils/distance');
+      distanceKm = calculateDistanceKm(dLat, dLng, bloodRequest.hospitalLatitude, bloodRequest.hospitalLongitude);
+    }
+  }
+
+  // Check existing match
+  let match = await DonorMatch.findOne({
+    bloodRequest: bloodRequest._id,
+    donor: donorUser._id,
+  });
+
+  if (match) {
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Donor has already been invited or matched for this emergency blood request.',
+      data: { match, request: bloodRequest },
+    });
+  }
+
+  // Create new DonorMatch record
+  match = new DonorMatch({
+    bloodRequest: bloodRequest._id,
+    donor: donorUser._id,
+    requester: requesterUser._id,
+    donorBloodGroup: donorUser.bloodGroup || 'UNKNOWN',
+    requestedBloodGroup: bloodRequest.bloodGroup,
+    distanceKm,
+    status: 'NOTIFIED',
+    expiresAt: bloodRequest.requiredBy || new Date(Date.now() + 24 * 60 * 60 * 1000),
+  });
+  await match.save();
+
+  // Update BloodRequest status to MATCHING if OPEN
+  if (['OPEN', 'HOSPITAL_VERIFIED', 'ADMIN_VERIFIED'].includes(bloodRequest.status)) {
+    bloodRequest.status = 'MATCHING';
+    await bloodRequest.save();
+  }
+
+  // Dispatch Notification (records in MongoDB + sends FCM push)
+  try {
+    const { sendNotificationToUser } = require('../services/notificationService');
+    const requesterName = requesterUser.fullName || requesterUser.name || 'A patient in urgent need';
+    await sendNotificationToUser(
+      donorUser._id,
+      'BLOOD_REQUEST',
+      '🚨 Emergency Blood Donation Invitation',
+      `${requesterName} has invited you to donate ${bloodRequest.bloodGroup} blood for ${bloodRequest.patientName} at ${bloodRequest.hospitalName}.`,
+      { bloodRequestId: String(bloodRequest._id), matchId: String(match._id) },
+      bloodRequest._id,
+      match._id
+    );
+  } catch (notifErr) {
+    logger.warn(`Failed to send invitation notification: ${notifErr.message}`);
+  }
+
+  logger.info(`Requester ${requesterUser._id} invited Donor ${donorUser._id} for BloodRequest ${bloodRequest._id}`);
+
+  return sendSuccess(res, {
+    statusCode: 201,
+    message: `Invitation successfully sent to ${donorUser.fullName || donorUser.name || 'donor'}`,
+    data: {
+      match,
+      request: bloodRequest,
+    },
+  });
+});
+
 module.exports = {
   getNearbyMatchesForRequest,
   assignMatchesForRequest,
@@ -468,4 +585,5 @@ module.exports = {
   getMyMatches,
   respondToMatch,
   getMatchById,
+  inviteDonorToRequest,
 };

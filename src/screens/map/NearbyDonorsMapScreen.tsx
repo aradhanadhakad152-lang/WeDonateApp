@@ -113,6 +113,22 @@ export const NearbyDonorsMapScreen: React.FC<NearbyDonorsMapScreenProps> = ({ on
     loadMapData(true);
   };
 
+  const handleInviteDonor = async (donorId: string, donorName: string) => {
+    try {
+      const { inviteDonor } = require('../../services/matchService');
+      await inviteDonor(donorId);
+      Alert.alert(
+        'Invitation Sent! 💌',
+        `An emergency blood donation invitation was sent to ${donorName}. They have been notified immediately.`
+      );
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        'Failed to send donor invitation. Please ensure you have an active blood request.';
+      Alert.alert('Invitation Failed', msg);
+    }
+  };
+
   const handleOpenDirections = (lat: number, lng: number, name: string) => {
     if (!userLocation) return;
     const origin = `${userLocation.latitude},${userLocation.longitude}`;
@@ -398,11 +414,9 @@ export const NearbyDonorsMapScreen: React.FC<NearbyDonorsMapScreenProps> = ({ on
 
                   <TouchableOpacity
                     style={styles.btnListItemAction}
-                    onPress={() => {
-                      if (onRequestBlood) onRequestBlood();
-                    }}
+                    onPress={() => handleInviteDonor(d.id, d.fullName || d.name || 'Donor')}
                   >
-                    <Text style={styles.btnListItemActionText}>Request Emergency Blood 🚨</Text>
+                    <Text style={styles.btnListItemActionText}>INVITE TO DONATE 💌</Text>
                   </TouchableOpacity>
                 </View>
               ))
@@ -494,11 +508,12 @@ export const NearbyDonorsMapScreen: React.FC<NearbyDonorsMapScreenProps> = ({ on
               <TouchableOpacity
                 style={styles.cardActionBtn}
                 onPress={() => {
+                  const donorData = selectedItem.data;
                   setSelectedItem(null);
-                  if (onRequestBlood) onRequestBlood();
+                  handleInviteDonor(donorData.id, donorData.fullName || donorData.name || 'Donor');
                 }}
               >
-                <Text style={styles.cardActionBtnText}>Request Emergency Blood  🚨</Text>
+                <Text style={styles.cardActionBtnText}>INVITE TO DONATE  💌</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity

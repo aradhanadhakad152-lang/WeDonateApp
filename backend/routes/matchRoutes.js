@@ -11,6 +11,7 @@ const {
   getMyMatches,
   respondToMatch,
   getMatchById,
+  inviteDonorToRequest,
 } = require('../controllers/matchController');
 
 const { respondToRequestByRequestId } = require('../controllers/requestController');
@@ -25,6 +26,9 @@ router.get('/my', authenticate, getMyMatches);
 
 // GET /api/v1/matches/nearby/:requestId — Get nearby matches for blood request
 router.get('/nearby/:requestId', authenticate, getNearbyMatchesForRequest);
+
+// POST /api/v1/matches/invite — Invite specific donor to emergency request
+router.post('/invite', authenticate, inviteDonorToRequest);
 
 // POST /api/v1/matches/:requestId/assign — Run donor matching engine
 router.post('/:requestId/assign', authenticate, assignMatchesForRequest);

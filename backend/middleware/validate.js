@@ -6,7 +6,7 @@ const { sendError } = require('../utils/apiResponse');
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const GENDERS = ['MALE', 'FEMALE', 'OTHER'];
 const DONOR_STATUSES = ['AVAILABLE', 'UNAVAILABLE', 'INELIGIBLE'];
-const URGENCY_LEVELS = ['CRITICAL', 'URGENT', 'NORMAL'];
+const URGENCY_LEVELS = ['CRITICAL', 'HIGH', 'URGENT', 'NORMAL'];
 
 /**
  * Middleware to check validation results and return formatted error response.

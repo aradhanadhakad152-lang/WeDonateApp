@@ -103,3 +103,19 @@ export const respondToMatch = async (
     throw error;
   }
 };
+
+export const inviteDonor = async (
+  donorId: string,
+  requestId?: string
+): Promise<{ match: DonorMatch; request: any }> => {
+  try {
+    const response = await api.post<ApiSuccessResponse<{ match: DonorMatch; request: any }>>('/matches/invite', {
+      donorId,
+      requestId,
+    });
+    return response.data.data!;
+  } catch (error) {
+    console.error(`Failed to invite donor ${donorId}:`, error);
+    throw error;
+  }
+};

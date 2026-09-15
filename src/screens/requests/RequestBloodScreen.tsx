@@ -138,44 +138,83 @@ export const RequestBloodScreen: React.FC<RequestBloodScreenProps> = ({ onBack, 
     setShowHospitalPicker(false);
   };
 
+  const formatPhoneE164 = (rawPhone: string): string => {
+    let cleaned = rawPhone.replace(/[^\d+]/g, '');
+    if (!cleaned.startsWith('+')) {
+      if (cleaned.length === 10) {
+        cleaned = '+91' + cleaned;
+      } else if (cleaned.startsWith('91') && cleaned.length === 12) {
+        cleaned = '+' + cleaned;
+      } else {
+        cleaned = '+' + cleaned;
+      }
+    }
+    return cleaned;
+  };
+
   const handleSubmit = async () => {
     setErrorMessage('');
     setExistingActiveRequest(null);
 
-    if (!patientName.trim()) {
-      setErrorMessage('Please enter the patient full name');
+    const trimmedName = patientName.trim();
+    if (!trimmedName || trimmedName.length < 2) {
+      setErrorMessage('Please enter a valid patient full name (at least 2 characters)');
       return;
     }
-    if (!hospitalName.trim()) {
-      setErrorMessage('Please select or enter the hospital name');
+
+    const trimmedHospital = hospitalName.trim();
+    if (!trimmedHospital || trimmedHospital.length < 2) {
+      setErrorMessage('Please select or enter a valid hospital name');
+      return;
+    }
+
+    let trimmedAddr = hospitalAddress.trim();
+    if (!trimmedAddr || trimmedAddr.length < 5) {
+      trimmedAddr = `${trimmedHospital}, Area City`;
+    }
+
+    const formattedPhone = formatPhoneE164(contactPhone);
+    if (!/^\+[1-9]\d{7,14}$/.test(formattedPhone)) {
+      setErrorMessage('Please enter a valid 10-digit phone number (e.g. 9876543210)');
       return;
     }
 
     setIsSubmitting(true);
     try {
       const response = await api.post<{ success: boolean; data: { request: BloodRequest } }>('/blood-requests', {
-        patientName: patientName.trim(),
+        patientName: trimmedName,
         bloodGroup,
         unitsRequired,
-        hospitalName: hospitalName.trim(),
-        hospitalAddress: hospitalAddress.trim(),
+        hospitalName: trimmedHospital,
+        hospitalAddress: trimmedAddr,
         hospitalLatitude: latitude,
         hospitalLongitude: longitude,
         urgency,
-        contactPhone: contactPhone.trim(),
+        contactPhone: formattedPhone,
         additionalNotes: additionalNotes.trim(),
         ...(targetOrganizationId ? { targetOrganizationId } : {}),
       });
 
       setIsSubmitting(false);
-      onRequestCreated(response.data.data.request);
+      Alert.alert('Emergency Request Created! 🩸', 'Your emergency blood request has been published and assigned to nearby compatible donors.', [
+        {
+          text: 'View Request Details',
+          onPress: () => onRequestCreated(response.data.data.request),
+        },
+      ]);
     } catch (err: any) {
       setIsSubmitting(false);
       const resData = err?.response?.data;
-      const msg = resData?.message || 'Failed to submit blood request. Please try again.';
+      const msg = resData?.message || 'Failed to submit blood request. Please check input details.';
       const existing = resData?.existingRequest || resData?.data?.existingRequest || resData?.data?.request;
 
-      setErrorMessage(msg);
+      if (resData?.errors && Array.isArray(resData.errors)) {
+        const errorDetails = resData.errors.map((e: any) => `${e.field}: ${e.message}`).join('\n');
+        setErrorMessage(`Validation Error:\n${errorDetails}`);
+      } else {
+        setErrorMessage(msg);
+      }
+
       if (existing) {
         setExistingActiveRequest(existing);
       } else {

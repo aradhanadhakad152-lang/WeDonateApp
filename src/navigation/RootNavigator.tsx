@@ -12,7 +12,6 @@ import { NearbyDonorsMapScreen } from '../screens/map/NearbyDonorsMapScreen';
 import { DonationCampsScreen } from '../screens/camps/DonationCampsScreen';
 import { FundingScreen } from '../screens/funding/FundingScreen';
 import { IncomingBloodRequestScreen } from '../screens/donor/IncomingBloodRequestScreen';
-import { MyDonationOpportunitiesScreen } from '../screens/donor/MyDonationOpportunitiesScreen';
 import { AvailableBloodRequestsScreen } from '../screens/requests/AvailableBloodRequestsScreen';
 import { initializeNotifications, setupNotificationListeners } from '../services/notificationService';
 import { DonorMatch } from '../services/matchService';
@@ -32,8 +31,7 @@ type ScreenState =
   | 'NearbyDonorsMap'
   | 'DonationCamps'
   | 'Funding'
-  | 'IncomingBloodRequest'
-  | 'MyDonationOpportunities';
+  | 'IncomingBloodRequest';
 
 export const RootNavigator: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<ScreenState>('Splash');
@@ -121,7 +119,6 @@ export const RootNavigator: React.FC = () => {
           onOpenMap={() => setCurrentScreen('NearbyDonorsMap')}
           onNavigateToCamps={() => setCurrentScreen('DonationCamps')}
           onNavigateToFunding={() => setCurrentScreen('Funding')}
-          onNavigateToOpportunities={() => setCurrentScreen('MyDonationOpportunities')}
           onLogout={() => setCurrentScreen('PhoneLogin')}
         />
       )}
@@ -178,24 +175,13 @@ export const RootNavigator: React.FC = () => {
         />
       )}
 
-      {currentScreen === 'MyDonationOpportunities' && (
-        <MyDonationOpportunitiesScreen
-          onSelectMatch={(match) => {
-            setActiveMatch(match);
-            setActiveMatchId(match.id || (match as any)._id);
-            setCurrentScreen('IncomingBloodRequest');
-          }}
-          onBack={() => setCurrentScreen('Home')}
-        />
-      )}
-
       {currentScreen === 'IncomingBloodRequest' && (
         <IncomingBloodRequestScreen
           matchId={activeMatchId || undefined}
           match={activeMatch || undefined}
-          onBack={() => setCurrentScreen('MyDonationOpportunities')}
+          onBack={() => setCurrentScreen('Home')}
           onResponded={() => {
-            // Refreshes data when returning to opportunities
+            setCurrentScreen('Home');
           }}
         />
       )}
