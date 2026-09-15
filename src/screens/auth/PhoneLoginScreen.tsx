@@ -11,7 +11,8 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { sendSMSOTP } from '../../services/authService';
+import { phoneLogin } from '../../services/authService';
+import { useAuthStore } from '../../store/authStore';
 import { User } from '../../types/user.types';
 import { COLORS, SHADOWS } from '../../theme/colors';
 
@@ -20,13 +21,13 @@ interface PhoneLoginScreenProps {
   onSendOTP?: (phoneNumber: string, purpose: 'LOGIN' | 'REGISTER', fullName?: string) => void;
 }
 
-export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onSendOTP }) => {
+export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onSuccess }) => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [fullName, setFullName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const handleRequestOTP = async () => {
+  const handlePhoneLogin = async () => {
     setErrorMessage('');
     const trimmedPhone = phoneNumber.trim();
     const trimmedName = fullName.trim();
@@ -37,28 +38,27 @@ export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onSendOTP })
     }
 
     const digitsOnly = trimmedPhone.replace(/[^\d]/g, '');
-    if (digitsOnly.length < 10) {
+    if (digitsOnly.length !== 10) {
       setErrorMessage('Please enter a valid 10-digit mobile number');
       return;
     }
 
-    const formattedPhone = trimmedPhone.startsWith('+') ? trimmedPhone : `+91${digitsOnly.slice(-10)}`;
+    const formattedPhone = `+91${digitsOnly}`;
 
     setIsLoading(true);
     try {
-      await sendSMSOTP(formattedPhone, 'LOGIN', trimmedName);
+      const user = await phoneLogin(formattedPhone, trimmedName);
       setIsLoading(false);
-      if (onSendOTP) {
-        onSendOTP(formattedPhone, 'LOGIN', trimmedName);
-      }
+      useAuthStore.getState().setUser(user);
+      onSuccess(user);
     } catch (error: any) {
       setIsLoading(false);
       const msg =
         error?.response?.data?.message ||
         error?.message ||
-        'Failed to dispatch WhatsApp OTP. Please verify your phone number and try again.';
+        'Authentication request failed. Please try again.';
       setErrorMessage(msg);
-      Alert.alert('OTP Request Failed', msg);
+      Alert.alert('Authentication Failed', msg);
     }
   };
 
@@ -73,7 +73,7 @@ export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onSendOTP })
           </View>
 
           <Text style={styles.title}>Citizen Authentication</Text>
-          <Text style={styles.subtitle}>Enter mobile number & full name to receive a 6-digit WhatsApp OTP</Text>
+          <Text style={styles.subtitle}>Enter mobile number & full name to sign in</Text>
 
           {/* Full Name Input */}
           <View style={styles.formGroup}>
@@ -117,14 +117,14 @@ export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onSendOTP })
         <View style={styles.bottomSection}>
           <TouchableOpacity
             style={[styles.btnCoralWide, (isLoading || !phoneNumber || !fullName) && styles.btnDisabled]}
-            onPress={handleRequestOTP}
+            onPress={handlePhoneLogin}
             disabled={isLoading || !phoneNumber || !fullName}
             activeOpacity={0.85}
           >
             {isLoading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.btnCoralWideText}>SEND OTP ➔</Text>
+              <Text style={styles.btnCoralWideText}>LOGIN / REGISTER ➔</Text>
             )}
           </TouchableOpacity>
         </View>
