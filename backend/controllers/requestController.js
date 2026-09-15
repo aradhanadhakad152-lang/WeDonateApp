@@ -2,7 +2,10 @@
 
 const mongoose = require('mongoose');
 const BloodRequest = require('../models/BloodRequest');
+const DonorMatch = require('../models/DonorMatch');
 const { validateStatusTransition, evaluateRequestExpiration } = require('../services/bloodRequestService');
+const { getCompatibleRecipientGroups } = require('../utils/bloodCompatibility');
+const { calculateDistanceKm, formatDistance } = require('../utils/distance');
 const { sendSuccess, sendError } = require('../utils/apiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
@@ -136,7 +139,7 @@ const getAllRequests = asyncHandler(async (req, res) => {
     queryFilter.status = status;
   } else {
     // Default to active requests if status filter not specified
-    queryFilter.status = { $in: ['OPEN', 'MATCHING', 'ACCEPTED'] };
+    queryFilter.status = { $in: ['OPEN', 'MATCHING', 'ACCEPTED', 'VERIFICATION_PENDING', 'DONOR_RESPONDED'] };
   }
 
   if (bloodGroup) {
@@ -385,11 +388,349 @@ const cancelRequest = asyncHandler(async (req, res) => {
   });
 });
 
+// GET /api/v1/blood-requests/available — Get nearby available blood requests for potential donor
+const getAvailableRequests = asyncHandler(async (req, res) => {
+  const donorUser = req.user;
+  const radiusKm = Number(req.query.radius || req.query.radiusKm) || 50;
+  const urgency = req.query.urgency;
+  const specifiedBloodGroup = req.query.bloodGroup;
+
+  // Determine donor location
+  let userLat = req.query.latitude !== undefined && req.query.latitude !== '' ? Number(req.query.latitude) : null;
+  let userLng = req.query.longitude !== undefined && req.query.longitude !== '' ? Number(req.query.longitude) : null;
+
+  if ((userLat === null || userLng === null || isNaN(userLat) || isNaN(userLng)) && donorUser.location && Array.isArray(donorUser.location.coordinates) && donorUser.location.coordinates.length === 2) {
+    const [lng, lat] = donorUser.location.coordinates;
+    if (lat !== undefined && lng !== undefined && !isNaN(lat) && !isNaN(lng) && (lat !== 0 || lng !== 0)) {
+      userLat = lat;
+      userLng = lng;
+    }
+  }
+
+  // Determine blood group compatibility filter
+  let recipientBloodGroups = null;
+  if (specifiedBloodGroup) {
+    recipientBloodGroups = [specifiedBloodGroup.trim().toUpperCase()];
+  } else if (donorUser.bloodGroup) {
+    try {
+      recipientBloodGroups = getCompatibleRecipientGroups(donorUser.bloodGroup);
+    } catch (err) {
+      logger.warn(`Could not get recipient blood groups for donor group ${donorUser.bloodGroup}: ${err.message}`);
+    }
+  }
+
+  // Base Query: Active requests not created by the donor
+  const queryFilter = {
+    requesterId: { $ne: donorUser._id },
+    status: { $in: ['OPEN', 'MATCHING', 'HOSPITAL_VERIFIED', 'ADMIN_VERIFIED', 'DONOR_RESPONDED'] },
+  };
+
+  if (recipientBloodGroups && recipientBloodGroups.length > 0) {
+    queryFilter.bloodGroup = { $in: recipientBloodGroups };
+  }
+
+  if (urgency) {
+    queryFilter.urgency = urgency.toUpperCase();
+  }
+
+  // Geospatial $centerSphere Filter if coordinates are available
+  const EARTH_RADIUS_KM = 6378.1;
+  if (userLat !== null && userLng !== null && !isNaN(userLat) && !isNaN(userLng) && (userLat !== 0 || userLng !== 0)) {
+    const radiusInRadians = radiusKm / EARTH_RADIUS_KM;
+    queryFilter.location = {
+      $geoWithin: {
+        $centerSphere: [[userLng, userLat], radiusInRadians],
+      },
+    };
+  }
+
+  const requests = await BloodRequest.find(queryFilter)
+    .populate('requesterId', 'fullName name phone bloodGroup')
+    .sort({ createdAt: -1 })
+    .exec();
+
+  // Evaluate Expiration & Filter Active
+  const activeRequests = [];
+  for (const reqDoc of requests) {
+    if (evaluateRequestExpiration(reqDoc)) {
+      await reqDoc.save();
+    }
+    if (reqDoc.status !== 'EXPIRED' && reqDoc.status !== 'CANCELLED') {
+      activeRequests.push(reqDoc);
+    }
+  }
+
+  // Fetch Donor Match status for each request for this donor
+  const requestIds = activeRequests.map((r) => r._id);
+  const existingMatches = await DonorMatch.find({
+    bloodRequest: { $in: requestIds },
+    donor: donorUser._id,
+  }).exec();
+
+  const matchMap = new Map();
+  existingMatches.forEach((m) => matchMap.set(m.bloodRequest.toString(), m));
+
+  const formattedRequests = activeRequests.map((reqDoc) => {
+    const json = reqDoc.toJSON();
+    const existingMatch = matchMap.get(reqDoc._id.toString());
+
+    let distanceKm = null;
+    if (existingMatch && existingMatch.distanceKm != null) {
+      distanceKm = existingMatch.distanceKm;
+    } else if (userLat !== null && userLng !== null && reqDoc.hospitalLatitude && reqDoc.hospitalLongitude) {
+      distanceKm = calculateDistanceKm(userLat, userLng, reqDoc.hospitalLatitude, reqDoc.hospitalLongitude);
+    }
+
+    json.myMatchStatus = existingMatch ? existingMatch.status : null;
+    json.myMatchId = existingMatch ? existingMatch._id : null;
+    json.distanceKm = distanceKm;
+    json.formattedDistance = formatDistance(distanceKm);
+
+    // SECURITY: Remove requester phone unless donor has ACCEPTED match
+    if (json.requesterId && json.myMatchStatus !== 'ACCEPTED') {
+      delete json.requesterId.phone;
+    }
+
+    return json;
+  });
+
+  // Sort: Nearest distance first if available, otherwise by createdAt descending
+  formattedRequests.sort((a, b) => {
+    if (a.distanceKm != null && b.distanceKm != null) {
+      return a.distanceKm - b.distanceKm;
+    }
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: `Retrieved ${formattedRequests.length} available blood request(s) within ${radiusKm}km`,
+    data: {
+      requests: formattedRequests,
+      total: formattedRequests.length,
+      radiusKm,
+    },
+  });
+});
+
+// POST /api/v1/blood-requests/:id/respond — Respond to a blood request (I_CAN_DONATE / NOT_AVAILABLE)
+const respondToRequestByRequestId = asyncHandler(async (req, res) => {
+  const requestId = req.params.requestId || req.params.id;
+  const { response, status, action: reqAction, reason } = req.body;
+  const actionStr = (response || status || reqAction || '').toUpperCase();
+  const donorUser = req.user;
+
+  if (!mongoose.Types.ObjectId.isValid(requestId)) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'Invalid blood request ID format',
+    });
+  }
+
+  const bloodRequest = await BloodRequest.findById(requestId);
+  if (!bloodRequest) {
+    return sendError(res, {
+      statusCode: 404,
+      message: 'Blood request not found',
+    });
+  }
+
+  // Prevent self-donation
+  if (bloodRequest.requesterId.toString() === donorUser._id.toString()) {
+    return sendError(res, {
+      statusCode: 400,
+      message: 'You cannot donate to your own blood request',
+    });
+  }
+
+  if (['CANCELLED', 'EXPIRED', 'FULFILLED'].includes(bloodRequest.status)) {
+    return sendError(res, {
+      statusCode: 400,
+      message: `Cannot respond to a blood request with status '${bloodRequest.status}'`,
+    });
+  }
+
+  // Check if donor match already exists
+  let match = await DonorMatch.findOne({
+    bloodRequest: bloodRequest._id,
+    donor: donorUser._id,
+  });
+
+  const isAccepting = ['ACCEPTED', 'I_CAN_DONATE', 'YES', 'ACCEPT'].includes(actionStr);
+  const isRejecting = ['REJECTED', 'NOT_AVAILABLE', 'NO', 'DECLINE', 'REJECT'].includes(actionStr);
+
+  if (!isAccepting && !isRejecting) {
+    return sendError(res, {
+      statusCode: 400,
+      message: "Invalid action. Must be 'I_CAN_DONATE' ('ACCEPTED') or 'NOT_AVAILABLE' ('REJECTED')",
+    });
+  }
+
+  if (isAccepting) {
+    // Concurrency check: If already accepted by another donor
+    if (bloodRequest.status === 'ACCEPTED' && bloodRequest.acceptedDonorId && bloodRequest.acceptedDonorId.toString() !== donorUser._id.toString()) {
+      return sendError(res, {
+        statusCode: 409,
+        message: 'This emergency request has already been claimed by another donor',
+      });
+    }
+
+    if (match) {
+      if (match.status === 'ACCEPTED') {
+        return sendSuccess(res, {
+          statusCode: 200,
+          message: 'Match is already accepted',
+          data: { match, request: bloodRequest },
+        });
+      }
+      match.status = 'ACCEPTED';
+      match.respondedAt = new Date();
+      await match.save();
+    } else {
+      // Calculate distance if donor location is available
+      let distanceKm = 0;
+      if (donorUser.location && Array.isArray(donorUser.location.coordinates) && donorUser.location.coordinates.length === 2 && bloodRequest.hospitalLatitude && bloodRequest.hospitalLongitude) {
+        const [dLng, dLat] = donorUser.location.coordinates;
+        if (dLat && dLng) {
+          distanceKm = calculateDistanceKm(dLat, dLng, bloodRequest.hospitalLatitude, bloodRequest.hospitalLongitude);
+        }
+      }
+
+      match = new DonorMatch({
+        bloodRequest: bloodRequest._id,
+        donor: donorUser._id,
+        requester: bloodRequest.requesterId,
+        donorBloodGroup: donorUser.bloodGroup || 'UNKNOWN',
+        requestedBloodGroup: bloodRequest.bloodGroup,
+        distanceKm,
+        status: 'ACCEPTED',
+        respondedAt: new Date(),
+        expiresAt: bloodRequest.requiredBy || new Date(Date.now() + 24 * 60 * 60 * 1000),
+      });
+      await match.save();
+    }
+
+    // Atomic Update BloodRequest
+    if (['OPEN', 'HOSPITAL_VERIFIED', 'ADMIN_VERIFIED', 'MATCHING'].includes(bloodRequest.status)) {
+      bloodRequest.status = 'DONOR_RESPONDED';
+    }
+    if (!bloodRequest.acceptedDonorId) {
+      bloodRequest.acceptedDonorId = donorUser._id;
+    }
+    if (!bloodRequest.notificationCampaign) bloodRequest.notificationCampaign = {};
+    bloodRequest.notificationCampaign.acceptedCount = (bloodRequest.notificationCampaign.acceptedCount || 0) + 1;
+    bloodRequest.notificationCampaign.isStopped = true;
+    bloodRequest.notificationCampaign.stopReason = 'DONOR_ACCEPTED';
+    bloodRequest.notificationCampaign.nextBatchScheduledAt = null;
+    await bloodRequest.save();
+
+    // Audit Log
+    try {
+      const AuditLog = require('../models/AuditLog');
+      await AuditLog.create({
+        performedBy: donorUser._id,
+        userRole: donorUser.role,
+        action: 'DONOR_ACCEPTED_REQUEST',
+        entityType: 'BloodRequest',
+        entityId: bloodRequest._id.toString(),
+        newState: { status: bloodRequest.status, acceptedDonorId: donorUser._id.toString() },
+        reason: 'Donor accepted emergency blood request',
+      });
+    } catch (auditErr) {
+      logger.warn(`AuditLog creation error for donor acceptance: ${auditErr.message}`);
+    }
+
+    // FCM Notification to Requester
+    try {
+      const { sendNotificationToUser } = require('../services/notificationService');
+      const donorName = donorUser.fullName || donorUser.name || 'A compatible donor';
+      await sendNotificationToUser(
+        bloodRequest.requesterId,
+        'DONOR_ACCEPTED',
+        '✅ Donor Found ❤️',
+        `${donorName} (${donorUser.bloodGroup || ''}) has accepted your emergency blood request for ${bloodRequest.patientName}.`,
+        { bloodRequestId: String(bloodRequest._id), matchId: String(match._id) },
+        bloodRequest._id,
+        match._id
+      );
+    } catch (notifErr) {
+      logger.error(`Failed to send accept notification to requester: ${notifErr.message}`);
+    }
+
+    // FCM Notification Confirmation to Donor
+    try {
+      const { sendNotificationToUser } = require('../services/notificationService');
+      await sendNotificationToUser(
+        donorUser._id,
+        'DONOR_CONFIRMATION',
+        '❤️ Donation Confirmed!',
+        `Thank you! You have committed to donate blood for ${bloodRequest.patientName} at ${bloodRequest.hospitalName}.`,
+        { bloodRequestId: String(bloodRequest._id), matchId: String(match._id) },
+        bloodRequest._id,
+        match._id
+      );
+    } catch (notifErr) {
+      logger.error(`Failed to send confirmation notification to donor: ${notifErr.message}`);
+    }
+
+    logger.info(`Donor ${donorUser._id} accepted BloodRequest ${bloodRequest._id} directly`);
+
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'You have successfully accepted the emergency blood request',
+      data: { match, request: bloodRequest },
+    });
+
+  } else if (isRejecting) {
+    if (match) {
+      if (match.status === 'REJECTED') {
+        return sendSuccess(res, {
+          statusCode: 200,
+          message: 'Match is already declined',
+          data: { match },
+        });
+      }
+      match.status = 'REJECTED';
+      match.respondedAt = new Date();
+      if (reason) match.rejectionReason = reason;
+      await match.save();
+    } else {
+      match = new DonorMatch({
+        bloodRequest: bloodRequest._id,
+        donor: donorUser._id,
+        requester: bloodRequest.requesterId,
+        donorBloodGroup: donorUser.bloodGroup || 'UNKNOWN',
+        requestedBloodGroup: bloodRequest.bloodGroup,
+        distanceKm: 0,
+        status: 'REJECTED',
+        rejectionReason: reason || 'Not available',
+        respondedAt: new Date(),
+        expiresAt: bloodRequest.requiredBy || new Date(Date.now() + 24 * 60 * 60 * 1000),
+      });
+      await match.save();
+    }
+
+    if (!bloodRequest.notificationCampaign) bloodRequest.notificationCampaign = {};
+    bloodRequest.notificationCampaign.rejectedCount = (bloodRequest.notificationCampaign.rejectedCount || 0) + 1;
+    await bloodRequest.save();
+
+    logger.info(`Donor ${donorUser._id} declined BloodRequest ${bloodRequest._id} directly`);
+
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'You have declined the blood request',
+      data: { match },
+    });
+  }
+});
+
 module.exports = {
   createRequest,
   getAllRequests,
+  getAvailableRequests,
   getMyRequests,
   getRequestById,
   updateRequest,
   cancelRequest,
+  respondToRequestByRequestId,
 };

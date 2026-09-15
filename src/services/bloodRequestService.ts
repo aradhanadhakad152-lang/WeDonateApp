@@ -109,3 +109,40 @@ export const cancelBloodRequest = async (id: string): Promise<BloodRequest> => {
     throw error;
   }
 };
+
+export interface FetchAvailableRequestsParams {
+  radius?: number;
+  radiusKm?: number;
+  bloodGroup?: string;
+  urgency?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+export const getAvailableBloodRequests = async (params?: FetchAvailableRequestsParams): Promise<BloodRequest[]> => {
+  try {
+    const response = await api.get<ApiSuccessResponse<{ requests: BloodRequest[]; total: number; radiusKm: number }>>('/blood-requests/available', { params });
+    return response.data.data!.requests;
+  } catch (error) {
+    console.error('Failed to fetch available blood requests:', error);
+    throw error;
+  }
+};
+
+export const respondToBloodRequest = async (
+  requestId: string,
+  action: 'I_CAN_DONATE' | 'NOT_AVAILABLE' | 'ACCEPTED' | 'REJECTED',
+  reason?: string
+): Promise<{ match: any; request?: BloodRequest }> => {
+  try {
+    const response = await api.post<ApiSuccessResponse<{ match: any; request?: BloodRequest }>>(`/blood-requests/${requestId}/respond`, {
+      action,
+      response: action,
+      reason,
+    });
+    return response.data.data!;
+  } catch (error) {
+    console.error(`Failed to respond to blood request ${requestId}:`, error);
+    throw error;
+  }
+};

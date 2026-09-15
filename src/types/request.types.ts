@@ -34,6 +34,8 @@ export interface BloodRequest {
   updatedAt: string;
   distanceKm?: number;
   formattedDistance?: string;
+  myMatchStatus?: 'PENDING' | 'ACCEPTED' | 'REJECTED' | null;
+  myMatchId?: string | null;
 }
 
 export interface CreateBloodRequestPayload {

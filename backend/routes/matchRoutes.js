@@ -13,6 +13,8 @@ const {
   getMatchById,
 } = require('../controllers/matchController');
 
+const { respondToRequestByRequestId } = require('../controllers/requestController');
+
 /**
  * Match Routes
  * Base path: /api/v1/matches
@@ -26,6 +28,9 @@ router.get('/nearby/:requestId', authenticate, getNearbyMatchesForRequest);
 
 // POST /api/v1/matches/:requestId/assign — Run donor matching engine
 router.post('/:requestId/assign', authenticate, assignMatchesForRequest);
+
+// POST /api/v1/matches/request/:requestId/respond — Respond to request by request ID
+router.post('/request/:requestId/respond', authenticate, respondToRequestByRequestId);
 
 // POST /api/v1/matches/:matchId/accept — Accept donor match
 router.post('/:matchId/accept', authenticate, acceptMatch);

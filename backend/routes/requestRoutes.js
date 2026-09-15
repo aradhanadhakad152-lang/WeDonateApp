@@ -10,10 +10,12 @@ const {
 const {
   createRequest,
   getAllRequests,
+  getAvailableRequests,
   getMyRequests,
   getRequestById,
   updateRequest,
   cancelRequest,
+  respondToRequestByRequestId,
 } = require('../controllers/requestController');
 
 /**
@@ -27,8 +29,14 @@ router.post('/', authenticate, validateCreateBloodRequest, createRequest);
 // GET /api/v1/blood-requests — List all active blood requests
 router.get('/', authenticate, getAllRequests);
 
+// GET /api/v1/blood-requests/available — Get nearby available blood requests for donor
+router.get('/available', authenticate, getAvailableRequests);
+
 // GET /api/v1/blood-requests/my — Get authenticated user's created requests
 router.get('/my', authenticate, getMyRequests);
+
+// POST /api/v1/blood-requests/:id/respond — Respond to blood request (I_CAN_DONATE / NOT_AVAILABLE)
+router.post('/:id/respond', authenticate, respondToRequestByRequestId);
 
 // GET /api/v1/blood-requests/:id — Get details of single blood request
 router.get('/:id', authenticate, getRequestById);

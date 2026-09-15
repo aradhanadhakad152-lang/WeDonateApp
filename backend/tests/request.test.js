@@ -157,7 +157,7 @@ describe('Milestone 5 Blood Request Suite', () => {
       expect(res.statusCode).toBe(201);
       expect(res.body.success).toBe(true);
       expect(res.body.data.request).toHaveProperty('patientName', 'TEST_PATIENT_VALID');
-      expect(res.body.data.request.status).toBe('OPEN');
+      expect(res.body.data.request.status).toBe('VERIFICATION_PENDING');
       expect(res.body.data.request.location.coordinates).toEqual([72.8777, 19.0760]); // [lng, lat]
     });
   });
@@ -301,10 +301,11 @@ describe('Milestone 5 Blood Request Suite', () => {
     it('should allow new request after cancelling existing request', async () => {
       if (mongoose.connection.readyState !== 1) return;
 
-      // Cancel active request
-      await request(app)
-        .post(`/api/v1/blood-requests/${activeReqId}/cancel`)
-        .set('Authorization', `Bearer ${tokenA}`);
+      // Cancel all active requests for User A
+      await BloodRequest.updateMany(
+        { requesterId: userA._id, status: { $in: ['OPEN', 'MATCHING', 'ACCEPTED', 'VERIFICATION_PENDING', 'DONOR_RESPONDED'] } },
+        { status: 'CANCELLED', cancelledAt: new Date() }
+      );
 
       // Now create new request
       const res = await request(app)
@@ -324,6 +325,65 @@ describe('Milestone 5 Blood Request Suite', () => {
 
       expect(res.statusCode).toBe(201);
       expect(res.body.success).toBe(true);
+    });
+  });
+
+  describe('GET /api/v1/blood-requests/available & Response Flow', () => {
+    let createdReqId;
+
+    it('should retrieve available requests for compatible donor (User B)', async () => {
+      if (mongoose.connection.readyState !== 1) return;
+
+      const res = await request(app)
+        .get('/api/v1/blood-requests/available?radius=50')
+        .set('Authorization', `Bearer ${tokenB}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(Array.isArray(res.body.data.requests)).toBe(true);
+      if (res.body.data.requests.length > 0) {
+        createdReqId = res.body.data.requests[0]._id;
+      }
+    });
+
+    it('should allow donor (User B) to accept request via respond endpoint', async () => {
+      if (mongoose.connection.readyState !== 1 || !createdReqId) return;
+
+      const res = await request(app)
+        .post(`/api/v1/blood-requests/${createdReqId}/respond`)
+        .set('Authorization', `Bearer ${tokenB}`)
+        .send({ action: 'I_CAN_DONATE' });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.match).toBeDefined();
+      expect(res.body.data.match.status).toBe('ACCEPTED');
+    });
+
+    it('should handle idempotent re-acceptance gracefully', async () => {
+      if (mongoose.connection.readyState !== 1 || !createdReqId) return;
+
+      const res = await request(app)
+        .post(`/api/v1/blood-requests/${createdReqId}/respond`)
+        .set('Authorization', `Bearer ${tokenB}`)
+        .send({ action: 'I_CAN_DONATE' });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toContain('already accepted');
+    });
+
+    it('should reject self-donation attempt by request creator (User A)', async () => {
+      if (mongoose.connection.readyState !== 1 || !createdReqId) return;
+
+      const res = await request(app)
+        .post(`/api/v1/blood-requests/${createdReqId}/respond`)
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({ action: 'I_CAN_DONATE' });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toBe('You cannot donate to your own blood request');
     });
   });
 });
