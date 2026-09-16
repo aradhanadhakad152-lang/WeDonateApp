@@ -11,6 +11,8 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { BloodGroupBadge } from '../../components/ui/BloodGroupBadge';
 import { BloodRequestsFeedScreen } from '../requests/BloodRequestsFeedScreen';
+import { SearchOptionsScreen, SearchCategory } from '../search/SearchOptionsScreen';
+import { BloodAvailabilityScreen } from '../search/BloodAvailabilityScreen';
 import { COLORS, SHADOWS } from '../../theme/colors';
 
 interface HomeScreenProps {
@@ -24,6 +26,7 @@ interface HomeScreenProps {
 }
 
 type HistoryFilter = 'ALL' | 'OPEN' | 'EXPIRED';
+type SearchMode = 'OPTIONS' | 'BLOOD_AVAILABILITY' | 'FIND_DONORS' | 'FIND_HOSPITALS';
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   onNavigateToProfile,
@@ -38,6 +41,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const { requests, myRequests, fetchRequests, fetchMyRequests, isLoading: isRequestsLoading } = useRequestStore();
 
   const [activeTab, setActiveTab] = useState<TabName>('Home');
+  const [searchMode, setSearchMode] = useState<SearchMode>('OPTIONS');
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSOSModal, setShowSOSModal] = useState(false);
@@ -343,71 +347,133 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </>
         )}
 
-        {/* ================= TAB 2: SEARCH HOSPITALS & BLOOD BANKS ================= */}
+        {/* ================= TAB 2: SEARCH OPTIONS & SUB-FLOWS ================= */}
         {activeTab === 'Search' && (
-          <View style={styles.tabSection}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={styles.tabSectionTitle}>Hospitals & Blood Banks</Text>
-              {onOpenMap && (
-                <TouchableOpacity style={styles.btnOpenMapHead} onPress={onOpenMap}>
-                  <Text style={styles.btnOpenMapHeadText}>🗺️ Open Map Radar</Text>
+          <>
+            {searchMode === 'OPTIONS' && (
+              <SearchOptionsScreen
+                onSelectOption={(opt) => {
+                  if (opt === 'FIND_DONORS' && onOpenMap) {
+                    onOpenMap();
+                  } else {
+                    setSearchMode(opt);
+                  }
+                }}
+              />
+            )}
+
+            {searchMode === 'BLOOD_AVAILABILITY' && (
+              <BloodAvailabilityScreen
+                onBack={() => setSearchMode('OPTIONS')}
+                onRequestBlood={onRequestBlood}
+                userLatitude={userLocation?.latitude}
+                userLongitude={userLocation?.longitude}
+              />
+            )}
+
+            {searchMode === 'FIND_HOSPITALS' && (
+              <View style={styles.tabSection}>
+                <TouchableOpacity
+                  style={styles.btnBackSub}
+                  onPress={() => setSearchMode('OPTIONS')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.btnBackSubText}>← Back to Search Options</Text>
                 </TouchableOpacity>
-              )}
-            </View>
 
-            <TextInput
-              style={styles.searchInput}
-              placeholder="🔍 Search hospital (e.g. AIIMS, Fortis, Max)..."
-              placeholderTextColor="#94A3B8"
-              value={searchQuery}
-              onChangeText={handleSearchInputChange}
-            />
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <Text style={styles.tabSectionTitle}>Hospitals & Blood Banks</Text>
+                  {onOpenMap && (
+                    <TouchableOpacity style={styles.btnOpenMapHead} onPress={onOpenMap}>
+                      <Text style={styles.btnOpenMapHeadText}>🗺️ Open Map Radar</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
 
-            {/* Live Autocomplete Suggestions */}
-            {hospitalSuggestions.length > 0 ? (
-              <View style={styles.cardList}>
-                {hospitalSuggestions.map((s, idx) => (
-                  <TouchableOpacity
-                    key={s.placeId || idx}
-                    style={styles.itemCard}
-                    onPress={() => {
-                      Alert.alert(s.name, s.address || 'Medical Facility');
-                    }}
-                  >
-                    <Text style={styles.itemCardName}>🏥 {s.name}</Text>
-                    {!!s.address && <Text style={styles.itemCardSub}>{s.address}</Text>}
-                  </TouchableOpacity>
-                ))}
-                {!!googleAttribution && (
-                  <Text style={styles.attributionText}>{googleAttribution}</Text>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="🔍 Search hospital (e.g. AIIMS, Fortis, Max)..."
+                  placeholderTextColor="#94A3B8"
+                  value={searchQuery}
+                  onChangeText={handleSearchInputChange}
+                />
+
+                {/* Live Autocomplete Suggestions */}
+                {hospitalSuggestions.length > 0 ? (
+                  <View style={styles.cardList}>
+                    {hospitalSuggestions.map((s, idx) => (
+                      <TouchableOpacity
+                        key={s.placeId || idx}
+                        style={styles.itemCard}
+                        onPress={() => {
+                          Alert.alert(s.name, s.address || 'Medical Facility');
+                        }}
+                      >
+                        <Text style={styles.itemCardName}>🏥 {s.name}</Text>
+                        {!!s.address && <Text style={styles.itemCardSub}>{s.address}</Text>}
+                      </TouchableOpacity>
+                    ))}
+                    {!!googleAttribution && (
+                      <Text style={styles.attributionText}>{googleAttribution}</Text>
+                    )}
+                  </View>
+                ) : isSearchingHospitals ? (
+                  <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
+                ) : nearbyHospitalsList.length === 0 ? (
+                  <EmptyState
+                    icon="🏥"
+                    title="No Nearby Hospitals Found"
+                    description="Make sure GPS location is enabled to discover nearby hospitals and blood banks."
+                    actionLabel="Open Map Radar"
+                    onAction={onOpenMap}
+                  />
+                ) : (
+                  <View style={styles.cardList}>
+                    {nearbyHospitalsList.map((h) => (
+                      <View key={h.id} style={styles.itemCard}>
+                        <View style={styles.itemCardHeader}>
+                          <Text style={styles.itemCardName}>{h.name}</Text>
+                          <Text style={styles.itemCardDistance}>📍 {h.formattedDistance}</Text>
+                        </View>
+                        <Text style={styles.itemCardSub}>{h.address || 'Medical Zone'}</Text>
+                        {!!h.phone && <Text style={styles.itemCardStock}>📞 {h.phone}</Text>}
+                      </View>
+                    ))}
+                    <Text style={styles.attributionText}>Powered by Google</Text>
+                  </View>
                 )}
               </View>
-            ) : isSearchingHospitals ? (
-              <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
-            ) : nearbyHospitalsList.length === 0 ? (
-              <EmptyState
-                icon="🏥"
-                title="No Nearby Hospitals Found"
-                description="Make sure GPS location is enabled to discover nearby hospitals and blood banks."
-                actionLabel="Open Map Radar"
-                onAction={onOpenMap}
-              />
-            ) : (
-              <View style={styles.cardList}>
-                {nearbyHospitalsList.map((h) => (
-                  <View key={h.id} style={styles.itemCard}>
-                    <View style={styles.itemCardHeader}>
-                      <Text style={styles.itemCardName}>{h.name}</Text>
-                      <Text style={styles.itemCardDistance}>📍 {h.formattedDistance}</Text>
-                    </View>
-                    <Text style={styles.itemCardSub}>{h.address || 'Medical Zone'}</Text>
-                    {!!h.phone && <Text style={styles.itemCardStock}>📞 {h.phone}</Text>}
-                  </View>
-                ))}
-                <Text style={styles.attributionText}>Powered by Google</Text>
+            )}
+
+            {searchMode === 'FIND_DONORS' && (
+              <View style={styles.tabSection}>
+                <TouchableOpacity
+                  style={styles.btnBackSub}
+                  onPress={() => setSearchMode('OPTIONS')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.btnBackSubText}>← Back to Search Options</Text>
+                </TouchableOpacity>
+
+                <Text style={styles.tabSectionTitle}>👤 Find Donors</Text>
+                <Text style={{ color: COLORS.textMuted, fontSize: 13, marginBottom: 16 }}>
+                  Locate nearby compatible blood donors available for emergency requests.
+                </Text>
+
+                <TouchableOpacity style={styles.btnOpenMapLarge} onPress={onOpenMap} activeOpacity={0.85}>
+                  <Text style={styles.btnOpenMapLargeText}>🗺️ Open Nearby Donors Map Radar ➔</Text>
+                </TouchableOpacity>
+
+                <EmptyState
+                  icon="👤"
+                  title="Discover Compatible Donors"
+                  description="Use the interactive Map Radar to view available donors in real-time within your radius."
+                  actionLabel="Open Map Radar ➔"
+                  onAction={onOpenMap}
+                />
               </View>
             )}
-          </View>
+          </>
         )}
 
         {/* ================= TAB 3: REQUEST HISTORY WITH FILTERS ================= */}
@@ -503,7 +569,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       </Modal>
 
       {/* Fixed 4-Tab Bottom Navigation Bar */}
-      <BottomNav activeTab={activeTab} onTabPress={setActiveTab} />
+      <BottomNav
+        activeTab={activeTab}
+        onTabPress={(tab) => {
+          setActiveTab(tab);
+          if (tab === 'Search') {
+            setSearchMode('OPTIONS');
+          }
+        }}
+      />
     </View>
   );
 };
@@ -512,6 +586,36 @@ const styles = StyleSheet.create({
   mainWrapper: {
     flex: 1,
     backgroundColor: COLORS.bgMain,
+  },
+  btnBackSub: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: COLORS.borderColor,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 14,
+    ...SHADOWS.sm,
+  },
+  btnBackSubText: {
+    color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  btnOpenMapLarge: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    ...SHADOWS.sm,
+  },
+  btnOpenMapLargeText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
   container: {
     flex: 1,
