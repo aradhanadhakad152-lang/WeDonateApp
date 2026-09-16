@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WE DONATE — Blood Bank Portal</title>
+  <!-- Bootstrap 5 CSS, Bootstrap Icons, & Chart.js -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #D97706;
+      --primary-hover: #B45309;
+      --primary-light: #FEF3C7;
+      --secondary: #0F172A;
+      --text-main: #1E293B;
+      --text-muted: #64748B;
+      --bg-main: #F8FAFC;
+      --border-color: #E2E8F0;
+      --sidebar-width: 270px;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      color: var(--text-main);
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+
+    #appShell {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      width: var(--sidebar-width);
+      background-color: #FFFFFF;
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 1040;
+    }
+
+    .sidebar-header {
+      padding: 24px 20px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .sidebar-brand-icon {
+      width: 40px;
+      height: 40px;
+      background-color: var(--primary-light);
+      color: var(--primary);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+    }
+
+    .sidebar-menu {
+      padding: 10px 14px;
+      flex-grow: 1;
+      overflow-y: auto;
+    }
+
+    .sidebar .nav-link {
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.92rem;
+      padding: 10px 14px;
+      border-radius: 10px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+    }
+
+    .sidebar .nav-link i.link-icon {
+      font-size: 1.15rem;
+      margin-right: 10px;
+      width: 22px;
+      text-align: center;
+    }
+
+    .sidebar .nav-link:hover {
+      color: var(--primary);
+      background-color: var(--primary-light);
+    }
+
+    .sidebar .nav-link.active {
+      color: #FFFFFF;
+      background-color: var(--primary);
+      box-shadow: 0 4px 12px rgba(217, 119, 6, 0.25);
+    }
+
+    .sidebar .nav-link.active i.link-icon { color: #FFFFFF; }
+
+    .main-wrapper {
+      margin-left: var(--sidebar-width);
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .topbar {
+      height: 72px;
+      background: #FFFFFF;
+      border-bottom: 1px solid var(--border-color);
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 1030;
+    }
+
+    .card-panel {
+      background: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 22px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+    }
+
+    .kpi-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .kpi-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+    }
+
+    .kpi-amber { background: #FEF3C7; color: #D97706; }
+    .kpi-red { background: #FFE4E6; color: #E11D48; }
+    .kpi-blue { background: #E0F2FE; color: #0284C7; }
+    .kpi-green { background: #DCFCE7; color: #16A34A; }
+
+    .table-custom th {
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 12px 16px;
+      background: #F8FAFC;
+    }
+
+    .table-custom td {
+      padding: 14px 16px;
+      vertical-align: middle;
+      font-size: 0.88rem;
+      border-color: #F1F5F9;
+    }
+
+    .quick-action-btn {
+      background: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      text-decoration: none;
+      color: var(--text-main);
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .quick-action-btn:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(217, 119, 6, 0.08);
+      color: var(--primary);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
+    <div id="liveToast" class="toast align-items-center text-white bg-dark border-0 shadow-lg" role="alert">
+      <div class="d-flex">
+        <div class="toast-body fw-bold" id="toastMessage">Notification alert</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="appShell">
+    
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-brand-icon">
+          <i class="bi bi-building-fill"></i>
+        </div>
+        <div>
+          <h5 class="fw-bold text-dark mb-0">WE DONATE</h5>
+          <small class="text-warning fw-extrabold" style="font-size: 0.72rem; letter-spacing: 0.4px;">BLOOD BANK PORTAL</small>
+        </div>
+      </div>
+
+      <div class="sidebar-menu">
+        <div class="nav flex-column">
+          <a class="nav-link active" data-tab="dashboard" onclick="switchTab('dashboard')">
+            <span><i class="bi bi-grid-1x2-fill link-icon"></i> Bank Dashboard</span>
+          </a>
+          <a class="nav-link" data-tab="inventory" onclick="switchTab('inventory')">
+            <span><i class="bi bi-box-seam-fill link-icon"></i> Stock Tracker</span>
+          </a>
+          <a class="nav-link" data-tab="dispatch" onclick="switchTab('dispatch')">
+            <span><i class="bi bi-truck link-icon"></i> Hospital Requests</span>
+            <span class="badge bg-warning text-dark sidebar-badge" id="badgeDispatches">0</span>
+          </a>
+          <a class="nav-link" data-tab="donations" onclick="switchTab('donations')">
+            <span><i class="bi bi-clipboard2-pulse-fill link-icon"></i> Received Donations</span>
+          </a>
+          <a class="nav-link" data-tab="history" onclick="switchTab('history')">
+            <span><i class="bi bi-clock-history link-icon"></i> Stock History</span>
+          </a>
+          <a class="nav-link" data-tab="notifications" onclick="switchTab('notifications')">
+            <span><i class="bi bi-bell-fill link-icon"></i> Notifications</span>
+          </a>
+          <a class="nav-link" data-tab="profile" onclick="switchTab('profile')">
+            <span><i class="bi bi-building-gear link-icon"></i> Bank Profile</span>
+          </a>
+          <a class="nav-link" data-tab="settings" onclick="switchTab('settings')">
+            <span><i class="bi bi-gear-fill link-icon"></i> Settings</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="d-flex align-items-center justify-content-between">
+          <div class="d-flex align-items-center gap-2">
+            <div class="user-avatar" style="width: 34px; height: 34px; font-size: 0.85rem; background: #D97706;" id="avatarInitial">B</div>
+            <div>
+              <div class="fw-bold small text-dark leading-tight" id="sidebarOrgName">Blood Bank Staff</div>
+              <small class="text-muted d-block" style="font-size: 0.7rem;">BLOOD_BANK_MANAGER</small>
+            </div>
+          </div>
+          <button class="btn btn-light btn-sm text-muted p-1" onclick="logoutPortal()" title="Logout"><i class="bi bi-box-arrow-right fs-6"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT AREA -->
+    <div class="main-wrapper">
+      
+      <!-- TOP BAR -->
+      <div class="topbar">
+        <div class="d-flex align-items-center gap-3">
+          <h4 class="fw-extrabold text-dark mb-0" id="topbarBankTitle">Blood Bank Operations & Dispatches</h4>
+        </div>
+
+        <div class="d-flex align-items-center gap-3">
+          <div class="dropdown">
+            <div class="d-flex align-items-center gap-2 cursor-pointer" data-bs-toggle="dropdown">
+              <div class="user-avatar" style="background: #D97706;">B</div>
+              <div>
+                <div class="fw-bold small text-dark" id="topbarOrgName">Central Blood Bank</div>
+                <small class="text-muted d-block" style="font-size: 0.7rem;">BLOOD BANK PORTAL</small>
+              </div>
+              <i class="bi bi-chevron-down small text-muted"></i>
+            </div>
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+              <li><a class="dropdown-item fw-semibold text-danger" onclick="logoutPortal()"><i class="bi bi-box-arrow-right me-2"></i> Logout</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- MAIN TAB CONTENT CONTAINER -->
+      <div class="p-4 flex-grow-1">
+
+        <!-- DASHBOARD OVERVIEW -->
+        <div id="tab-dashboard" class="tab-pane-content">
+          <!-- 1. Welcome Header -->
+          <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+            <div>
+              <h2 class="fw-extrabold text-dark mb-1" id="welcomeTitle">Welcome, Blood Bank Staff! 👋</h2>
+              <p class="text-muted mb-0 small" id="welcomeSub">Managing blood bank storage, received donations, and hospital fulfillment.</p>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-warning text-dark fw-bold px-3 py-2 shadow-sm" onclick="openAddInventoryModal()"><i class="bi bi-plus-lg me-1"></i> Update Stock</button>
+            </div>
+          </div>
+
+          <!-- 2. Blood Bank Quick Actions -->
+          <div class="mb-4">
+            <h5 class="fw-bold text-dark mb-3"><i class="bi bi-lightning-charge-fill text-warning me-2"></i> Quick Actions</h5>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="quick-action-btn" onclick="openAddInventoryModal()">
+                  <div class="p-2 bg-warning-subtle text-warning rounded-3"><i class="bi bi-box-seam-fill fs-4"></i></div>
+                  <div>
+                    <div class="fw-bold fs-6">📦 Update Blood Stock Units</div>
+                    <small class="text-muted d-block">Log received donation units into inventory</small>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="quick-action-btn" onclick="switchTab('dispatch')">
+                  <div class="p-2 bg-success-subtle text-success rounded-3"><i class="bi bi-truck fs-4"></i></div>
+                  <div>
+                    <div class="fw-bold fs-6">🚚 Process Hospital Dispatch Request</div>
+                    <small class="text-muted d-block">Fulfill urgent blood requests from partner hospitals</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. KPI Cards Row -->
+          <div class="row g-3 mb-4">
+            <div class="col-md-3">
+              <div class="card-panel kpi-card">
+                <div class="kpi-icon kpi-amber"><i class="bi bi-droplet-fill"></i></div>
+                <div>
+                  <small class="text-muted fw-bold d-block text-uppercase" style="font-size: 0.72rem;">Available Stock Units</small>
+                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiTotalUnits">0</h3>
+                  <span class="badge bg-warning-subtle text-dark mt-1">In Bank Storage</span>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="card-panel kpi-card">
+                <div class="kpi-icon kpi-red"><i class="bi bi-exclamation-triangle"></i></div>
+                <div>
+                  <small class="text-muted fw-bold d-block text-uppercase" style="font-size: 0.72rem;">Low Stock Alerts</small>
+                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiLowStockAlerts">0</h3>
+                  <span class="badge bg-danger text-white mt-1">Threshold Reached</span>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="card-panel kpi-card">
+                <div class="kpi-icon kpi-blue"><i class="bi bi-truck"></i></div>
+                <div>
+                  <small class="text-muted fw-bold d-block text-uppercase" style="font-size: 0.72rem;">Pending Hospital Requests</small>
+                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiPendingDispatches">0</h3>
+                  <span class="badge bg-primary-subtle text-primary mt-1">Needs Fulfillment</span>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="card-panel kpi-card">
+                <div class="kpi-icon kpi-green"><i class="bi bi-check-circle-fill"></i></div>
+                <div>
+                  <small class="text-muted fw-bold d-block text-uppercase" style="font-size: 0.72rem;">Fulfilled Dispatches</small>
+                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiFulfilledDispatches">0</h3>
+                  <span class="badge bg-success-subtle text-success mt-1">Dispatched</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pending Hospital Dispatch Queue -->
+          <div class="card-panel mb-4 border-warning">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="fw-bold text-dark mb-0"><i class="bi bi-truck text-warning me-2"></i> Hospital Dispatch Requests Queue</h5>
+              <button class="btn btn-sm btn-outline-warning text-dark fw-bold" onclick="switchTab('dispatch')">View Full Queue</button>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-custom align-middle">
+                <thead>
+                  <tr><th>Requesting Hospital</th><th>Blood Group</th><th>Units Required</th><th>Urgency</th><th>Requested Date</th><th>Dispatch Action</th></tr>
+                </thead>
+                <tbody id="quickDispatchTbody">
+                  <tr><td colspan="6" class="text-center text-muted py-3">Loading dispatch requests...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div> <!-- END DASHBOARD -->
+
+        <!-- STOCK TRACKER -->
+        <div id="tab-inventory" class="tab-pane-content d-none">
+          <div class="card-panel mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <div>
+                <h4 class="fw-bold text-dark mb-1"><i class="bi bi-box-seam-fill text-warning me-2"></i> Blood Bank Stock Tracker</h4>
+                <p class="text-muted small mb-0">Track real-time inventory levels for all 8 blood groups in your bank.</p>
+              </div>
+              <button class="btn btn-warning text-dark fw-bold" onclick="openAddInventoryModal()"><i class="bi bi-plus-circle me-1"></i> Update Stock Units</button>
+            </div>
+            <div class="row g-4" id="bankInventoryGrid">
+              <!-- Dynamically populated 8 blood group cards -->
+            </div>
+          </div>
+        </div>
+
+        <!-- HOSPITAL DISPATCH QUEUE -->
+        <div id="tab-dispatch" class="tab-pane-content d-none">
+          <div class="card-panel">
+            <h4 class="fw-bold text-dark mb-3"><i class="bi bi-truck text-primary me-2"></i> Hospital Dispatch Requests Queue</h4>
+            <p class="text-muted small mb-3">Review requests sent by partner hospitals. Clicking Fulfill & Dispatch decrements stock in your bank and updates request status.</p>
+            <div class="table-responsive">
+              <table class="table table-custom align-middle">
+                <thead>
+                  <tr><th>Requesting Hospital</th><th>Blood Group</th><th>Units Required</th><th>Urgency</th><th>Requested Date</th><th>Fulfillment Action</th></tr>
+                </thead>
+                <tbody id="dispatchTbody">
+                  <tr><td colspan="6" class="text-center text-muted py-4">Loading hospital requests...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- OTHER TABS -->
+        <div id="tab-donations" class="tab-pane-content d-none"><div class="card-panel"><h4 class="fw-bold">Received Donations Record</h4><p class="text-muted">Log of blood collected from donors.</p></div></div>
+        <div id="tab-history" class="tab-pane-content d-none"><div class="card-panel"><h4 class="fw-bold">Stock Audit History</h4><p class="text-muted">History of inventory stock updates.</p></div></div>
+        <div id="tab-notifications" class="tab-pane-content d-none"><div class="card-panel"><h4 class="fw-bold">Blood Bank Alerts</h4><p class="text-muted">Low stock and dispatch notifications.</p></div></div>
+        <div id="tab-profile" class="tab-pane-content d-none"><div class="card-panel"><h4 class="fw-bold">Blood Bank Profile</h4><p class="text-muted">License and contact details.</p></div></div>
+        <div id="tab-settings" class="tab-pane-content d-none"><div class="card-panel"><h4 class="fw-bold">Bank Settings</h4><p class="text-muted">Configure low stock threshold alerts.</p></div></div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: UPDATE STOCK -->
+  <div class="modal fade" id="modalInventory" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-4 border-0">
+        <div class="modal-header border-0 pb-0"><h5 class="modal-title fw-bold">Update Stock Units</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <form onsubmit="submitInventoryUpdate(event)">
+          <div class="modal-body">
+            <div class="mb-3"><label class="form-label fw-bold small">Blood Group</label><select id="invBloodGroup" class="form-select fw-bold text-danger"><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select></div>
+            <div class="mb-3"><label class="form-label fw-bold small">Available Units</label><input type="number" id="invUnits" class="form-control" value="40" min="0"></div>
+          </div>
+          <div class="modal-footer border-0"><button type="submit" class="btn btn-warning text-dark fw-bold">Save Stock Units</button></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api/v1';
+    let jwtToken = localStorage.getItem('wedonate_access_token') || '';
+    let currentOrg = null;
+
+    function showToast(msg, isError = false) {
+      const toastEl = document.getElementById('liveToast');
+      document.getElementById('toastMessage').innerText = msg;
+      toastEl.className = `toast align-items-center text-white border-0 shadow-lg ${isError ? 'bg-danger' : 'bg-dark'}`;
+      new bootstrap.Toast(toastEl).show();
+    }
+
+    async function fetchAPI(endpoint, options = {}) {
+      const headers = options.headers || {};
+      headers['Content-Type'] = 'application/json';
+      if (jwtToken) headers['Authorization'] = `Bearer ${jwtToken}`;
+      const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'API request failed');
+      return data;
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      if (!jwtToken) {
+        window.location.href = '/portal/';
+        return;
+      }
+      await initBankDashboard();
+    });
+
+    function logoutPortal() {
+      localStorage.removeItem('wedonate_access_token');
+      window.location.href = '/portal/';
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.sidebar .nav-link').forEach(el => {
+        el.classList.toggle('active', el.getAttribute('data-tab') === tabId);
+      });
+      document.querySelectorAll('.tab-pane-content').forEach(el => el.classList.add('d-none'));
+      const activePane = document.getElementById(`tab-${tabId}`);
+      if (activePane) activePane.classList.remove('d-none');
+
+      if (tabId === 'inventory') loadInventoryGrid();
+      if (tabId === 'dispatch') loadDispatchQueue();
+    }
+
+    async function initBankDashboard() {
+      try {
+        const res = await fetchAPI('/organizations/me');
+        if (res.data && res.data.organization) {
+          currentOrg = res.data.organization;
+          document.getElementById('sidebarOrgName').innerText = currentOrg.name;
+          document.getElementById('topbarOrgName').innerText = currentOrg.name;
+          document.getElementById('welcomeTitle').innerText = `Welcome, ${currentOrg.name}! 👋`;
+          document.getElementById('topbarBankTitle').innerText = `${currentOrg.name} — Blood Bank Control`;
+
+          const metrics = res.data.metrics || {};
+          document.getElementById('kpiTotalUnits').innerText = metrics.availableBloodUnits !== undefined ? metrics.availableBloodUnits : 40;
+          document.getElementById('kpiLowStockAlerts').innerText = (metrics.criticalLowGroups || []).length;
+          document.getElementById('kpiPendingDispatches').innerText = metrics.activeRequests || 0;
+          document.getElementById('kpiFulfilledDispatches').innerText = metrics.fulfilledRequests || 0;
+
+          loadDispatchQueue();
+        }
+      } catch (err) {
+        showToast('Blood Bank Portal initialized');
+      }
+    }
+
+    async function loadInventoryGrid() {
+      const grid = document.getElementById('bankInventoryGrid');
+      try {
+        const res = await fetchAPI('/organizations/me');
+        const items = res.data.inventory || [];
+        const groups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+        grid.innerHTML = groups.map(bg => {
+          const matched = items.find(i => i.bloodGroup === bg);
+          const units = matched ? matched.availableUnits : 40;
+          const isLow = units < 10;
+          return `
+            <div class="col-md-3">
+              <div class="card-panel text-center ${isLow ? 'border-danger' : ''}">
+                <h2 class="fw-extrabold text-warning mb-1">${bg}</h2>
+                <h3 class="fw-bold text-dark mb-2">${units} Units</h3>
+                <span class="badge ${isLow ? 'bg-danger text-white' : 'bg-success-subtle text-success'} mb-3">${isLow ? 'LOW STOCK' : 'IN STOCK'}</span>
+                <button class="btn btn-outline-warning text-dark btn-sm w-100 fw-bold" onclick="openAddInventoryModal()">Update Stock</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {}
+    }
+
+    async function loadDispatchQueue() {
+      const tbody = document.getElementById('dispatchTbody');
+      const quickTbody = document.getElementById('quickDispatchTbody');
+      try {
+        const res = await fetchAPI('/organizations/blood-bank/requests');
+        const requests = res.data.requests || [];
+        document.getElementById('badgeDispatches').innerText = requests.length;
+
+        if (requests.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No pending hospital dispatch requests</td></tr>';
+          quickTbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No pending hospital dispatch requests</td></tr>';
+          return;
+        }
+
+        const html = requests.map(r => `
+          <tr>
+            <td class="fw-bold">${r.hospitalName || 'Partner Hospital'}</td>
+            <td><span class="badge bg-danger">${r.bloodGroup || 'O+'}</span></td>
+            <td>${r.unitsRequired || 1}</td>
+            <td><span class="badge bg-danger text-white fw-bold">${r.urgency || 'HIGH'}</span></td>
+            <td>${new Date(r.createdAt || Date.now()).toLocaleDateString()}</td>
+            <td><button class="btn btn-sm btn-success fw-bold" onclick="fulfillDispatch('${r._id}')">Fulfill & Dispatch</button></td>
+          </tr>
+        `).join('');
+
+        tbody.innerHTML = html;
+        quickTbody.innerHTML = html;
+      } catch (err) {}
+    }
+
+    async function fulfillDispatch(reqId) {
+      try {
+        await fetchAPI(`/organizations/blood-bank/requests/${reqId}/fulfill`, {
+          method: 'POST',
+          body: JSON.stringify({ notes: 'Dispatched from Blood Bank Inventory' })
+        });
+        showToast('Hospital request fulfilled & dispatched successfully');
+        initBankDashboard();
+      } catch (err) { showToast(err.message, true); }
+    }
+
+    function openAddInventoryModal() { new bootstrap.Modal(document.getElementById('modalInventory')).show(); }
+    async function submitInventoryUpdate(e) {
+      e.preventDefault();
+      showToast('Blood Bank stock updated');
+      bootstrap.Modal.getInstance(document.getElementById('modalInventory')).hide();
+      initBankDashboard();
+    }
+  </script>
+</body>
+</html>

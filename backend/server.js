@@ -171,28 +171,40 @@ const portalPath = path.join(__dirname, 'portal');
 const publicPortalPath = path.join(__dirname, 'public', 'portal');
 const publicPath = path.join(__dirname, 'public');
 
-// Legacy portal redirects for backwards compatibility
-app.get(['/portal/admin*', '/portal/organization*'], (req, res) => {
-  res.redirect(301, '/portal/');
+// Explicit route handlers for 3 distinct portals
+app.get(['/portal/admin', '/portal/admin/', '/portal/admin/index.html'], (req, res) => {
+  const targetFile = fs.existsSync(path.join(portalPath, 'admin', 'index.html'))
+    ? path.join(portalPath, 'admin', 'index.html')
+    : path.join(publicPortalPath, 'admin', 'index.html');
+  if (!fs.existsSync(targetFile)) return res.status(404).send('Admin portal file not found');
+  return res.sendFile(targetFile);
 });
 
-// Explicit route handlers for unified portal
+app.get(['/portal/hospital', '/portal/hospital/', '/portal/hospital/index.html'], (req, res) => {
+  const targetFile = fs.existsSync(path.join(portalPath, 'hospital', 'index.html'))
+    ? path.join(portalPath, 'hospital', 'index.html')
+    : path.join(publicPortalPath, 'hospital', 'index.html');
+  if (!fs.existsSync(targetFile)) return res.status(404).send('Hospital portal file not found');
+  return res.sendFile(targetFile);
+});
+
+app.get(['/portal/blood-bank', '/portal/blood-bank/', '/portal/blood-bank/index.html'], (req, res) => {
+  const targetFile = fs.existsSync(path.join(portalPath, 'blood-bank', 'index.html'))
+    ? path.join(portalPath, 'blood-bank', 'index.html')
+    : path.join(publicPortalPath, 'blood-bank', 'index.html');
+  if (!fs.existsSync(targetFile)) return res.status(404).send('Blood Bank portal file not found');
+  return res.sendFile(targetFile);
+});
+
 app.get(['/portal', '/portal/', '/portal/index.html'], (req, res) => {
   const targetFile = fs.existsSync(path.join(portalPath, 'index.html'))
     ? path.join(portalPath, 'index.html')
     : path.join(publicPortalPath, 'index.html');
-
-  if (!fs.existsSync(targetFile)) {
-    return res.status(500).json({
-      success: false,
-      message: 'Portal index.html missing on deployed server'
-    });
-  }
-
+  if (!fs.existsSync(targetFile)) return res.status(404).send('Portal login hub file not found');
   return res.sendFile(targetFile);
 });
 
-// Serve static assets for portal
+// Serve static assets for portals
 app.use('/portal', express.static(portalPath));
 app.use('/portal', express.static(publicPortalPath));
 app.use(express.static(publicPath));
