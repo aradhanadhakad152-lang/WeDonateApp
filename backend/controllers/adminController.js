@@ -98,20 +98,43 @@ const getAdminDashboardMetrics = asyncHandler(async (req, res) => {
   const hospitalRegistrationsToday = await Organization.countDocuments({ type: 'HOSPITAL', createdAt: { $gte: startOfDay } });
   const bloodBankUpdatesToday = await BloodInventory.countDocuments({ updatedAt: { $gte: startOfDay } });
 
-  // Fetch Recent Blood Requests
-  const recentBloodRequests = await BloodRequest.find()
+  // Fetch Recent Blood Requests & Normalize Fields
+  const rawRecentBloodRequests = await BloodRequest.find()
     .sort({ createdAt: -1 })
     .limit(5)
     .populate('requesterId', 'fullName name phone')
     .populate('hospitalId', 'name')
     .exec();
 
-  // Fetch Recent Donors
-  const recentDonors = await User.find({ isDonor: true })
+  const recentBloodRequests = rawRecentBloodRequests.map(r => ({
+    _id: r._id,
+    patientName: r.patientName || (r.requesterId ? (r.requesterId.fullName || r.requesterId.name) : 'Patient'),
+    bloodGroup: r.bloodGroup || 'A+',
+    units: r.unitsRequired !== undefined ? r.unitsRequired : (r.units !== undefined ? r.units : 1),
+    unitsRequired: r.unitsRequired !== undefined ? r.unitsRequired : (r.units !== undefined ? r.units : 1),
+    hospitalName: r.hospitalName || (r.hospitalId ? r.hospitalId.name : 'City Hospital'),
+    urgency: r.urgency || 'HIGH',
+    status: r.status || 'OPEN',
+    createdAt: r.createdAt || new Date(),
+  }));
+
+  // Fetch Recent Donors & Normalize Fields
+  const rawRecentDonors = await User.find({ isDonor: true })
     .sort({ createdAt: -1 })
     .limit(5)
     .select('fullName name bloodGroup isAvailable lastDonatedAt accountStatus createdAt location')
     .exec();
+
+  const recentDonors = rawRecentDonors.map(d => ({
+    _id: d._id,
+    fullName: d.fullName || d.name || 'Donor',
+    name: d.fullName || d.name || 'Donor',
+    bloodGroup: d.bloodGroup || 'O+',
+    lastDonatedAt: d.lastDonatedAt,
+    isAvailable: d.isAvailable !== undefined ? d.isAvailable : true,
+    accountStatus: d.accountStatus || 'ACTIVE',
+    createdAt: d.createdAt || new Date(),
+  }));
 
   // Fetch Recent Audit Activity
   const recentAuditActivity = await AuditLog.find()

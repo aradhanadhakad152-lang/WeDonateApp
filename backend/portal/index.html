@@ -518,7 +518,7 @@
         <!-- TAB 1: DASHBOARD OVERVIEW -->
         <!-- ============================================ -->
         <div id="tab-dashboard" class="tab-pane-content">
-          <!-- Welcome Header -->
+          <!-- 1. Welcome Header -->
           <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
             <div>
               <h2 class="fw-extrabold text-dark mb-1">Welcome Back, Admin! 👋</h2>
@@ -538,7 +538,68 @@
             </div>
           </div>
 
-          <!-- 5 KPI Cards Row -->
+          <!-- 2. Quick Actions Section (PLUGGED IMMEDIATELY BELOW WELCOME HEADER) -->
+          <div class="mb-4">
+            <h5 class="fw-bold text-dark mb-3"><i class="bi bi-lightning-charge-fill text-danger me-2"></i> Quick Actions</h5>
+            <div class="row g-3">
+              <div class="col-md-2 col-sm-4">
+                <div class="quick-action-btn" onclick="openAddInventoryModal()">
+                  <div class="p-2 bg-danger-subtle text-danger rounded-3"><i class="bi bi-heart-fill fs-5"></i></div>
+                  <div>
+                    <div class="fw-bold small">Add Blood Inventory</div>
+                    <small class="text-muted d-block" style="font-size: 0.7rem;">Update stock levels</small>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-2 col-sm-4">
+                <div class="quick-action-btn" onclick="openCreateRequestModal()">
+                  <div class="p-2 bg-primary-subtle text-primary rounded-3"><i class="bi bi-droplet-fill fs-5"></i></div>
+                  <div>
+                    <div class="fw-bold small">Create Blood Request</div>
+                    <small class="text-muted d-block" style="font-size: 0.7rem;">Register new request</small>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-2 col-sm-4">
+                <div class="quick-action-btn" onclick="switchTab('donors')">
+                  <div class="p-2 bg-success-subtle text-success rounded-3"><i class="bi bi-person-fill fs-5"></i></div>
+                  <div>
+                    <div class="fw-bold small">Add Donor</div>
+                    <small class="text-muted d-block" style="font-size: 0.7rem;">Register new donor</small>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-2 col-sm-4">
+                <div class="quick-action-btn" onclick="openAddOrgPlacesModal()">
+                  <div class="p-2 bg-info-subtle text-info rounded-3"><i class="bi bi-hospital fs-5"></i></div>
+                  <div>
+                    <div class="fw-bold small">Add Hospital</div>
+                    <small class="text-muted d-block" style="font-size: 0.7rem;">Onboard new hospital</small>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-2 col-sm-4">
+                <div class="quick-action-btn" onclick="openAddOrgPlacesModal()">
+                  <div class="p-2 bg-warning-subtle text-warning rounded-3"><i class="bi bi-building-fill fs-5"></i></div>
+                  <div>
+                    <div class="fw-bold small">Add Blood Bank</div>
+                    <small class="text-muted d-block" style="font-size: 0.7rem;">Onboard new bank</small>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-2 col-sm-4">
+                <div class="quick-action-btn" onclick="switchTab('verifications')">
+                  <div class="p-2 bg-secondary-subtle text-secondary rounded-3"><i class="bi bi-check-circle-fill fs-5"></i></div>
+                  <div>
+                    <div class="fw-bold small">Verify Users</div>
+                    <small class="text-muted d-block" style="font-size: 0.7rem;">Review pending</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. KPI Cards Row (5 Cards) -->
           <div class="row g-3 mb-4">
             <div class="col-md-2-4 col-sm-6">
               <div class="card-panel kpi-card">
@@ -719,67 +780,6 @@
                       <tr><td colspan="4" class="text-center text-muted py-3">Loading recent donors...</td></tr>
                     </tbody>
                   </table>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Quick Actions Section -->
-          <div class="mb-4">
-            <h5 class="fw-bold text-dark mb-3"><i class="bi bi-lightning-charge-fill text-danger me-2"></i> Quick Actions</h5>
-            <div class="row g-3">
-              <div class="col-md-2 col-sm-4">
-                <div class="quick-action-btn" onclick="openAddInventoryModal()">
-                  <div class="p-2 bg-danger-subtle text-danger rounded-3"><i class="bi bi-box-seam fs-5"></i></div>
-                  <div>
-                    <div class="fw-bold small">Add Inventory</div>
-                    <small class="text-muted d-block" style="font-size: 0.7rem;">Update stock levels</small>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-2 col-sm-4">
-                <div class="quick-action-btn" onclick="openCreateRequestModal()">
-                  <div class="p-2 bg-primary-subtle text-primary rounded-3"><i class="bi bi-droplet fs-5"></i></div>
-                  <div>
-                    <div class="fw-bold small">Create Request</div>
-                    <small class="text-muted d-block" style="font-size: 0.7rem;">Register new request</small>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-2 col-sm-4">
-                <div class="quick-action-btn" onclick="switchTab('donors')">
-                  <div class="p-2 bg-success-subtle text-success rounded-3"><i class="bi bi-person-plus fs-5"></i></div>
-                  <div>
-                    <div class="fw-bold small">Add Donor</div>
-                    <small class="text-muted d-block" style="font-size: 0.7rem;">Register new donor</small>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-2 col-sm-4">
-                <div class="quick-action-btn" onclick="openAddOrgPlacesModal()">
-                  <div class="p-2 bg-info-subtle text-info rounded-3"><i class="bi bi-hospital fs-5"></i></div>
-                  <div>
-                    <div class="fw-bold small">Add Hospital</div>
-                    <small class="text-muted d-block" style="font-size: 0.7rem;">Onboard new hospital</small>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-2 col-sm-4">
-                <div class="quick-action-btn" onclick="openAddOrgPlacesModal()">
-                  <div class="p-2 bg-warning-subtle text-warning rounded-3"><i class="bi bi-building fs-5"></i></div>
-                  <div>
-                    <div class="fw-bold small">Add Blood Bank</div>
-                    <small class="text-muted d-block" style="font-size: 0.7rem;">Onboard new bank</small>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-2 col-sm-4">
-                <div class="quick-action-btn" onclick="switchTab('verifications')">
-                  <div class="p-2 bg-secondary-subtle text-secondary rounded-3"><i class="bi bi-patch-check fs-5"></i></div>
-                  <div>
-                    <div class="fw-bold small">Verify Users</div>
-                    <small class="text-muted d-block" style="font-size: 0.7rem;">Review pending</small>
-                  </div>
                 </div>
               </div>
             </div>
@@ -1520,7 +1520,6 @@
       renderDistributionDonutChart(null);
     }
 
-    // Recent Tables Renderers
     function renderRecentRequestsTable(requests) {
       const tbody = document.getElementById('recentRequestsTbody');
       if (!requests || requests.length === 0) {
@@ -1531,18 +1530,28 @@
         `;
         return;
       }
-      tbody.innerHTML = requests.map(r => `
-        <tr>
-          <td>#${r._id.toString().slice(-4)}</td>
-          <td class="fw-bold">${r.patientName || r.requesterId?.fullName || 'Patient'}</td>
-          <td><span class="badge bg-danger">${r.bloodGroup}</span></td>
-          <td>${r.units}</td>
-          <td>${r.hospitalName || r.hospitalId?.name || 'Local Hospital'}</td>
-          <td><span class="badge ${r.urgency === 'CRITICAL' ? 'bg-danger text-white' : 'bg-warning-subtle text-dark'} fw-bold">${r.urgency}</span></td>
-          <td><span class="badge bg-info-subtle text-dark fw-bold">${r.status}</span></td>
-          <td><button class="btn btn-sm btn-light fw-bold" onclick="switchTab('requests')">View</button></td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = requests.map(r => {
+        const reqId = r._id ? String(r._id).slice(-4) : '1027';
+        const patientName = r.patientName || (r.requesterId && (r.requesterId.fullName || r.requesterId.name)) || 'Patient';
+        const bloodGroup = r.bloodGroup || 'A+';
+        const units = r.unitsRequired !== undefined ? r.unitsRequired : (r.units !== undefined ? r.units : 1);
+        const hospital = r.hospitalName || (r.hospitalId && r.hospitalId.name) || 'City Hospital';
+        const urgency = r.urgency || 'HIGH';
+        const status = r.status || 'OPEN';
+
+        return `
+          <tr>
+            <td>#${reqId}</td>
+            <td class="fw-bold">${patientName}</td>
+            <td><span class="badge bg-danger">${bloodGroup}</span></td>
+            <td>${units}</td>
+            <td>${hospital}</td>
+            <td><span class="badge ${urgency === 'CRITICAL' ? 'bg-danger text-white' : 'bg-warning-subtle text-dark'} fw-bold">${urgency}</span></td>
+            <td><span class="badge bg-info-subtle text-dark fw-bold">${status}</span></td>
+            <td><button class="btn btn-sm btn-light fw-bold" onclick="switchTab('requests')">View</button></td>
+          </tr>
+        `;
+      }).join('');
     }
 
     function renderRecentDonorsTable(donors) {
