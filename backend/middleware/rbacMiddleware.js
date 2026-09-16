@@ -76,7 +76,25 @@ const authorizeOrganizationAccess = (req, res, next) => {
   next();
 };
 
+/**
+ * Helper to enforce that a document's organizationId matches req.user.organizationId (unless admin)
+ */
+const enforceOrganizationScope = (req, targetOrgId) => {
+  if (!req || !req.user) return false;
+  if (['SUPER_ADMIN', 'ADMIN'].includes(req.user.role)) {
+    return true;
+  }
+  const userOrgId = req.user.organizationId ? req.user.organizationId.toString() : null;
+  const targetId = targetOrgId ? targetOrgId.toString() : null;
+
+  if (!userOrgId || !targetId || userOrgId !== targetId) {
+    return false;
+  }
+  return true;
+};
+
 module.exports = {
   authorizeRoles,
   authorizeOrganizationAccess,
+  enforceOrganizationScope,
 };

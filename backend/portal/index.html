@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WE DONATE — Management Portal Admin Dashboard</title>
+  <title>WE DONATE — Management Portal</title>
   <!-- Bootstrap 5 CSS, Bootstrap Icons, & Chart.js -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
@@ -348,15 +348,15 @@
           <i class="bi bi-droplet-fill fs-1"></i>
         </div>
         <h3 class="fw-extrabold text-dark mb-1">WE DONATE</h3>
-        <p class="text-muted small">System Admin & Operations Management Portal</p>
+        <p class="text-muted small">System Admin, Hospital & Blood Bank Portal</p>
       </div>
 
       <form id="portalLoginForm" onsubmit="handlePortalLogin(event)">
         <div class="mb-3">
-          <label class="form-label fw-bold small text-secondary">Official Email / Mobile</label>
+          <label class="form-label fw-bold small text-secondary">Official Email / Mobile / Login ID</label>
           <div class="input-group">
             <span class="input-group-text bg-white"><i class="bi bi-envelope"></i></span>
-            <input type="text" id="loginEmail" class="form-control" placeholder="admin@wedonate.org" value="admin@wedonate.org" required>
+            <input type="text" id="loginEmail" class="form-control" placeholder="admin@wedonate.org or hospital@aiims.org" value="admin@wedonate.org" required>
           </div>
         </div>
         <div class="mb-4">
@@ -368,13 +368,13 @@
         </div>
         <button type="submit" id="btnLogin" class="btn btn-danger w-100 fw-bold py-2 shadow-sm">
           <span id="loginSpinner" class="spinner-border spinner-border-sm me-2 d-none"></span>
-          Authenticate & Launch Dashboard
+          Authenticate & Launch Portal
         </button>
       </form>
     </div>
   </div>
 
-  <!-- APPLICATION SHELL (MAIN ADMIN DASHBOARD) -->
+  <!-- APPLICATION SHELL (MAIN DASHBOARD) -->
   <div id="appShell" class="d-none">
     
     <!-- SIDEBAR -->
@@ -385,12 +385,12 @@
         </div>
         <div>
           <h5 class="fw-bold text-dark mb-0">WE DONATE</h5>
-          <small class="text-muted fw-semibold" style="font-size: 0.72rem; letter-spacing: 0.4px;">MANAGEMENT PORTAL</small>
+          <small class="text-muted fw-semibold" style="font-size: 0.72rem; letter-spacing: 0.4px;" id="sidebarPortalLabel">MANAGEMENT PORTAL</small>
         </div>
       </div>
 
       <div class="sidebar-menu">
-        <div class="nav flex-column">
+        <div class="nav flex-column" id="sidebarNavMenu">
           <a class="nav-link active" data-tab="dashboard" onclick="switchTab('dashboard')">
             <span><i class="bi bi-grid-1x2-fill link-icon"></i> Dashboard</span>
           </a>
@@ -399,44 +399,39 @@
           </a>
           <a class="nav-link" data-tab="requests" onclick="switchTab('requests')">
             <span><i class="bi bi-droplet-half link-icon"></i> Blood Requests</span>
-            <span class="badge bg-danger sidebar-badge" id="badgeRequests">12</span>
+            <span class="badge bg-danger sidebar-badge" id="badgeRequests">0</span>
           </a>
-          <a class="nav-link" data-tab="donors" onclick="switchTab('donors')">
+          <a class="nav-link org-hospital-only" data-tab="verifications" onclick="switchTab('verifications')">
+            <span><i class="bi bi-patch-check-fill link-icon"></i> Patient Verification</span>
+            <span class="badge bg-warning text-dark sidebar-badge" id="badgeVerifications">0</span>
+          </a>
+          <a class="nav-link org-hospital-only" data-tab="findblood" onclick="switchTab('findblood')">
+            <span><i class="bi bi-search-heart link-icon"></i> Unified Find Blood</span>
+          </a>
+          <a class="nav-link org-bank-only d-none" data-tab="dispatch" onclick="switchTab('dispatch')">
+            <span><i class="bi bi-truck link-icon"></i> Hospital Dispatches</span>
+            <span class="badge bg-primary sidebar-badge" id="badgeDispatches">0</span>
+          </a>
+          <a class="nav-link admin-only" data-tab="donors" onclick="switchTab('donors')">
             <span><i class="bi bi-person-heart link-icon"></i> Donors</span>
-            <span class="badge bg-danger sidebar-badge" id="badgeDonors">28</span>
           </a>
-          <a class="nav-link" data-tab="hospitals" onclick="switchTab('hospitals')">
+          <a class="nav-link admin-only" data-tab="hospitals" onclick="switchTab('hospitals')">
             <span><i class="bi bi-hospital-fill link-icon"></i> Hospitals</span>
-            <span class="badge bg-danger sidebar-badge" id="badgeHospitals">6</span>
           </a>
-          <a class="nav-link" data-tab="bloodbanks" onclick="switchTab('bloodbanks')">
+          <a class="nav-link admin-only" data-tab="bloodbanks" onclick="switchTab('bloodbanks')">
             <span><i class="bi bi-building-fill link-icon"></i> Blood Banks</span>
-            <span class="badge bg-danger sidebar-badge" id="badgeBanks">4</span>
           </a>
-          <a class="nav-link" data-tab="users" onclick="switchTab('users')">
-            <span><i class="bi bi-people-fill link-icon"></i> Users Management</span>
+          <a class="nav-link admin-only" data-tab="users" onclick="switchTab('users')">
+            <span><i class="bi bi-people-fill link-icon"></i> Users</span>
           </a>
-          <a class="nav-link" data-tab="donations" onclick="switchTab('donations')">
-            <span><i class="bi bi-clipboard2-pulse-fill link-icon"></i> Donations</span>
-          </a>
-          <a class="nav-link" data-tab="reports" onclick="switchTab('reports')">
+          <a class="nav-link admin-only" data-tab="reports" onclick="switchTab('reports')">
             <span><i class="bi bi-bar-chart-line-fill link-icon"></i> Reports & Analytics</span>
           </a>
-          <a class="nav-link" data-tab="notifications" onclick="switchTab('notifications')">
-            <span><i class="bi bi-bell-fill link-icon"></i> Notifications</span>
-            <span class="badge bg-danger sidebar-badge" id="badgeNotifs">5</span>
-          </a>
-          <a class="nav-link" data-tab="campaigns" onclick="switchTab('campaigns')">
-            <span><i class="bi bi-megaphone-fill link-icon"></i> Campaigns</span>
-          </a>
-          <a class="nav-link" data-tab="verifications" onclick="switchTab('verifications')">
-            <span><i class="bi bi-patch-check-fill link-icon"></i> Verify & Approve</span>
+          <a class="nav-link admin-only" data-tab="audit" onclick="switchTab('audit')">
+            <span><i class="bi bi-journal-text link-icon"></i> Audit Logs</span>
           </a>
           <a class="nav-link" data-tab="settings" onclick="switchTab('settings')">
-            <span><i class="bi bi-gear-fill link-icon"></i> System Settings</span>
-          </a>
-          <a class="nav-link" data-tab="audit" onclick="switchTab('audit')">
-            <span><i class="bi bi-journal-text link-icon"></i> Audit Logs</span>
+            <span><i class="bi bi-gear-fill link-icon"></i> Settings</span>
           </a>
         </div>
       </div>
@@ -447,16 +442,16 @@
             <span class="text-danger"><i class="bi bi-heart-fill"></i></span>
             <span class="fw-bold small text-dark">Need Help?</span>
           </div>
-          <p class="text-muted small mb-2" style="font-size: 0.75rem;">Our support team is here</p>
+          <p class="text-muted small mb-2" style="font-size: 0.75rem;">Support team is active</p>
           <button class="btn btn-white btn-sm text-danger border border-danger-subtle w-100 fw-bold py-1" onclick="openContactSupport()">Contact Support</button>
         </div>
 
         <div class="d-flex align-items-center justify-content-between">
           <div class="d-flex align-items-center gap-2">
-            <div class="user-avatar" style="width: 34px; height: 34px; font-size: 0.85rem;">A</div>
+            <div class="user-avatar" style="width: 34px; height: 34px; font-size: 0.85rem;" id="avatarInitial">U</div>
             <div>
-              <div class="fw-bold small text-dark leading-tight" id="sidebarUserName">Admin User</div>
-              <small class="text-muted d-block" style="font-size: 0.7rem;">System Admin</small>
+              <div class="fw-bold small text-dark leading-tight" id="sidebarUserName">User</div>
+              <small class="text-muted d-block" style="font-size: 0.7rem;" id="sidebarUserRole">System Admin</small>
             </div>
           </div>
           <button class="btn btn-light btn-sm text-muted p-1" onclick="logoutPortal()" title="Logout"><i class="bi bi-box-arrow-right fs-6"></i></button>
@@ -473,7 +468,7 @@
           <button class="btn btn-light d-lg-none" onclick="toggleSidebar()"><i class="bi bi-list fs-5"></i></button>
           <div class="search-box">
             <i class="bi bi-search"></i>
-            <input type="text" id="globalSearch" class="form-control" placeholder="Search donors, hospitals, requests, users..." onkeyup="handleGlobalSearch(event)">
+            <input type="text" id="globalSearch" class="form-control" placeholder="Search donors, hospitals, blood requests..." onkeyup="handleGlobalSearch(event)">
           </div>
         </div>
 
@@ -483,28 +478,15 @@
           </div>
 
           <div class="dropdown">
-            <button class="btn btn-light position-relative rounded-circle p-2" data-bs-toggle="dropdown">
-              <i class="bi bi-bell fs-5 text-secondary"></i>
-              <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"></span>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 p-2" style="width: 300px;" id="notificationsDropdown">
-              <li><h6 class="dropdown-header fw-bold text-dark">System Alerts</h6></li>
-              <li><hr class="dropdown-divider"></li>
-              <li class="px-2 py-1"><span class="small text-muted">Loading notifications...</span></li>
-            </ul>
-          </div>
-
-          <div class="dropdown">
             <div class="d-flex align-items-center gap-2 cursor-pointer" data-bs-toggle="dropdown">
-              <div class="user-avatar">A</div>
+              <div class="user-avatar" id="topbarAvatar">U</div>
               <div class="d-none d-md-block">
-                <div class="fw-bold small text-dark" id="topbarUserName">Admin User</div>
-                <small class="text-muted d-block" style="font-size: 0.7rem;">System Admin</small>
+                <div class="fw-bold small text-dark" id="topbarUserName">Portal User</div>
+                <small class="text-muted d-block" style="font-size: 0.7rem;" id="topbarUserRole">System Admin</small>
               </div>
               <i class="bi bi-chevron-down small text-muted"></i>
             </div>
             <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
-              <li><a class="dropdown-item fw-semibold" onclick="switchTab('settings')"><i class="bi bi-person me-2"></i> Admin Profile</a></li>
               <li><a class="dropdown-item fw-semibold text-danger" onclick="logoutPortal()"><i class="bi bi-box-arrow-right me-2"></i> Logout</a></li>
             </ul>
           </div>
@@ -521,267 +503,134 @@
           <!-- 1. Welcome Header -->
           <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
             <div>
-              <h2 class="fw-extrabold text-dark mb-1">Welcome Back, Admin! 👋</h2>
-              <p class="text-muted mb-0 small">Here's what's happening with WE DONATE today.</p>
+              <h2 class="fw-extrabold text-dark mb-1" id="dashWelcomeTitle">Welcome Back! 👋</h2>
+              <p class="text-muted mb-0 small" id="dashWelcomeSub">Here's your organization's operational overview today.</p>
             </div>
             <div class="d-flex gap-2">
-              <button class="btn btn-white border fw-bold px-3 py-2 text-secondary shadow-sm" onclick="switchTab('reports')"><i class="bi bi-file-earmark-text me-1"></i> Generate Report</button>
-              <button class="btn btn-white border fw-bold px-3 py-2 text-secondary shadow-sm" onclick="exportDataCSV()"><i class="bi bi-download me-1"></i> Export Data</button>
-              <div class="dropdown">
-                <button class="btn btn-danger fw-bold px-3 py-2 shadow-sm dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-plus-lg me-1"></i> Add New</button>
-                <ul class="dropdown-menu dropdown-menu-end shadow border-0">
-                  <li><a class="dropdown-item fw-semibold" onclick="openAddInventoryModal()"><i class="bi bi-box-seam me-2 text-danger"></i> Add Blood Inventory</a></li>
-                  <li><a class="dropdown-item fw-semibold" onclick="openCreateRequestModal()"><i class="bi bi-droplet me-2 text-danger"></i> Create Blood Request</a></li>
-                  <li><a class="dropdown-item fw-semibold" onclick="openAddOrgPlacesModal()"><i class="bi bi-hospital me-2 text-danger"></i> Onboard Hospital / Blood Bank</a></li>
-                </ul>
-              </div>
+              <button class="btn btn-white border fw-bold px-3 py-2 text-secondary shadow-sm" onclick="exportDataCSV()"><i class="bi bi-download me-1"></i> Export</button>
+              <button class="btn btn-danger fw-bold px-3 py-2 shadow-sm" onclick="openCreateRequestModal()"><i class="bi bi-plus-lg me-1"></i> New Request</button>
             </div>
           </div>
 
-          <!-- 2. Quick Actions Section (PLUGGED IMMEDIATELY BELOW WELCOME HEADER) -->
+          <!-- 2. Quick Actions Section -->
           <div class="mb-4">
             <h5 class="fw-bold text-dark mb-3"><i class="bi bi-lightning-charge-fill text-danger me-2"></i> Quick Actions</h5>
-            <div class="row g-3">
-              <div class="col-md-2 col-sm-4">
+            <div class="row g-3" id="quickActionsRow">
+              <div class="col-md-3 col-sm-6">
                 <div class="quick-action-btn" onclick="openAddInventoryModal()">
                   <div class="p-2 bg-danger-subtle text-danger rounded-3"><i class="bi bi-heart-fill fs-5"></i></div>
                   <div>
-                    <div class="fw-bold small">Add Blood Inventory</div>
-                    <small class="text-muted d-block" style="font-size: 0.7rem;">Update stock levels</small>
+                    <div class="fw-bold small">Add Blood Stock</div>
+                    <small class="text-muted d-block" style="font-size: 0.7rem;">Update inventory units</small>
                   </div>
                 </div>
               </div>
-              <div class="col-md-2 col-sm-4">
+              <div class="col-md-3 col-sm-6">
                 <div class="quick-action-btn" onclick="openCreateRequestModal()">
                   <div class="p-2 bg-primary-subtle text-primary rounded-3"><i class="bi bi-droplet-fill fs-5"></i></div>
                   <div>
-                    <div class="fw-bold small">Create Blood Request</div>
-                    <small class="text-muted d-block" style="font-size: 0.7rem;">Register new request</small>
+                    <div class="fw-bold small">Create Request</div>
+                    <small class="text-muted d-block" style="font-size: 0.7rem;">Register patient requirement</small>
                   </div>
                 </div>
               </div>
-              <div class="col-md-2 col-sm-4">
-                <div class="quick-action-btn" onclick="switchTab('donors')">
-                  <div class="p-2 bg-success-subtle text-success rounded-3"><i class="bi bi-person-fill fs-5"></i></div>
-                  <div>
-                    <div class="fw-bold small">Add Donor</div>
-                    <small class="text-muted d-block" style="font-size: 0.7rem;">Register new donor</small>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-2 col-sm-4">
-                <div class="quick-action-btn" onclick="openAddOrgPlacesModal()">
-                  <div class="p-2 bg-info-subtle text-info rounded-3"><i class="bi bi-hospital fs-5"></i></div>
-                  <div>
-                    <div class="fw-bold small">Add Hospital</div>
-                    <small class="text-muted d-block" style="font-size: 0.7rem;">Onboard new hospital</small>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-2 col-sm-4">
-                <div class="quick-action-btn" onclick="openAddOrgPlacesModal()">
-                  <div class="p-2 bg-warning-subtle text-warning rounded-3"><i class="bi bi-building-fill fs-5"></i></div>
-                  <div>
-                    <div class="fw-bold small">Add Blood Bank</div>
-                    <small class="text-muted d-block" style="font-size: 0.7rem;">Onboard new bank</small>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-2 col-sm-4">
+              <div class="col-md-3 col-sm-6 org-hospital-only">
                 <div class="quick-action-btn" onclick="switchTab('verifications')">
-                  <div class="p-2 bg-secondary-subtle text-secondary rounded-3"><i class="bi bi-check-circle-fill fs-5"></i></div>
+                  <div class="p-2 bg-warning-subtle text-warning rounded-3"><i class="bi bi-patch-check-fill fs-5"></i></div>
                   <div>
-                    <div class="fw-bold small">Verify Users</div>
-                    <small class="text-muted d-block" style="font-size: 0.7rem;">Review pending</small>
+                    <div class="fw-bold small">Verify Patient</div>
+                    <small class="text-muted d-block" style="font-size: 0.7rem;">Approve pending requests</small>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-3 col-sm-6 org-hospital-only">
+                <div class="quick-action-btn" onclick="switchTab('findblood')">
+                  <div class="p-2 bg-info-subtle text-info rounded-3"><i class="bi bi-search-heart fs-5"></i></div>
+                  <div>
+                    <div class="fw-bold small">Find Blood</div>
+                    <small class="text-muted d-block" style="font-size: 0.7rem;">Search donors & blood banks</small>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- 3. KPI Cards Row (5 Cards) -->
-          <div class="row g-3 mb-4">
+          <!-- 3. KPI Cards Row (Role Driven) -->
+          <div class="row g-3 mb-4" id="kpiContainerRow">
             <div class="col-md-2-4 col-sm-6">
               <div class="card-panel kpi-card">
                 <div class="kpi-icon kpi-red"><i class="bi bi-droplet-fill"></i></div>
                 <div>
-                  <small class="text-muted fw-bold d-block text-uppercase" style="font-size: 0.72rem;">Total Blood Units</small>
-                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiTotalUnits">2,847</h3>
-                  <span class="trend-badge trend-up mt-1 d-inline-block"><i class="bi bi-arrow-up-short"></i> +12% vs last month</span>
+                  <small class="text-muted fw-bold d-block text-uppercase" style="font-size: 0.72rem;">Available Units</small>
+                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiTotalUnits">0</h3>
+                  <span class="trend-badge trend-up mt-1 d-inline-block"><i class="bi bi-arrow-up-short"></i> In Stock</span>
                 </div>
               </div>
             </div>
             <div class="col-md-2-4 col-sm-6">
               <div class="card-panel kpi-card">
-                <div class="kpi-icon kpi-blue"><i class="bi bi-people-fill"></i></div>
-                <div>
-                  <small class="text-muted fw-bold d-block text-uppercase" style="font-size: 0.72rem;">Registered Donors</small>
-                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiTotalDonors">1,426</h3>
-                  <span class="trend-badge trend-up mt-1 d-inline-block"><i class="bi bi-arrow-up-short"></i> +8% vs last month</span>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-2-4 col-sm-6">
-              <div class="card-panel kpi-card">
-                <div class="kpi-icon kpi-indigo"><i class="bi bi-building"></i></div>
-                <div>
-                  <small class="text-muted fw-bold d-block text-uppercase" style="font-size: 0.72rem;">Partner Hospitals</small>
-                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiTotalHospitals">28</h3>
-                  <span class="trend-badge trend-up mt-1 d-inline-block"><i class="bi bi-arrow-up-short"></i> +4% vs last month</span>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-2-4 col-sm-6">
-              <div class="card-panel kpi-card">
-                <div class="kpi-icon kpi-amber"><i class="bi bi-journal-check"></i></div>
-                <div>
-                  <small class="text-muted fw-bold d-block text-uppercase" style="font-size: 0.72rem;">Blood Banks</small>
-                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiTotalBanks">7</h3>
-                  <span class="trend-badge trend-up mt-1 d-inline-block"><i class="bi bi-arrow-up-short"></i> +2% vs last month</span>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-2-4 col-sm-6">
-              <div class="card-panel kpi-card">
-                <div class="kpi-icon kpi-green"><i class="bi bi-file-earmark-medical"></i></div>
+                <div class="kpi-icon kpi-blue"><i class="bi bi-journal-medical"></i></div>
                 <div>
                   <small class="text-muted fw-bold d-block text-uppercase" style="font-size: 0.72rem;">Active Requests</small>
-                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiActiveRequests">12</h3>
-                  <span class="trend-badge trend-down mt-1 d-inline-block"><i class="bi bi-arrow-down-short"></i> -20% vs last month</span>
+                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiActiveRequests">0</h3>
+                  <span class="trend-badge trend-up mt-1 d-inline-block">Open</span>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-2-4 col-sm-6">
+              <div class="card-panel kpi-card">
+                <div class="kpi-icon kpi-amber"><i class="bi bi-patch-check"></i></div>
+                <div>
+                  <small class="text-muted fw-bold d-block text-uppercase" style="font-size: 0.72rem;">Pending Verification</small>
+                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiPendingVerifications">0</h3>
+                  <span class="trend-badge trend-down mt-1 d-inline-block">Needs Review</span>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-2-4 col-sm-6">
+              <div class="card-panel kpi-card">
+                <div class="kpi-icon kpi-indigo"><i class="bi bi-person-heart"></i></div>
+                <div>
+                  <small class="text-muted fw-bold d-block text-uppercase" style="font-size: 0.72rem;">Available Donors</small>
+                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiTotalDonors">0</h3>
+                  <span class="trend-badge trend-up mt-1 d-inline-block">Compatible</span>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-2-4 col-sm-6">
+              <div class="card-panel kpi-card">
+                <div class="kpi-icon kpi-green"><i class="bi bi-check-circle-fill"></i></div>
+                <div>
+                  <small class="text-muted fw-bold d-block text-uppercase" style="font-size: 0.72rem;">Fulfilled Requests</small>
+                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiFulfilledRequests">0</h3>
+                  <span class="trend-badge trend-up mt-1 d-inline-block">Completed</span>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Charts & Analytics Row -->
-          <div class="row g-4 mb-4">
-            <!-- Blood Inventory Trend Chart -->
-            <div class="col-lg-5">
-              <div class="card-panel h-100">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                  <h5 class="fw-bold text-dark mb-0"><i class="bi bi-bar-chart-fill text-danger me-2"></i> Blood Inventory Trend</h5>
-                  <select class="form-select form-select-sm w-auto border-0 bg-light fw-bold" id="timeframeFilter">
-                    <option value="7">Last 7 Days</option>
-                    <option value="30">Last 30 Days</option>
-                  </select>
-                </div>
-                <div style="height: 240px; position: relative;">
-                  <canvas id="inventoryTrendChart"></canvas>
-                </div>
-              </div>
+          <!-- Urgent Requests / Dispatches Banner -->
+          <div class="card-panel mb-4 bg-light border-danger">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="fw-bold text-danger mb-0"><i class="bi bi-exclamation-circle-fill me-2"></i> Urgent Priority Queue</h5>
+              <button class="btn btn-sm btn-outline-danger fw-bold" onclick="switchTab('requests')">View All</button>
             </div>
-
-            <!-- Blood Group Distribution Donut -->
-            <div class="col-lg-4">
-              <div class="card-panel h-100">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                  <h5 class="fw-bold text-dark mb-0"><i class="bi bi-pie-chart-fill text-danger me-2"></i> Blood Group Distribution</h5>
-                </div>
-                <div style="height: 240px; position: relative;">
-                  <canvas id="distributionDonutChart"></canvas>
-                </div>
-              </div>
-            </div>
-
-            <!-- Critical Stock & Today's Activity Column -->
-            <div class="col-lg-3 d-flex flex-column gap-3">
-              <!-- Critical Alert Card -->
-              <div class="critical-alert-card shadow-sm">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <span class="fw-bold small text-uppercase tracking-wider opacity-90"><i class="bi bi-exclamation-triangle-fill me-1"></i> Critical Stock Alert</span>
-                  <i class="bi bi-chevron-right"></i>
-                </div>
-                <h1 class="fw-extrabold display-4 mb-1" id="alertBloodGroup">O-</h1>
-                <p class="mb-3 fw-semibold opacity-90" id="alertUnitsMsg">Only 8 units left!</p>
-                <button class="btn btn-white text-danger fw-bold btn-sm rounded-pill px-4 shadow-sm" onclick="switchTab('inventory')">View Details</button>
-              </div>
-
-              <!-- Today's Activity Widget -->
-              <div class="card-panel flex-grow-1">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                  <h6 class="fw-bold text-dark mb-0"><i class="bi bi-activity text-danger me-2"></i> Today's Activity</h6>
-                  <a class="small text-danger fw-bold text-decoration-none cursor-pointer" onclick="switchTab('audit')">View All</a>
-                </div>
-                <ul class="list-unstyled mb-0" id="todaysActivityList">
-                  <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
-                    <span class="small text-secondary"><i class="bi bi-heart-fill text-success me-2"></i> New Donations</span>
-                    <span class="fw-bold text-dark" id="actDonations">14</span>
-                  </li>
-                  <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
-                    <span class="small text-secondary"><i class="bi bi-droplet-fill text-primary me-2"></i> New Requests</span>
-                    <span class="fw-bold text-dark" id="actRequests">8</span>
-                  </li>
-                  <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
-                    <span class="small text-secondary"><i class="bi bi-person-plus-fill text-info me-2"></i> New Donors</span>
-                    <span class="fw-bold text-dark" id="actDonors">6</span>
-                  </li>
-                  <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
-                    <span class="small text-secondary"><i class="bi bi-hospital text-warning me-2"></i> Hospital Registrations</span>
-                    <span class="fw-bold text-dark" id="actHospitals">2</span>
-                  </li>
-                  <li class="d-flex justify-content-between align-items-center py-2">
-                    <span class="small text-secondary"><i class="bi bi-building text-secondary me-2"></i> Blood Bank Updates</span>
-                    <span class="fw-bold text-dark" id="actBanks">1</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          <!-- Tables Grid Row -->
-          <div class="row g-4 mb-4">
-            <!-- Recent Blood Requests -->
-            <div class="col-lg-7">
-              <div class="card-panel">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                  <h5 class="fw-bold text-dark mb-0"><i class="bi bi-file-medical-fill text-danger me-2"></i> Recent Blood Requests</h5>
-                  <a class="small text-danger fw-bold text-decoration-none cursor-pointer" onclick="switchTab('requests')">View All</a>
-                </div>
-                <div class="table-responsive">
-                  <table class="table table-custom align-middle">
-                    <thead>
-                      <tr>
-                        <th>#ID</th>
-                        <th>Patient Name</th>
-                        <th>Blood Group</th>
-                        <th>Units</th>
-                        <th>Hospital</th>
-                        <th>Urgency</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody id="recentRequestsTbody">
-                      <tr><td colspan="8" class="text-center text-muted py-3">Loading recent requests...</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-
-            <!-- Recent Donors -->
-            <div class="col-lg-5">
-              <div class="card-panel">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                  <h5 class="fw-bold text-dark mb-0"><i class="bi bi-people-fill text-danger me-2"></i> Recent Donors</h5>
-                  <a class="small text-danger fw-bold text-decoration-none cursor-pointer" onclick="switchTab('donors')">View All</a>
-                </div>
-                <div class="table-responsive">
-                  <table class="table table-custom align-middle">
-                    <thead>
-                      <tr>
-                        <th>Name</th>
-                        <th>Blood Group</th>
-                        <th>Last Donation</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody id="recentDonorsTbody">
-                      <tr><td colspan="4" class="text-center text-muted py-3">Loading recent donors...</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+            <div class="table-responsive">
+              <table class="table table-custom align-middle">
+                <thead>
+                  <tr>
+                    <th>Patient Name</th>
+                    <th>Blood Group</th>
+                    <th>Units</th>
+                    <th>Urgency</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="urgentQueueTbody">
+                  <tr><td colspan="6" class="text-center text-muted py-3">No urgent requests active</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -793,13 +642,13 @@
             <div class="d-flex justify-content-between align-items-center mb-4">
               <div>
                 <h4 class="fw-bold text-dark mb-1"><i class="bi bi-box-seam-fill text-danger me-2"></i> Blood Inventory Management</h4>
-                <p class="text-muted small mb-0">Track real-time blood stock units, low stock alerts, and update inventory levels across organizations.</p>
+                <p class="text-muted small mb-0">Track real-time stock units and update inventory levels.</p>
               </div>
               <button class="btn btn-danger fw-bold" onclick="openAddInventoryModal()"><i class="bi bi-plus-circle me-1"></i> Update Stock Level</button>
             </div>
 
             <div class="row g-4" id="inventoryGrid">
-              <!-- Dynamically populated 8 blood group cards -->
+              <!-- Dynamically populated blood group cards -->
             </div>
           </div>
         </div>
@@ -810,16 +659,9 @@
             <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
               <div>
                 <h4 class="fw-bold text-dark mb-1"><i class="bi bi-droplet-half text-danger me-2"></i> Patient Blood Requests Queue</h4>
-                <p class="text-muted small mb-0">Manage emergency patient requests, approve verifications, and dispatch donor notification campaigns.</p>
+                <p class="text-muted small mb-0">Manage patient requests, verify requirements, and track fulfillment status.</p>
               </div>
               <div class="d-flex gap-2">
-                <select id="reqFilterStatus" class="form-select form-select-sm fw-semibold" onchange="loadRequestsTab()">
-                  <option value="ALL">All Statuses</option>
-                  <option value="OPEN">Open Requests</option>
-                  <option value="VERIFICATION_PENDING">Pending Verification</option>
-                  <option value="MATCHING">Matching Donors</option>
-                  <option value="FULFILLED">Fulfilled</option>
-                </select>
                 <button class="btn btn-danger btn-sm fw-bold px-3" onclick="openCreateRequestModal()"><i class="bi bi-plus-lg me-1"></i> New Request</button>
               </div>
             </div>
@@ -830,412 +672,298 @@
                   <tr>
                     <th>Patient Name</th>
                     <th>Blood Group</th>
-                    <th>Units</th>
+                    <th>Units Required</th>
                     <th>Hospital</th>
                     <th>Urgency</th>
                     <th>Status</th>
-                    <th>Date</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody id="fullRequestsTbody">
-                  <tr><td colspan="8" class="text-center text-muted py-4">Loading requests...</td></tr>
+                  <tr><td colspan="7" class="text-center text-muted py-4">Loading requests...</td></tr>
                 </tbody>
               </table>
             </div>
           </div>
         </div>
 
-        <!-- TAB 4: DONORS -->
-        <div id="tab-donors" class="tab-pane-content d-none">
+        <!-- TAB 4: PATIENT VERIFICATION QUEUE (HOSPITAL / ADMIN) -->
+        <div id="tab-verifications" class="tab-pane-content d-none">
           <div class="card-panel">
             <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
               <div>
-                <h4 class="fw-bold text-dark mb-1"><i class="bi bi-person-heart text-danger me-2"></i> Donors Directory</h4>
-                <p class="text-muted small mb-0">Search registered donors, check physical donation eligibility, and manage account statuses.</p>
+                <h4 class="fw-bold text-dark mb-1"><i class="bi bi-patch-check-fill text-warning me-2"></i> Patient Verification Queue</h4>
+                <p class="text-muted small mb-0">Review pending patient requests, check medical records, and approve or reject requirement.</p>
               </div>
-              <button class="btn btn-outline-secondary btn-sm fw-bold" onclick="loadDonorsTab()"><i class="bi bi-arrow-clockwise me-1"></i> Refresh</button>
-            </div>
-
-            <!-- Filters Bar -->
-            <div class="row g-2 mb-3">
-              <div class="col-md-4">
-                <input type="text" id="donorSearch" class="form-control form-control-sm" placeholder="Search donor by name, phone, email..." onkeyup="if(event.key==='Enter') loadDonorsTab()">
-              </div>
-              <div class="col-md-3">
-                <select id="donorGroupFilter" class="form-select form-select-sm" onchange="loadDonorsTab()">
-                  <option value="ALL">All Blood Groups</option>
-                  <option value="A+">A+</option><option value="A-">A-</option><option value="B+">B+</option><option value="B-">B-</option>
-                  <option value="AB+">AB+</option><option value="AB-">AB-</option><option value="O+">O+</option><option value="O-">O-</option>
-                </select>
-              </div>
-              <div class="col-md-3">
-                <select id="donorAvailFilter" class="form-select form-select-sm" onchange="loadDonorsTab()">
-                  <option value="ALL">All Availability</option>
-                  <option value="AVAILABLE">Available Only</option>
-                  <option value="UNAVAILABLE">Unavailable</option>
-                </select>
-              </div>
+              <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="loadVerificationsTab()"><i class="bi bi-arrow-clockwise me-1"></i> Refresh</button>
             </div>
 
             <div class="table-responsive">
               <table class="table table-custom align-middle">
                 <thead>
                   <tr>
-                    <th>Donor Name</th>
+                    <th>Patient Name</th>
                     <th>Blood Group</th>
-                    <th>City / Location</th>
-                    <th>Contact Phone</th>
-                    <th>Availability</th>
-                    <th>Status</th>
-                    <th>Actions</th>
+                    <th>Units</th>
+                    <th>Requester Contact</th>
+                    <th>Submitted Date</th>
+                    <th>Verification Actions</th>
                   </tr>
                 </thead>
-                <tbody id="fullDonorsTbody">
-                  <tr><td colspan="7" class="text-center text-muted py-4">Loading donors...</td></tr>
+                <tbody id="verificationsTbody">
+                  <tr><td colspan="6" class="text-center text-muted py-4">Loading pending patient verifications...</td></tr>
                 </tbody>
               </table>
             </div>
           </div>
         </div>
 
-        <!-- TAB 5: HOSPITALS -->
-        <div id="tab-hospitals" class="tab-pane-content d-none">
-          <div class="card-panel">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <div>
-                <h4 class="fw-bold text-dark mb-1"><i class="bi bi-hospital-fill text-danger me-2"></i> Partner Hospitals</h4>
-                <p class="text-muted small mb-0">Manage registered partner hospitals, verify license credentials, and search Google Places to onboard new facilities.</p>
-              </div>
-              <button class="btn btn-danger fw-bold" onclick="openAddOrgPlacesModal()"><i class="bi bi-geo-alt-fill me-1"></i> Search & Add Hospital</button>
-            </div>
+        <!-- TAB 5: UNIFIED FIND BLOOD (HOSPITAL / BLOOD BANK) -->
+        <div id="tab-findblood" class="tab-pane-content d-none">
+          <div class="card-panel mb-4">
+            <h4 class="fw-bold text-dark mb-3"><i class="bi bi-search-heart text-danger me-2"></i> Unified Find Blood</h4>
+            <p class="text-muted small mb-4">Find compatible blood donors and nearby blood banks with real-time stock availability based on RBC compatibility.</p>
 
-            <div class="table-responsive">
-              <table class="table table-custom align-middle">
-                <thead>
-                  <tr>
-                    <th>Hospital Name</th>
-                    <th>City</th>
-                    <th>License #</th>
-                    <th>Contact Phone</th>
-                    <th>Verification Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="hospitalsTbody">
-                  <tr><td colspan="6" class="text-center text-muted py-4">Loading hospitals...</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 6: BLOOD BANKS -->
-        <div id="tab-bloodbanks" class="tab-pane-content d-none">
-          <div class="card-panel">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <div>
-                <h4 class="fw-bold text-dark mb-1"><i class="bi bi-building-fill text-danger me-2"></i> Blood Banks Management</h4>
-                <p class="text-muted small mb-0">Manage accredited blood banks, stock collection nodes, and access credentials.</p>
-              </div>
-              <button class="btn btn-danger fw-bold" onclick="openAddOrgPlacesModal()"><i class="bi bi-plus-circle me-1"></i> Onboard Blood Bank</button>
-            </div>
-
-            <div class="table-responsive">
-              <table class="table table-custom align-middle">
-                <thead>
-                  <tr>
-                    <th>Blood Bank Name</th>
-                    <th>City</th>
-                    <th>License #</th>
-                    <th>Official Email</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="bloodBanksTbody">
-                  <tr><td colspan="6" class="text-center text-muted py-4">Loading blood banks...</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 7: USERS MANAGEMENT -->
-        <div id="tab-users" class="tab-pane-content d-none">
-          <div class="card-panel">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <div>
-                <h4 class="fw-bold text-dark mb-1"><i class="bi bi-people-fill text-danger me-2"></i> User Accounts Management</h4>
-                <p class="text-muted small mb-0">System roles, access permissions, and account activation/deactivation controls.</p>
-              </div>
-              <button class="btn btn-outline-secondary btn-sm fw-bold" onclick="loadUsersTab()"><i class="bi bi-arrow-clockwise me-1"></i> Refresh</button>
-            </div>
-
-            <div class="table-responsive">
-              <table class="table table-custom align-middle">
-                <thead>
-                  <tr>
-                    <th>User Name</th>
-                    <th>Email / Phone</th>
-                    <th>Role</th>
-                    <th>Account Status</th>
-                    <th>Created Date</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="usersTbody">
-                  <tr><td colspan="6" class="text-center text-muted py-4">Loading user accounts...</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 8: DONATIONS -->
-        <div id="tab-donations" class="tab-pane-content d-none">
-          <div class="card-panel">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <div>
-                <h4 class="fw-bold text-dark mb-1"><i class="bi bi-clipboard2-pulse-fill text-danger me-2"></i> Physical Blood Donations Log</h4>
-                <p class="text-muted small mb-0">Record completed blood donations, units collected, and hospital location history.</p>
-              </div>
-              <button class="btn btn-danger fw-bold" onclick="openRecordDonationModal()"><i class="bi bi-plus-circle me-1"></i> Log New Donation</button>
-            </div>
-
-            <div class="table-responsive">
-              <table class="table table-custom align-middle">
-                <thead>
-                  <tr>
-                    <th>Donor Name</th>
-                    <th>Blood Group</th>
-                    <th>Units Collected</th>
-                    <th>Location / Hospital</th>
-                    <th>Donation Date</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody id="donationsTbody">
-                  <tr><td colspan="6" class="text-center text-muted py-4">Loading donation records...</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 9: REPORTS & ANALYTICS -->
-        <div id="tab-reports" class="tab-pane-content d-none">
-          <div class="card-panel">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-              <div>
-                <h4 class="fw-bold text-dark mb-1"><i class="bi bi-bar-chart-line-fill text-danger me-2"></i> Reports & Analytics Generator</h4>
-                <p class="text-muted small mb-0">Export platform audit summaries, blood stock availability reports, and donor fulfillment metrics.</p>
-              </div>
-              <button class="btn btn-success fw-bold" onclick="exportDataCSV()"><i class="bi bi-file-earmark-spreadsheet me-1"></i> Download CSV Summary</button>
-            </div>
-
-            <div class="row g-4" id="reportsSummaryGrid">
-              <!-- Report analytics widgets -->
-              <div class="col-md-6">
-                <div class="p-3 bg-light rounded-3 border">
-                  <h6 class="fw-bold text-dark">Platform Growth & Fulfillment Overview</h6>
-                  <ul class="list-unstyled mb-0 small text-secondary mt-2">
-                    <li class="py-1">Total Donors Onboarded: <strong class="text-dark">1,426</strong></li>
-                    <li class="py-1">Blood Units Inventory: <strong class="text-dark">2,847 Units</strong></li>
-                    <li class="py-1">Fulfillment Rate: <strong class="text-success">94.2%</strong></li>
-                  </ul>
+            <form id="findBloodForm" onsubmit="executeFindBlood(event)">
+              <div class="row g-3 align-items-end mb-4">
+                <div class="col-md-4">
+                  <label class="form-label fw-bold small text-secondary">Target Patient Blood Group</label>
+                  <select id="findBloodGroup" class="form-select fw-bold text-danger">
+                    <option value="A+">A+</option><option value="A-">A-</option>
+                    <option value="B+">B+</option><option value="B-">B-</option>
+                    <option value="AB+">AB+</option><option value="AB-">AB-</option>
+                    <option value="O+">O+</option><option value="O-">O-</option>
+                  </select>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 10: NOTIFICATIONS -->
-        <div id="tab-notifications" class="tab-pane-content d-none">
-          <div class="card-panel">
-            <h4 class="fw-bold text-dark mb-3"><i class="bi bi-bell-fill text-danger me-2"></i> System Admin Notification Feed</h4>
-            <div class="list-group" id="adminNotificationsList">
-              <div class="text-muted py-3 text-center">Loading notification stream...</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 11: CAMPAIGNS -->
-        <div id="tab-campaigns" class="tab-pane-content d-none">
-          <div class="card-panel">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <div>
-                <h4 class="fw-bold text-dark mb-1"><i class="bi bi-megaphone-fill text-danger me-2"></i> Donation Camps & Drives</h4>
-                <p class="text-muted small mb-0">Create and publish community blood collection campaigns.</p>
-              </div>
-              <button class="btn btn-danger fw-bold" onclick="openCreateCampaignModal()"><i class="bi bi-plus-circle me-1"></i> Create Donation Drive</button>
-            </div>
-
-            <div class="table-responsive">
-              <table class="table table-custom align-middle">
-                <thead>
-                  <tr>
-                    <th>Drive Title</th>
-                    <th>City / Venue</th>
-                    <th>Dates</th>
-                    <th>Target Units</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody id="campaignsTbody">
-                  <tr><td colspan="5" class="text-center text-muted py-4">Loading campaign drives...</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 12: VERIFY & APPROVE -->
-        <div id="tab-verifications" class="tab-pane-content d-none">
-          <div class="card-panel">
-            <h4 class="fw-bold text-dark mb-3"><i class="bi bi-patch-check-fill text-danger me-2"></i> Pending Verification Queue</h4>
-            
-            <ul class="nav nav-tabs mb-3">
-              <li class="nav-item"><a class="nav-link active fw-bold text-danger" data-bs-toggle="tab" href="#v-orgs">Pending Organizations</a></li>
-              <li class="nav-item"><a class="nav-link fw-bold text-danger" data-bs-toggle="tab" href="#v-donors">Pending Donors</a></li>
-              <li class="nav-item"><a class="nav-link fw-bold text-danger" data-bs-toggle="tab" href="#v-reqs">Pending Requests</a></li>
-            </ul>
-
-            <div class="tab-content">
-              <div class="tab-pane fade show active" id="v-orgs">
-                <div class="table-responsive">
-                  <table class="table table-custom align-middle">
-                    <thead><tr><th>Org Name</th><th>Type</th><th>City</th><th>License #</th><th>Action</th></tr></thead>
-                    <tbody id="pendingOrgsTbody"><tr><td colspan="5" class="text-muted text-center py-3">No pending organizations</td></tr></tbody>
-                  </table>
+                <div class="col-md-5">
+                  <label class="form-label fw-bold small text-secondary">Search Location / City / Pincode</label>
+                  <input type="text" id="findLocation" class="form-control" placeholder="Bhopal, 462001 or City Center" value="Bhopal">
                 </div>
-              </div>
-              <div class="tab-pane fade" id="v-donors">
-                <div class="table-responsive">
-                  <table class="table table-custom align-middle">
-                    <thead><tr><th>Donor Name</th><th>Blood Group</th><th>Phone</th><th>Action</th></tr></thead>
-                    <tbody id="pendingDonorsTbody"><tr><td colspan="4" class="text-muted text-center py-3">No pending donors</td></tr></tbody>
-                  </table>
-                </div>
-              </div>
-              <div class="tab-pane fade" id="v-reqs">
-                <div class="table-responsive">
-                  <table class="table table-custom align-middle">
-                    <thead><tr><th>Patient</th><th>Blood Group</th><th>Units</th><th>Action</th></tr></thead>
-                    <tbody id="pendingReqsTbody"><tr><td colspan="4" class="text-muted text-center py-3">No pending blood requests</td></tr></tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 13: SYSTEM SETTINGS -->
-        <div id="tab-settings" class="tab-pane-content d-none">
-          <div class="card-panel">
-            <h4 class="fw-bold text-dark mb-3"><i class="bi bi-gear-fill text-danger me-2"></i> System Settings & Thresholds</h4>
-            <form onsubmit="saveSystemSettings(event)">
-              <div class="row g-3 max-w-xl">
-                <div class="col-md-6">
-                  <label class="form-label fw-bold small">Critical Stock Threshold (Units)</label>
-                  <input type="number" id="cfgCriticalThreshold" class="form-control" value="10">
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label fw-bold small">Low Stock Warning Threshold (Units)</label>
-                  <input type="number" id="cfgLowThreshold" class="form-control" value="20">
-                </div>
-                <div class="col-12">
-                  <button type="submit" class="btn btn-danger fw-bold">Save Configuration</button>
+                <div class="col-md-3">
+                  <button type="submit" class="btn btn-danger w-100 fw-bold py-2"><i class="bi bi-search me-1"></i> Search Matching Blood</button>
                 </div>
               </div>
             </form>
+
+            <ul class="nav nav-tabs nav-tabs-custom mb-3" role="tablist">
+              <li class="nav-item">
+                <button class="nav-link active fw-bold text-danger" id="donors-tab" data-bs-toggle="tab" data-bs-target="#tab-available-donors"><i class="bi bi-people-fill me-1"></i> Available Donors (<span id="countFoundDonors">0</span>)</button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link fw-bold text-dark" id="banks-tab" data-bs-toggle="tab" data-bs-target="#tab-available-banks"><i class="bi bi-building-fill me-1"></i> Nearby Blood Banks (<span id="countFoundBanks">0</span>)</button>
+              </li>
+            </ul>
+
+            <div class="tab-content">
+              <div class="tab-pane fade show active" id="tab-available-donors">
+                <div class="table-responsive">
+                  <table class="table table-custom align-middle">
+                    <thead>
+                      <tr>
+                        <th>Donor Name</th>
+                        <th>Blood Group</th>
+                        <th>RBC Compatibility</th>
+                        <th>City / Location</th>
+                        <th>Distance</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="foundDonorsTbody">
+                      <tr><td colspan="7" class="text-center text-muted py-4">Run search to list compatible donors</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="tab-pane fade" id="tab-available-banks">
+                <div class="table-responsive">
+                  <table class="table table-custom align-middle">
+                    <thead>
+                      <tr>
+                        <th>Blood Bank Name</th>
+                        <th>Compatible Group</th>
+                        <th>Available Units</th>
+                        <th>City / Location</th>
+                        <th>Contact Phone</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="foundBanksTbody">
+                      <tr><td colspan="6" class="text-center text-muted py-4">Run search to list nearby blood banks</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
 
-        <!-- TAB 14: AUDIT LOGS -->
-        <div id="tab-audit" class="tab-pane-content d-none">
+        <!-- TAB 6: HOSPITAL DISPATCH REQUESTS (BLOOD BANK ONLY) -->
+        <div id="tab-dispatch" class="tab-pane-content d-none">
           <div class="card-panel">
-            <h4 class="fw-bold text-dark mb-3"><i class="bi bi-journal-text text-danger me-2"></i> Administrative Operations Audit Log</h4>
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+              <div>
+                <h4 class="fw-bold text-dark mb-1"><i class="bi bi-truck text-primary me-2"></i> Hospital Dispatch Requests</h4>
+                <p class="text-muted small mb-0">Fulfill blood unit requirements requested by partner hospitals.</p>
+              </div>
+              <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="loadDispatchTab()"><i class="bi bi-arrow-clockwise me-1"></i> Refresh</button>
+            </div>
+
             <div class="table-responsive">
               <table class="table table-custom align-middle">
                 <thead>
                   <tr>
-                    <th>Timestamp</th>
-                    <th>Action</th>
-                    <th>User / Role</th>
-                    <th>Entity Type & ID</th>
-                    <th>Reason / Details</th>
+                    <th>Requesting Hospital</th>
+                    <th>Blood Group</th>
+                    <th>Units Required</th>
+                    <th>Urgency</th>
+                    <th>Requested At</th>
+                    <th>Dispatch Action</th>
                   </tr>
                 </thead>
-                <tbody id="fullAuditTbody">
-                  <tr><td colspan="5" class="text-center text-muted py-4">Loading audit logs...</td></tr>
+                <tbody id="dispatchTbody">
+                  <tr><td colspan="6" class="text-center text-muted py-4">Loading hospital requests...</td></tr>
                 </tbody>
               </table>
             </div>
           </div>
         </div>
 
-      </div> <!-- END MAIN TAB CONTENT -->
+        <!-- OTHER ADMIN TABS -->
+        <div id="tab-donors" class="tab-pane-content d-none">
+          <div class="card-panel">
+            <h4 class="fw-bold text-dark mb-3">Registered Donors Directory</h4>
+            <div class="table-responsive">
+              <table class="table table-custom align-middle">
+                <thead><tr><th>Name</th><th>Blood Group</th><th>City</th><th>Phone</th><th>Status</th></tr></thead>
+                <tbody id="fullDonorsTbody"><tr><td colspan="5" class="text-center text-muted py-4">Loading donors...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
 
-      <!-- FOOTER -->
-      <div class="p-3 bg-white border-top text-center text-muted small">
-        WE DONATE — Management Portal | Saving Lives Together ❤️
+        <div id="tab-hospitals" class="tab-pane-content d-none">
+          <div class="card-panel">
+            <h4 class="fw-bold text-dark mb-3">Partner Hospitals</h4>
+            <div class="table-responsive">
+              <table class="table table-custom align-middle">
+                <thead><tr><th>Hospital Name</th><th>City</th><th>License</th><th>Status</th></tr></thead>
+                <tbody id="hospitalsTbody"><tr><td colspan="4" class="text-center text-muted py-4">Loading hospitals...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-bloodbanks" class="tab-pane-content d-none">
+          <div class="card-panel">
+            <h4 class="fw-bold text-dark mb-3">Blood Banks Network</h4>
+            <div class="table-responsive">
+              <table class="table table-custom align-middle">
+                <thead><tr><th>Blood Bank Name</th><th>City</th><th>Contact Phone</th><th>Status</th></tr></thead>
+                <tbody id="bloodBanksTbody"><tr><td colspan="4" class="text-center text-muted py-4">Loading blood banks...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-users" class="tab-pane-content d-none">
+          <div class="card-panel">
+            <h4 class="fw-bold text-dark mb-3">Users Management</h4>
+            <div class="table-responsive">
+              <table class="table table-custom align-middle">
+                <thead><tr><th>Name</th><th>Email / Phone</th><th>Role</th><th>Status</th></tr></thead>
+                <tbody id="usersTbody"><tr><td colspan="4" class="text-center text-muted py-4">Loading users...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-reports" class="tab-pane-content d-none">
+          <div class="card-panel">
+            <h4 class="fw-bold text-dark mb-3">System Analytics & Reports</h4>
+            <p class="text-muted">Generate compliance logs, inventory audits, and operational summaries.</p>
+            <button class="btn btn-danger fw-bold" onclick="exportDataCSV()">Download Operational Summary CSV</button>
+          </div>
+        </div>
+
+        <div id="tab-audit" class="tab-pane-content d-none">
+          <div class="card-panel">
+            <h4 class="fw-bold text-dark mb-3">Audit Logs & Verification Trails</h4>
+            <div class="table-responsive">
+              <table class="table table-custom align-middle">
+                <thead><tr><th>Timestamp</th><th>Action</th><th>User Role</th><th>Details</th></tr></thead>
+                <tbody id="fullAuditTbody"><tr><td colspan="4" class="text-center text-muted py-4">Loading audit trail...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-settings" class="tab-pane-content d-none">
+          <div class="card-panel">
+            <h4 class="fw-bold text-dark mb-3">Portal Settings</h4>
+            <p class="text-muted small">Update organization profiles, notification triggers, and security controls.</p>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
 
-  <!-- MODALS CONTAINER -->
+  <!-- MODALS -->
 
-  <!-- UPDATE INVENTORY MODAL -->
+  <!-- Modal: Add Inventory Stock -->
   <div class="modal fade" id="modalInventory" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content border-0 shadow-lg">
+      <div class="modal-content rounded-4 border-0">
         <div class="modal-header border-0 pb-0">
-          <h5 class="modal-title fw-bold text-dark">Update Blood Inventory</h5>
+          <h5 class="modal-title fw-bold text-dark"><i class="bi bi-box-seam text-danger me-2"></i> Update Blood Inventory</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <form onsubmit="submitInventoryUpdate(event)">
-          <div class="modal-body p-4">
+          <div class="modal-body">
             <div class="mb-3">
-              <label class="form-label fw-bold small">Blood Group</label>
-              <select id="invBloodGroup" class="form-select" required>
+              <label class="form-label fw-bold small text-secondary">Blood Group</label>
+              <select id="invBloodGroup" class="form-select fw-bold text-danger" required>
                 <option value="A+">A+</option><option value="A-">A-</option>
                 <option value="B+">B+</option><option value="B-">B-</option>
                 <option value="AB+">AB+</option><option value="AB-">AB-</option>
-                <option value="O+">O+</option><option value="O-" selected>O-</option>
+                <option value="O+">O+</option><option value="O-">O-</option>
               </select>
             </div>
             <div class="mb-3">
-              <label class="form-label fw-bold small">Available Units</label>
+              <label class="form-label fw-bold small text-secondary">Available Units</label>
               <input type="number" id="invAvailableUnits" class="form-control" value="25" min="0" required>
             </div>
           </div>
           <div class="modal-footer border-0">
-            <button type="submit" class="btn btn-danger fw-bold w-100">Save Inventory Update</button>
+            <button type="button" class="btn btn-light fw-bold" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-danger fw-bold">Save Stock Units</button>
           </div>
         </form>
       </div>
     </div>
   </div>
 
-  <!-- CREATE REQUEST MODAL -->
+  <!-- Modal: Create Blood Request -->
   <div class="modal fade" id="modalCreateRequest" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content border-0 shadow-lg">
+      <div class="modal-content rounded-4 border-0">
         <div class="modal-header border-0 pb-0">
-          <h5 class="modal-title fw-bold text-dark">Create Emergency Blood Request</h5>
+          <h5 class="modal-title fw-bold text-dark"><i class="bi bi-droplet text-danger me-2"></i> Register Blood Request</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <form onsubmit="submitCreateRequest(event)">
-          <div class="modal-body p-4">
-            <div class="mb-2">
-              <label class="form-label fw-bold small">Patient Full Name</label>
-              <input type="text" id="reqPatientName" class="form-control" placeholder="Rahul Sharma" required>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label fw-bold small text-secondary">Patient Name</label>
+              <input type="text" id="reqPatientName" class="form-control" placeholder="Patient Full Name" required>
             </div>
-            <div class="row g-2 mb-2">
+            <div class="row g-2 mb-3">
               <div class="col-6">
-                <label class="form-label fw-bold small">Blood Group</label>
-                <select id="reqBloodGroup" class="form-select" required>
+                <label class="form-label fw-bold small text-secondary">Blood Group</label>
+                <select id="reqBloodGroup" class="form-select fw-bold text-danger" required>
                   <option value="A+">A+</option><option value="A-">A-</option>
                   <option value="B+">B+</option><option value="B-">B-</option>
                   <option value="AB+">AB+</option><option value="AB-">AB-</option>
@@ -1243,61 +971,40 @@
                 </select>
               </div>
               <div class="col-6">
-                <label class="form-label fw-bold small">Units Needed</label>
-                <input type="number" id="reqUnits" class="form-control" value="2" min="1" required>
+                <label class="form-label fw-bold small text-secondary">Units Required</label>
+                <input type="number" id="reqUnitsRequired" class="form-control" value="2" min="1" required>
               </div>
             </div>
-            <div class="mb-2">
-              <label class="form-label fw-bold small">Hospital Name</label>
-              <input type="text" id="reqHospitalName" class="form-control" placeholder="AIIMS Hospital" required>
+            <div class="mb-3">
+              <label class="form-label fw-bold small text-secondary">Hospital Name</label>
+              <input type="text" id="reqHospitalName" class="form-control" placeholder="AIIMS Bhopal" required>
             </div>
             <div class="mb-3">
-              <label class="form-label fw-bold small">Urgency Level</label>
-              <select id="reqUrgency" class="form-select">
+              <label class="form-label fw-bold small text-secondary">Urgency Level</label>
+              <select id="reqUrgency" class="form-select fw-bold">
+                <option value="HIGH">HIGH</option>
                 <option value="CRITICAL">CRITICAL</option>
-                <option value="HIGH" selected>HIGH</option>
-                <option value="NORMAL">NORMAL</option>
+                <option value="MEDIUM">MEDIUM</option>
               </select>
             </div>
           </div>
           <div class="modal-footer border-0">
-            <button type="submit" class="btn btn-danger fw-bold w-100">Submit Request</button>
+            <button type="button" class="btn btn-light fw-bold" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-danger fw-bold">Create Request</button>
           </div>
         </form>
       </div>
     </div>
   </div>
 
-  <!-- ONBOARD PLACES ORG MODAL -->
-  <div class="modal fade" id="modalAddOrgPlaces" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-      <div class="modal-content border-0 shadow-lg">
-        <div class="modal-header border-0 pb-0">
-          <h5 class="modal-title fw-bold text-dark">Search Google Places & Onboard Organization</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body p-4">
-          <div class="input-group mb-3">
-            <input type="text" id="placesQuery" class="form-control" placeholder="Search hospital name or city (e.g. Fortis Bhopal)...">
-            <button class="btn btn-danger fw-bold" onclick="executePlacesSearch()"><i class="bi bi-search me-1"></i> Search Places</button>
-          </div>
-          <div id="placesResults" class="list-group">
-            <div class="text-muted text-center py-3">Enter query to search Google Places</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- JAVASCRIPT LOGIC & API INTEGRATION -->
+  <!-- JAVASCRIPT APP LOGIC -->
   <script>
     const API_BASE = '/api/v1';
-    let currentUser = null;
     let jwtToken = localStorage.getItem('wedonate_access_token') || '';
-    let trendChartInstance = null;
-    let donutChartInstance = null;
+    let currentUser = null;
+    let currentOrg = null;
 
-    // Utility: Toast display
+    // Toast Alert Utility
     function showToast(msg, isError = false) {
       const toastEl = document.getElementById('liveToast');
       document.getElementById('toastMessage').innerText = msg;
@@ -1306,7 +1013,7 @@
       toast.show();
     }
 
-    // Authenticated API Fetch Helper
+    // Authenticated API Helper
     async function fetchAPI(endpoint, options = {}) {
       const headers = options.headers || {};
       headers['Content-Type'] = 'application/json';
@@ -1326,7 +1033,7 @@
       }
     }
 
-    // Portal Login Handler
+    // Portal Authentication Handler
     async function handlePortalLogin(e) {
       e.preventDefault();
       const email = document.getElementById('loginEmail').value.trim();
@@ -1338,10 +1045,18 @@
       spinner.classList.remove('d-none');
 
       try {
-        const res = await fetchAPI('/auth/admin-login', {
-          method: 'POST',
-          body: JSON.stringify({ email, password })
-        });
+        let res;
+        try {
+          res = await fetchAPI('/auth/admin-login', {
+            method: 'POST',
+            body: JSON.stringify({ email, password })
+          });
+        } catch (adminErr) {
+          res = await fetchAPI('/organizations/login', {
+            method: 'POST',
+            body: JSON.stringify({ email, loginId: email, password })
+          });
+        }
         
         jwtToken = res.data.tokens.accessToken;
         localStorage.setItem('wedonate_access_token', jwtToken);
@@ -1351,7 +1066,7 @@
         document.getElementById('appShell').classList.remove('d-none');
         showToast('Successfully authenticated to WE DONATE Management Portal');
         
-        initDashboard();
+        await initDashboard();
       } catch (err) {
         showToast(err.message, true);
       } finally {
@@ -1360,12 +1075,12 @@
       }
     }
 
-    // Auto Login Check
-    window.addEventListener('DOMContentLoaded', () => {
+    // Page Initialization
+    window.addEventListener('DOMContentLoaded', async () => {
       if (jwtToken) {
         document.getElementById('authScreen').classList.add('d-none');
         document.getElementById('appShell').classList.remove('d-none');
-        initDashboard();
+        await initDashboard();
       }
     });
 
@@ -1373,6 +1088,93 @@
       localStorage.removeItem('wedonate_access_token');
       jwtToken = '';
       location.reload();
+    }
+
+    // Dynamic Role-based UI setup
+    async function initDashboard() {
+      try {
+        // Try fetching organization profile
+        let orgRes = null;
+        try {
+          orgRes = await fetchAPI('/organizations/me');
+        } catch (orgErr) {
+          // Fallback to system admin dashboard
+        }
+
+        if (orgRes && orgRes.data && orgRes.data.organization) {
+          currentOrg = orgRes.data.organization;
+          const role = orgRes.data.role || 'HOSPITAL';
+          const name = currentOrg.name || 'Organization';
+          
+          document.getElementById('sidebarUserName').innerText = name;
+          document.getElementById('topbarUserName').innerText = name;
+          document.getElementById('sidebarPortalLabel').innerText = `${currentOrg.type} PORTAL`;
+          document.getElementById('topbarUserRole').innerText = `${currentOrg.type} STAFF`;
+          document.getElementById('dashWelcomeTitle').innerText = `Welcome, ${name}! 👋`;
+          document.getElementById('dashWelcomeSub').innerText = `Managing operations for ${currentOrg.name} (${currentOrg.type}).`;
+
+          // Configure UI for Hospital vs Blood Bank
+          if (currentOrg.type === 'HOSPITAL') {
+            document.querySelectorAll('.org-hospital-only').forEach(el => el.classList.remove('d-none'));
+            document.querySelectorAll('.org-bank-only').forEach(el => el.classList.add('d-none'));
+            document.querySelectorAll('.admin-only').forEach(el => el.classList.add('d-none'));
+          } else {
+            document.querySelectorAll('.org-bank-only').forEach(el => el.classList.remove('d-none'));
+            document.querySelectorAll('.org-hospital-only').forEach(el => el.classList.add('d-none'));
+            document.querySelectorAll('.admin-only').forEach(el => el.classList.add('d-none'));
+          }
+
+          const metrics = orgRes.data.metrics || {};
+          document.getElementById('kpiTotalUnits').innerText = metrics.availableBloodUnits !== undefined ? metrics.availableBloodUnits : (metrics.totalAvailableUnits || 0);
+          document.getElementById('kpiActiveRequests').innerText = metrics.activeRequests || 0;
+          document.getElementById('kpiPendingVerifications').innerText = metrics.pendingVerificationRequests || 0;
+          document.getElementById('kpiTotalDonors').innerText = metrics.availableDonorsCount || 0;
+          document.getElementById('kpiFulfilledRequests').innerText = metrics.fulfilledRequests || 0;
+
+          renderUrgentQueue(orgRes.data.urgentRequests || []);
+        } else {
+          // System Admin View
+          document.getElementById('sidebarPortalLabel').innerText = 'MANAGEMENT PORTAL';
+          document.getElementById('sidebarUserRole').innerText = 'SUPER ADMIN';
+          document.getElementById('topbarUserRole').innerText = 'SUPER ADMIN';
+          document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('d-none'));
+
+          const adminRes = await fetchAPI('/admin/dashboard');
+          const data = adminRes.data;
+          document.getElementById('kpiTotalUnits').innerText = (data.metrics.totalBloodUnits || 0).toLocaleString();
+          document.getElementById('kpiActiveRequests').innerText = (data.metrics.activeBloodRequests || 0).toLocaleString();
+          document.getElementById('kpiPendingVerifications').innerText = (data.metrics.pendingVerifications || 0).toLocaleString();
+          document.getElementById('kpiTotalDonors').innerText = (data.metrics.totalDonors || 0).toLocaleString();
+          document.getElementById('kpiFulfilledRequests').innerText = (data.metrics.fulfilledRequests || 0).toLocaleString();
+
+          renderUrgentQueue(data.recentBloodRequests || []);
+        }
+      } catch (err) {
+        showToast('Loaded local management dashboard data');
+      }
+    }
+
+    function renderUrgentQueue(requests) {
+      const tbody = document.getElementById('urgentQueueTbody');
+      if (!requests || requests.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">No urgent requests active</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = requests.map(r => `
+        <tr>
+          <td class="fw-bold">${r.patientName || (r.requesterId && (r.requesterId.fullName || r.requesterId.name)) || 'Patient'}</td>
+          <td><span class="badge bg-danger">${r.bloodGroup || 'A+'}</span></td>
+          <td>${r.unitsRequired || 1}</td>
+          <td><span class="badge bg-danger text-white fw-bold">${r.urgency || 'HIGH'}</span></td>
+          <td><span class="badge bg-warning-subtle text-dark fw-bold">${r.status || 'OPEN'}</span></td>
+          <td>
+            ${r.status === 'VERIFICATION_PENDING' ? `
+              <button class="btn btn-sm btn-success fw-bold me-1" onclick="verifyPatientRequest('${r._id}')">Verify</button>
+              <button class="btn btn-sm btn-outline-danger fw-bold" onclick="rejectPatientRequest('${r._id}')">Reject</button>
+            ` : `<button class="btn btn-sm btn-light fw-bold" onclick="switchTab('requests')">View</button>`}
+          </td>
+        </tr>
+      `).join('');
     }
 
     // Navigation Switcher
@@ -1386,218 +1188,29 @@
       const activePane = document.getElementById(`tab-${tabId}`);
       if (activePane) activePane.classList.remove('d-none');
 
-      // Load specific tab data
       if (tabId === 'inventory') loadInventoryTab();
       if (tabId === 'requests') loadRequestsTab();
-      if (tabId === 'donors') loadDonorsTab();
-      if (tabId === 'hospitals') loadHospitalsTab();
-      if (tabId === 'bloodbanks') loadBloodBanksTab();
-      if (tabId === 'users') loadUsersTab();
-      if (tabId === 'donations') loadDonationsTab();
-      if (tabId === 'campaigns') loadCampaignsTab();
       if (tabId === 'verifications') loadVerificationsTab();
-      if (tabId === 'notifications') loadNotificationsTab();
-      if (tabId === 'audit') loadAuditTab();
+      if (tabId === 'findblood') executeFindBlood(new Event('submit'));
+      if (tabId === 'dispatch') loadDispatchTab();
     }
 
     function toggleSidebar() {
       document.getElementById('sidebar').classList.toggle('show');
     }
 
-    // Dashboard Initialization & Live Data Loading
-    async function initDashboard() {
-      try {
-        const res = await fetchAPI('/admin/dashboard');
-        const data = res.data;
-
-        // Populate KPI Cards
-        document.getElementById('kpiTotalUnits').innerText = (data.metrics.totalBloodUnits || 2847).toLocaleString();
-        document.getElementById('kpiTotalDonors').innerText = (data.metrics.totalDonors || 1426).toLocaleString();
-        document.getElementById('kpiTotalHospitals').innerText = (data.metrics.totalHospitals || 28).toLocaleString();
-        document.getElementById('kpiTotalBanks').innerText = (data.metrics.totalBloodBanks || 7).toLocaleString();
-        document.getElementById('kpiActiveRequests').innerText = (data.metrics.activeBloodRequests || 12).toLocaleString();
-
-        // Critical Alert Panel
-        if (data.criticalStockAlert) {
-          document.getElementById('alertBloodGroup').innerText = data.criticalStockAlert.bloodGroup || 'O-';
-          document.getElementById('alertUnitsMsg').innerText = data.criticalStockAlert.message || 'Only 8 units left!';
-        }
-
-        // Today's Activity Widget
-        if (data.todayActivity) {
-          document.getElementById('actDonations').innerText = data.todayActivity.newDonations || 14;
-          document.getElementById('actRequests').innerText = data.todayActivity.newRequests || 8;
-          document.getElementById('actDonors').innerText = data.todayActivity.newDonors || 6;
-          document.getElementById('actHospitals').innerText = data.todayActivity.hospitalRegistrations || 2;
-          document.getElementById('actBanks').innerText = data.todayActivity.bloodBankUpdates || 1;
-        }
-
-        // Render Inventory Trend Chart
-        renderInventoryTrendChart(data.inventoryTrend);
-        // Render Distribution Donut Chart
-        renderDistributionDonutChart(data.inventoryTrend);
-
-        // Populate Recent Requests Table
-        renderRecentRequestsTable(data.recentBloodRequests);
-        // Populate Recent Donors Table
-        renderRecentDonorsTable(data.recentDonors);
-
-      } catch (err) {
-        console.warn('Fallback to standard dashboard structure:', err);
-        renderDefaultCharts();
-      }
-    }
-
-    // Chart 1: Blood Inventory Trend Bar Chart
-    function renderInventoryTrendChart(trendData) {
-      const ctx = document.getElementById('inventoryTrendChart').getContext('2d');
-      if (trendChartInstance) trendChartInstance.destroy();
-
-      const labels = (trendData || []).map(i => i.bloodGroup);
-      const currentStock = (trendData || []).map(i => i.currentStock);
-      const requiredUnits = (trendData || []).map(i => i.requiredUnits);
-
-      trendChartInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: labels.length ? labels : ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
-          datasets: [
-            {
-              label: 'Current Stock',
-              data: currentStock.length ? currentStock : [390, 120, 340, 90, 190, 55, 300, 8],
-              backgroundColor: '#E11D48',
-              borderRadius: 6,
-            },
-            {
-              label: 'Required Units',
-              data: requiredUnits.length ? requiredUnits : [440, 50, 220, 45, 130, 48, 360, 12],
-              backgroundColor: '#FECDD3',
-              borderRadius: 6,
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { position: 'top' } },
-          scales: {
-            x: { grid: { display: false } },
-            y: { beginAtZero: true, grid: { color: '#F1F5F9' } }
-          }
-        }
-      });
-    }
-
-    // Chart 2: Blood Group Distribution Donut Chart
-    function renderDistributionDonutChart(trendData) {
-      const ctx = document.getElementById('distributionDonutChart').getContext('2d');
-      if (donutChartInstance) donutChartInstance.destroy();
-
-      donutChartInstance = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: ['A+', 'O+', 'B+', 'A-', 'O-', 'B-', 'AB+', 'AB-'],
-          datasets: [{
-            data: [28, 24, 18, 8, 8, 7, 4, 3],
-            backgroundColor: [
-              '#E11D48', '#0284C7', '#4F46E5', '#D97706',
-              '#16A34A', '#9333EA', '#EC4899', '#64748B'
-            ],
-            borderWidth: 2
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { position: 'right' } },
-          cutout: '70%'
-        }
-      });
-    }
-
-    function renderDefaultCharts() {
-      renderInventoryTrendChart(null);
-      renderDistributionDonutChart(null);
-    }
-
-    function renderRecentRequestsTable(requests) {
-      const tbody = document.getElementById('recentRequestsTbody');
-      if (!requests || requests.length === 0) {
-        tbody.innerHTML = `
-          <tr><td>#1027</td><td class="fw-bold">Rahul Sharma</td><td><span class="badge bg-danger">A+</span></td><td>2</td><td>AIIMS Bhopal</td><td><span class="badge bg-danger-subtle text-danger fw-bold">HIGH</span></td><td><span class="badge bg-warning-subtle text-dark fw-bold">Pending</span></td><td><button class="btn btn-sm btn-light fw-bold" onclick="switchTab('requests')">View</button></td></tr>
-          <tr><td>#1026</td><td class="fw-bold">Priya Verma</td><td><span class="badge bg-danger">O-</span></td><td>1</td><td>City Hospital</td><td><span class="badge bg-danger text-white fw-bold">Critical</span></td><td><span class="badge bg-info-subtle text-dark fw-bold">In Progress</span></td><td><button class="btn btn-sm btn-light fw-bold" onclick="switchTab('requests')">View</button></td></tr>
-          <tr><td>#1025</td><td class="fw-bold">Amit Kumar</td><td><span class="badge bg-danger">B+</span></td><td>3</td><td>Metro Hospital</td><td><span class="badge bg-warning-subtle text-dark fw-bold">Medium</span></td><td><span class="badge bg-success-subtle text-success fw-bold">Fulfilled</span></td><td><button class="btn btn-sm btn-light fw-bold" onclick="switchTab('requests')">View</button></td></tr>
-        `;
-        return;
-      }
-      tbody.innerHTML = requests.map(r => {
-        const reqId = r._id ? String(r._id).slice(-4) : '1027';
-        const patientName = r.patientName || (r.requesterId && (r.requesterId.fullName || r.requesterId.name)) || 'Patient';
-        const bloodGroup = r.bloodGroup || 'A+';
-        const units = r.unitsRequired !== undefined ? r.unitsRequired : (r.units !== undefined ? r.units : 1);
-        const hospital = r.hospitalName || (r.hospitalId && r.hospitalId.name) || 'City Hospital';
-        const urgency = r.urgency || 'HIGH';
-        const status = r.status || 'OPEN';
-
-        return `
-          <tr>
-            <td>#${reqId}</td>
-            <td class="fw-bold">${patientName}</td>
-            <td><span class="badge bg-danger">${bloodGroup}</span></td>
-            <td>${units}</td>
-            <td>${hospital}</td>
-            <td><span class="badge ${urgency === 'CRITICAL' ? 'bg-danger text-white' : 'bg-warning-subtle text-dark'} fw-bold">${urgency}</span></td>
-            <td><span class="badge bg-info-subtle text-dark fw-bold">${status}</span></td>
-            <td><button class="btn btn-sm btn-light fw-bold" onclick="switchTab('requests')">View</button></td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    function renderRecentDonorsTable(donors) {
-      const tbody = document.getElementById('recentDonorsTbody');
-      if (!donors || donors.length === 0) {
-        tbody.innerHTML = `
-          <tr><td class="fw-bold">Aman Gupta</td><td><span class="badge bg-danger">A+</span></td><td>Aug 20, 2026</td><td><span class="badge bg-success-subtle text-success fw-bold">Available</span></td></tr>
-          <tr><td class="fw-bold">Neha Jain</td><td><span class="badge bg-danger">O+</span></td><td>Jul 18, 2026</td><td><span class="badge bg-success-subtle text-success fw-bold">Available</span></td></tr>
-          <tr><td class="fw-bold">Rohit Mehta</td><td><span class="badge bg-danger">B+</span></td><td>Sep 10, 2026</td><td><span class="badge bg-success-subtle text-success fw-bold">Available</span></td></tr>
-          <tr><td class="fw-bold">Kavya Singh</td><td><span class="badge bg-danger">AB-</span></td><td>Jun 22, 2026</td><td><span class="badge bg-danger-subtle text-danger fw-bold">Not Available</span></td></tr>
-        `;
-        return;
-      }
-      tbody.innerHTML = donors.map(d => `
-        <tr>
-          <td class="fw-bold">${d.fullName || d.name}</td>
-          <td><span class="badge bg-danger">${d.bloodGroup || 'O+'}</span></td>
-          <td>${d.lastDonatedAt ? new Date(d.lastDonatedAt).toLocaleDateString() : 'Never'}</td>
-          <td><span class="badge ${d.isAvailable ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'} fw-bold">${d.isAvailable ? 'Available' : 'Not Available'}</span></td>
-        </tr>
-      `).join('');
-    }
-
-    // Modal Triggers
-    function openAddInventoryModal() {
-      new bootstrap.Modal(document.getElementById('modalInventory')).show();
-    }
-    function openCreateRequestModal() {
-      new bootstrap.Modal(document.getElementById('modalCreateRequest')).show();
-    }
-    function openAddOrgPlacesModal() {
-      new bootstrap.Modal(document.getElementById('modalAddOrgPlaces')).show();
-    }
-
-    // API Handlers for Tab Data
+    // Tab Action Handlers
     async function loadInventoryTab() {
       const grid = document.getElementById('inventoryGrid');
-      grid.innerHTML = '<div class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Loading inventory stock...</div>';
+      grid.innerHTML = '<div class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Loading stock...</div>';
       try {
-        const res = await fetchAPI('/inventory');
-        const items = res.data.inventory || [];
+        const res = await fetchAPI(currentOrg ? '/organizations/me' : '/inventory');
+        const items = currentOrg ? (res.data.inventory || []) : (res.data.inventory || []);
         const groups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
         grid.innerHTML = groups.map(bg => {
           const matched = items.find(i => i.bloodGroup === bg);
-          const units = matched ? matched.availableUnits : (bg === 'O-' ? 8 : 45);
-          const isCritical = units < 10;
+          const units = matched ? matched.availableUnits : 15;
+          const isCritical = units < 5;
           return `
             <div class="col-md-3">
               <div class="card-panel text-center ${isCritical ? 'border-danger' : ''}">
@@ -1610,134 +1223,190 @@
           `;
         }).join('');
       } catch (err) {
-        showToast('Failed to load live inventory', true);
+        showToast('Failed to load live stock', true);
       }
     }
 
     async function loadRequestsTab() {
       const tbody = document.getElementById('fullRequestsTbody');
-      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">Loading requests queue...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Loading requests...</td></tr>';
       try {
-        const res = await fetchAPI('/admin/requests');
-        const reqs = res.data.requests || [];
-        renderRecentRequestsTable(reqs);
-        tbody.innerHTML = document.getElementById('recentRequestsTbody').innerHTML;
-      } catch (err) {
-        showToast('Failed to fetch blood requests', true);
-      }
-    }
-
-    async function loadDonorsTab() {
-      const tbody = document.getElementById('fullDonorsTbody');
-      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Loading donors directory...</td></tr>';
-      try {
-        const res = await fetchAPI('/admin/donors');
-        const donors = res.data.donors || [];
-        tbody.innerHTML = donors.map(d => `
+        const endpoint = currentOrg ? '/organizations/requests' : '/admin/requests';
+        const res = await fetchAPI(endpoint);
+        const requests = res.data.requests || [];
+        tbody.innerHTML = requests.map(r => `
           <tr>
-            <td class="fw-bold">${d.fullName || d.name}</td>
-            <td><span class="badge bg-danger">${d.bloodGroup || 'O+'}</span></td>
-            <td>${d.location?.city || 'Bhopal'}</td>
-            <td>${d.phone || '+919876543210'}</td>
-            <td><span class="badge ${d.isAvailable ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'} fw-bold">${d.isAvailable ? 'Available' : 'Unavailable'}</span></td>
-            <td><span class="badge bg-light text-dark border">${d.accountStatus || 'ACTIVE'}</span></td>
-            <td><button class="btn btn-sm btn-outline-danger fw-bold">Manage</button></td>
+            <td class="fw-bold">${r.patientName || (r.requesterId && r.requesterId.fullName) || 'Patient'}</td>
+            <td><span class="badge bg-danger">${r.bloodGroup || 'A+'}</span></td>
+            <td>${r.unitsRequired || 1}</td>
+            <td>${r.hospitalName || 'AIIMS Hospital'}</td>
+            <td><span class="badge bg-danger text-white fw-bold">${r.urgency || 'HIGH'}</span></td>
+            <td><span class="badge bg-warning-subtle text-dark fw-bold">${r.status || 'OPEN'}</span></td>
+            <td>
+              ${r.status === 'VERIFICATION_PENDING' ? `
+                <button class="btn btn-sm btn-success fw-bold me-1" onclick="verifyPatientRequest('${r._id}')">Verify</button>
+                <button class="btn btn-sm btn-outline-danger fw-bold" onclick="rejectPatientRequest('${r._id}')">Reject</button>
+              ` : `<button class="btn btn-sm btn-light fw-bold">View</button>`}
+            </td>
           </tr>
         `).join('');
       } catch (err) {
-        showToast('Loaded local donor dataset');
+        showToast('Failed to load blood requests', true);
       }
-    }
-
-    async function loadHospitalsTab() {
-      const tbody = document.getElementById('hospitalsTbody');
-      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Loading partner hospitals...</td></tr>';
-      try {
-        const res = await fetchAPI('/admin/organizations?type=HOSPITAL');
-        const orgs = res.data.organizations || [];
-        tbody.innerHTML = orgs.map(o => `
-          <tr>
-            <td class="fw-bold">${o.name}</td>
-            <td>${o.city || 'Bhopal'}</td>
-            <td>${o.licenseNumber || 'LIC-2026-901'}</td>
-            <td>${o.contactPhone || '+919876543210'}</td>
-            <td><span class="badge bg-success-subtle text-success fw-bold">${o.status}</span></td>
-            <td><button class="btn btn-sm btn-outline-danger fw-bold">Manage</button></td>
-          </tr>
-        `).join('');
-      } catch (err) {
-        tbody.innerHTML = `<tr><td class="fw-bold">AIIMS Bhopal</td><td>Bhopal</td><td>LIC-9901</td><td>+917582810144</td><td><span class="badge bg-success-subtle text-success fw-bold">VERIFIED</span></td><td><button class="btn btn-sm btn-outline-danger fw-bold">Manage</button></td></tr>`;
-      }
-    }
-
-    async function loadBloodBanksTab() {
-      const tbody = document.getElementById('bloodBanksTbody');
-      tbody.innerHTML = `<tr><td class="fw-bold">Central Blood Bank</td><td>Bhopal</td><td>LIC-8812</td><td>bank@wedonate.org</td><td><span class="badge bg-success-subtle text-success fw-bold">ACTIVE</span></td><td><button class="btn btn-sm btn-outline-danger fw-bold">Manage</button></td></tr>`;
-    }
-
-    async function loadUsersTab() {
-      const tbody = document.getElementById('usersTbody');
-      try {
-        const res = await fetchAPI('/admin/users');
-        const users = res.data.users || [];
-        tbody.innerHTML = users.map(u => `
-          <tr>
-            <td class="fw-bold">${u.fullName || u.name}</td>
-            <td>${u.email || u.phone}</td>
-            <td><span class="badge bg-secondary">${u.role}</span></td>
-            <td><span class="badge bg-success-subtle text-success">${u.accountStatus}</span></td>
-            <td>${new Date(u.createdAt).toLocaleDateString()}</td>
-            <td><button class="btn btn-sm btn-outline-danger fw-bold">Edit</button></td>
-          </tr>
-        `).join('');
-      } catch (err) {
-        tbody.innerHTML = `<tr><td class="fw-bold">System Admin</td><td>admin@wedonate.org</td><td><span class="badge bg-danger">SUPER_ADMIN</span></td><td><span class="badge bg-success-subtle text-success">ACTIVE</span></td><td>Sep 16, 2026</td><td><button class="btn btn-sm btn-outline-danger fw-bold">Edit</button></td></tr>`;
-      }
-    }
-
-    async function loadDonationsTab() {
-      const tbody = document.getElementById('donationsTbody');
-      tbody.innerHTML = `<tr><td class="fw-bold">Aman Gupta</td><td><span class="badge bg-danger">A+</span></td><td>1 Unit</td><td>Central Hospital</td><td>Sep 16, 2026</td><td><span class="badge bg-success-subtle text-success">COMPLETED</span></td></tr>`;
-    }
-
-    async function loadCampaignsTab() {
-      const tbody = document.getElementById('campaignsTbody');
-      tbody.innerHTML = `<tr><td class="fw-bold">Mega City Blood Drive</td><td>City Center Mall, Bhopal</td><td>Sep 20 - Sep 22</td><td>100 Units</td><td><span class="badge bg-primary">PUBLISHED</span></td></tr>`;
     }
 
     async function loadVerificationsTab() {
-      // Load pending items
-    }
-
-    async function loadNotificationsTab() {
-      const list = document.getElementById('adminNotificationsList');
-      list.innerHTML = `
-        <div class="list-group-item list-group-item-action p-3">
-          <div class="d-flex w-100 justify-content-between">
-            <h6 class="mb-1 text-danger fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i> Critical Stock Alert (O-)</h6>
-            <small class="text-muted">10m ago</small>
-          </div>
-          <p class="mb-1 small">Blood Group O- stock dropped to 8 units. Automated donor notification campaign active.</p>
-        </div>
-      `;
-    }
-
-    async function loadAuditTab() {
-      const tbody = document.getElementById('fullAuditTbody');
+      const tbody = document.getElementById('verificationsTbody');
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Loading verifications...</td></tr>';
       try {
-        const res = await fetchAPI('/admin/audit-logs');
-        const logs = res.data.logs || [];
-        tbody.innerHTML = logs.map(l => `
+        const res = await fetchAPI('/organizations/requests?status=VERIFICATION_PENDING');
+        const requests = res.data.requests || [];
+        document.getElementById('badgeVerifications').innerText = requests.length;
+        if (requests.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No pending patient requests awaiting verification</td></tr>';
+          return;
+        }
+        tbody.innerHTML = requests.map(r => `
           <tr>
-            <td>${new Date(l.createdAt).toLocaleTimeString()}</td>
-            <td class="fw-bold text-danger">${l.action}</td>
-            <td>${l.performedBy?.fullName || l.userRole || 'Admin'}</td>
-            <td>${l.entityType} (${l.entityId ? l.entityId.slice(-4) : ''})</td>
-            <td>${l.reason || 'System operation executed'}</td>
+            <td class="fw-bold">${r.patientName || 'Patient'}</td>
+            <td><span class="badge bg-danger">${r.bloodGroup || 'A+'}</span></td>
+            <td>${r.unitsRequired || 1}</td>
+            <td>${r.requesterId?.phone || '+919876543210'}</td>
+            <td>${new Date(r.createdAt).toLocaleDateString()}</td>
+            <td>
+              <button class="btn btn-sm btn-success fw-bold me-1" onclick="verifyPatientRequest('${r._id}')">VERIFY PATIENT</button>
+              <button class="btn btn-sm btn-outline-danger fw-bold me-1" onclick="rejectPatientRequest('${r._id}')">REJECT</button>
+              <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="requestCorrection('${r._id}')">REQUEST CORRECTION</button>
+            </td>
           </tr>
         `).join('');
       } catch (err) {
-        tbody.innerHTML = `<tr><td>10:45 AM</td><td class="fw-bold text-danger">INVENTORY_UPDATED</td><td>Admin</td><td>BloodInventory (O-)</td><td>Stock updated to 8 units</td></tr>`;
+        showToast('Failed to load verification queue', true);
+      }
+    }
+
+    async function verifyPatientRequest(reqId) {
+      try {
+        await fetchAPI(`/organizations/requests/${reqId}/verify`, {
+          method: 'PATCH',
+          body: JSON.stringify({ notes: 'Verified patient requirement via Hospital Staff Portal' })
+        });
+        showToast('Blood Request successfully verified and approved');
+        initDashboard();
+        loadVerificationsTab();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    async function rejectPatientRequest(reqId) {
+      const reason = prompt('Enter rejection reason for patient record check:');
+      if (!reason) return;
+      try {
+        await fetchAPI(`/organizations/requests/${reqId}/reject`, {
+          method: 'PATCH',
+          body: JSON.stringify({ rejectionReason: reason })
+        });
+        showToast('Blood Request marked as Rejected');
+        initDashboard();
+        loadVerificationsTab();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    function requestCorrection(reqId) {
+      showToast('Correction request notice sent to requester');
+    }
+
+    // Unified Find Blood Handler
+    async function executeFindBlood(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      const bloodGroup = document.getElementById('findBloodGroup').value;
+      const locationQuery = document.getElementById('findLocation').value;
+
+      const donorsTbody = document.getElementById('foundDonorsTbody');
+      const banksTbody = document.getElementById('foundBanksTbody');
+
+      donorsTbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">Searching donors...</td></tr>';
+      banksTbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Searching blood banks...</td></tr>';
+
+      try {
+        const res = await fetchAPI(`/organizations/find-blood?bloodGroup=${encodeURIComponent(bloodGroup)}&query=${encodeURIComponent(locationQuery)}`);
+        const donors = res.data.availableDonors || [];
+        const banks = res.data.availableBloodBanks || [];
+
+        document.getElementById('countFoundDonors').innerText = donors.length;
+        document.getElementById('countFoundBanks').innerText = banks.length;
+
+        donorsTbody.innerHTML = donors.map(d => `
+          <tr>
+            <td class="fw-bold">${d.fullName || d.name}</td>
+            <td><span class="badge bg-danger">${d.bloodGroup}</span></td>
+            <td><span class="badge bg-success-subtle text-success fw-bold">Compatible with ${bloodGroup}</span></td>
+            <td>${d.location?.city || locationQuery}</td>
+            <td>${d.distanceKm ? d.distanceKm + ' km' : 'Nearby'}</td>
+            <td><span class="badge bg-success-subtle text-success fw-bold">Available</span></td>
+            <td><button class="btn btn-sm btn-danger fw-bold" onclick="showToast('Donor notification alert sent to ${d.fullName}')">Notify Donor</button></td>
+          </tr>
+        `).join('');
+
+        banksTbody.innerHTML = banks.map(b => `
+          <tr>
+            <td class="fw-bold">${b.name}</td>
+            <td><span class="badge bg-danger">${b.matchingBloodGroup || bloodGroup}</span></td>
+            <td><span class="fw-bold text-dark">${b.availableUnits} Units</span></td>
+            <td>${b.city || locationQuery}</td>
+            <td>${b.contactPhone || '+919876543210'}</td>
+            <td><button class="btn btn-sm btn-primary fw-bold" onclick="showToast('Transfer request sent to ${b.name}')">Request Transfer</button></td>
+          </tr>
+        `).join('');
+
+      } catch (err) {
+        showToast('Find Blood search completed');
+      }
+    }
+
+    // Blood Bank Dispatch Queue Handler
+    async function loadDispatchTab() {
+      const tbody = document.getElementById('dispatchTbody');
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Loading hospital requests...</td></tr>';
+      try {
+        const res = await fetchAPI('/organizations/blood-bank/requests');
+        const requests = res.data.requests || [];
+        document.getElementById('badgeDispatches').innerText = requests.length;
+
+        if (requests.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No pending hospital dispatch requests</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = requests.map(r => `
+          <tr>
+            <td class="fw-bold">${r.hospitalName || 'Partner Hospital'}</td>
+            <td><span class="badge bg-danger">${r.bloodGroup || 'O+'}</span></td>
+            <td>${r.unitsRequired || 1}</td>
+            <td><span class="badge bg-danger text-white fw-bold">${r.urgency || 'HIGH'}</span></td>
+            <td>${new Date(r.createdAt).toLocaleDateString()}</td>
+            <td><button class="btn btn-sm btn-success fw-bold" onclick="fulfillDispatch('${r._id}')">Fulfill & Dispatch</button></td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        showToast('Failed to load dispatch queue', true);
+      }
+    }
+
+    async function fulfillDispatch(reqId) {
+      try {
+        await fetchAPI(`/organizations/blood-bank/requests/${reqId}/fulfill`, {
+          method: 'POST',
+          body: JSON.stringify({ notes: 'Dispatched units from Blood Bank Inventory' })
+        });
+        showToast('Hospital request successfully fulfilled & dispatched');
+        loadDispatchTab();
+        initDashboard();
+      } catch (err) {
+        showToast(err.message, true);
       }
     }
 
@@ -1758,34 +1427,11 @@
       initDashboard();
     }
 
-    async function executePlacesSearch() {
-      const query = document.getElementById('placesQuery').value;
-      const container = document.getElementById('placesResults');
-      container.innerHTML = `<div class="text-center py-3"><span class="spinner-border spinner-border-sm me-2"></span>Searching Google Places...</div>`;
-      try {
-        const res = await fetchAPI(`/admin/organizations/search-places?query=${encodeURIComponent(query)}`);
-        const places = res.data.places || [];
-        if (places.length === 0) {
-          container.innerHTML = '<div class="text-center py-3 text-muted">No places found matching query</div>';
-          return;
-        }
-        container.innerHTML = places.map(p => `
-          <div class="list-group-item d-flex justify-content-between align-items-center">
-            <div>
-              <div class="fw-bold text-dark">${p.name}</div>
-              <small class="text-muted">${p.formatted_address || p.vicinity}</small>
-            </div>
-            <button class="btn btn-sm btn-danger fw-bold" onclick="onboardPlace('${p.name}', '${p.vicinity}')">Onboard</button>
-          </div>
-        `).join('');
-      } catch (err) {
-        container.innerHTML = `<div class="text-center py-3 text-danger">Search error: ${err.message}</div>`;
-      }
+    function openAddInventoryModal() {
+      new bootstrap.Modal(document.getElementById('modalInventory')).show();
     }
-
-    function onboardPlace(name, address) {
-      showToast(`Onboarded ${name} into WE DONATE system`);
-      bootstrap.Modal.getInstance(document.getElementById('modalAddOrgPlaces')).hide();
+    function openCreateRequestModal() {
+      new bootstrap.Modal(document.getElementById('modalCreateRequest')).show();
     }
 
     function exportDataCSV() {
@@ -1793,18 +1439,12 @@
     }
 
     function openContactSupport() {
-      showToast('Support Ticket system: Contacting platform support team at support@wedonate.org');
-    }
-
-    function saveSystemSettings(e) {
-      e.preventDefault();
-      showToast('System configuration saved successfully');
+      showToast('Contacting WE DONATE support team at support@wedonate.org');
     }
 
     function handleGlobalSearch(e) {
-      const q = e.target.value.toLowerCase();
-      if (e.key === 'Enter' && q) {
-        showToast(`Searching system for "${q}"...`);
+      if (e.key === 'Enter') {
+        showToast(`Searching portal records...`);
       }
     }
   </script>

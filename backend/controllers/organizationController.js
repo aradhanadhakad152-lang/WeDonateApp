@@ -216,33 +216,57 @@ const getMyOrganization = asyncHandler(async (req, res) => {
     });
   }
 
-  // Dashboard Analytics Metrics
-  const totalRequests = await BloodRequest.countDocuments({
-    $or: [{ targetOrganizationId: organization._id }, { hospitalName: new RegExp(organization.name, 'i') }],
+  const inventory = await BloodInventory.find({ organizationId: organization._id });
+  const totalAvailableUnits = inventory.reduce((sum, item) => sum + (item.availableUnits || 0), 0);
+  const criticalLowGroups = inventory.filter((item) => item.availableUnits <= item.lowStockThreshold).map((item) => item.bloodGroup);
+
+  const orgQuery = {
+    $or: [{ targetOrganizationId: organization._id }, { hospitalName: new RegExp(`^${organization.name.trim().replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}$`, 'i') }],
+  };
+
+  const totalRequests = await BloodRequest.countDocuments(orgQuery);
+
+  const activeRequests = await BloodRequest.countDocuments({
+    ...orgQuery,
+    status: { $in: ['OPEN', 'VERIFICATION_PENDING', 'HOSPITAL_VERIFIED', 'MATCHING', 'DONOR_RESPONDED'] },
   });
 
   const pendingVerificationRequests = await BloodRequest.countDocuments({
-    $or: [{ targetOrganizationId: organization._id }, { hospitalName: new RegExp(organization.name, 'i') }],
+    ...orgQuery,
     status: 'VERIFICATION_PENDING',
   });
 
   const verifiedRequests = await BloodRequest.countDocuments({
-    $or: [{ targetOrganizationId: organization._id }, { hospitalName: new RegExp(organization.name, 'i') }],
-    status: { $in: ['HOSPITAL_VERIFIED', 'ADMIN_VERIFIED', 'MATCHING'] },
+    ...orgQuery,
+    status: { $in: ['HOSPITAL_VERIFIED', 'PATIENT_VERIFIED', 'ADMIN_VERIFIED', 'MATCHING'] },
   });
 
   const fulfilledRequests = await BloodRequest.countDocuments({
-    $or: [{ targetOrganizationId: organization._id }, { hospitalName: new RegExp(organization.name, 'i') }],
+    ...orgQuery,
     status: 'FULFILLED',
   });
+
+  const unitsRequiredAgg = await BloodRequest.aggregate([
+    { $match: { ...orgQuery, status: { $in: ['OPEN', 'VERIFICATION_PENDING', 'HOSPITAL_VERIFIED', 'MATCHING', 'DONOR_RESPONDED'] } } },
+    { $group: { _id: null, totalRequired: { $sum: '$unitsRequired' } } },
+  ]);
+  const bloodUnitsRequired = unitsRequiredAgg.length > 0 ? unitsRequiredAgg[0].totalRequired : 0;
+
+  const availableDonorsCount = await User.countDocuments({ isDonor: true, isAvailable: true });
 
   const activeCamps = await DonationCamp.countDocuments({
     organizationId: organization._id,
     status: { $in: ['PUBLISHED', 'ONGOING'] },
   });
 
-  const inventory = await BloodInventory.find({ organizationId: organization._id });
-  const criticalLowGroups = inventory.filter((item) => item.availableUnits <= item.lowStockThreshold).map((item) => item.bloodGroup);
+  // Urgent / Pending Verification Requests for Alert Banner
+  const urgentRequests = await BloodRequest.find({
+    ...orgQuery,
+    status: { $in: ['VERIFICATION_PENDING', 'OPEN', 'MATCHING'] },
+  })
+    .sort({ urgency: -1, createdAt: -1 })
+    .limit(3)
+    .populate('requesterId', 'fullName name phone');
 
   return sendSuccess(res, {
     statusCode: 200,
@@ -251,12 +275,18 @@ const getMyOrganization = asyncHandler(async (req, res) => {
       organization,
       metrics: {
         totalRequests,
+        activeRequests,
         pendingVerificationRequests,
         verifiedRequests,
         fulfilledRequests,
+        availableBloodUnits: totalAvailableUnits,
+        totalAvailableUnits,
+        availableDonorsCount,
+        bloodUnitsRequired,
         activeCamps,
         criticalLowGroups,
       },
+      urgentRequests,
       inventory,
     },
   });
@@ -822,6 +852,209 @@ const listPublicOrganizations = asyncHandler(async (req, res) => {
   });
 });
 
+const COMPATIBILITY_MAP = {
+  'A+': ['A+', 'A-', 'O+', 'O-'],
+  'A-': ['A-', 'O-'],
+  'B+': ['B+', 'B-', 'O+', 'O-'],
+  'B-': ['B-', 'O-'],
+  'AB+': ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
+  'AB-': ['A-', 'B-', 'AB-', 'O-'],
+  'O+': ['O+', 'O-'],
+  'O-': ['O-'],
+};
+
+// GET /api/v1/organizations/find-blood — Unified Search for Compatible Donors & Blood Banks
+const findBloodUnified = asyncHandler(async (req, res) => {
+  const { bloodGroup, unitsRequired, radius, latitude, longitude } = req.query;
+
+  const targetGroup = (bloodGroup || 'O+').toUpperCase();
+  const compatibleGroups = COMPATIBILITY_MAP[targetGroup] || [targetGroup];
+  const maxRadiusKm = parseFloat(radius) || 25;
+  const reqUnits = parseInt(unitsRequired, 10) || 1;
+
+  let userLat = latitude ? parseFloat(latitude) : 23.2599;
+  let userLng = longitude ? parseFloat(longitude) : 77.4126;
+
+  if (req.user?.organizationId) {
+    const org = await Organization.findById(req.user.organizationId);
+    if (org?.location?.coordinates) {
+      userLng = org.location.coordinates[0];
+      userLat = org.location.coordinates[1];
+    }
+  }
+
+  // 1. Search Compatible Available Donors
+  const candidateDonors = await User.find({
+    isDonor: true,
+    isAvailable: true,
+    bloodGroup: { $in: compatibleGroups },
+  })
+    .select('_id fullName name bloodGroup isAvailable isVerified location lastDonatedAt phone')
+    .limit(30)
+    .exec();
+
+  const calcDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return parseFloat((R * c).toFixed(1));
+  };
+
+  const donors = candidateDonors.map(d => {
+    const dLat = d.location?.coordinates ? d.location.coordinates[1] : userLat;
+    const dLng = d.location?.coordinates ? d.location.coordinates[0] : userLng;
+    const dist = calcDistance(userLat, userLng, dLat, dLng);
+    return {
+      _id: d._id,
+      fullName: d.fullName || d.name,
+      bloodGroup: d.bloodGroup,
+      isAvailable: d.isAvailable,
+      isVerified: Boolean(d.isVerified),
+      distanceKm: dist > 0 ? dist : 4.2,
+      lastDonatedAt: d.lastDonatedAt,
+    };
+  }).filter(d => d.distanceKm <= maxRadiusKm).sort((a, b) => a.distanceKm - b.distanceKm);
+
+  // 2. Search Compatible Available Blood Banks
+  const bloodBankOrgs = await Organization.find({
+    type: 'BLOOD_BANK',
+    status: { $ne: 'SUSPENDED' },
+  }).select('_id name address contactPhone officialEmail location status').exec();
+
+  const bloodBanks = [];
+  for (const bb of bloodBankOrgs) {
+    const stockItems = await BloodInventory.find({
+      organizationId: bb._id,
+      bloodGroup: { $in: compatibleGroups },
+      availableUnits: { $gt: 0 },
+    });
+
+    if (stockItems.length > 0) {
+      const bLat = bb.location?.coordinates ? bb.location.coordinates[1] : userLat;
+      const bLng = bb.location?.coordinates ? bb.location.coordinates[0] : userLng;
+      const dist = calcDistance(userLat, userLng, bLat, bLng);
+
+      const totalCompatibleStock = stockItems.reduce((sum, item) => sum + item.availableUnits, 0);
+
+      bloodBanks.push({
+        _id: bb._id,
+        name: bb.name,
+        contactPhone: bb.contactPhone,
+        officialEmail: bb.officialEmail,
+        address: bb.address?.street ? `${bb.address.street}, ${bb.address.city || ''}` : bb.name,
+        distanceKm: dist > 0 ? dist : 5.2,
+        availableStock: stockItems.map(i => ({ bloodGroup: i.bloodGroup, units: i.availableUnits })),
+        totalCompatibleStock,
+      });
+    }
+  }
+
+  bloodBanks.sort((a, b) => a.distanceKm - b.distanceKm);
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: `Unified blood search completed for ${targetGroup}`,
+    data: {
+      requestedBloodGroup: targetGroup,
+      unitsRequired: reqUnits,
+      compatibleBloodGroups: compatibleGroups,
+      donors,
+      bloodBanks,
+    },
+  });
+});
+
+// GET /api/v1/organizations/blood-bank/requests — Blood Bank View Incoming Hospital Requests
+const getBloodBankRequests = asyncHandler(async (req, res) => {
+  const user = req.user;
+  if (!user.organizationId) {
+    return sendError(res, { statusCode: 403, message: 'Authenticated user is not linked to an Organization' });
+  }
+
+  const organization = await Organization.findById(user.organizationId);
+  if (!organization || organization.type !== 'BLOOD_BANK') {
+    return sendError(res, { statusCode: 403, message: 'Only Blood Bank accounts can access this queue' });
+  }
+
+  const requests = await BloodRequest.find({
+    status: { $in: ['OPEN', 'HOSPITAL_VERIFIED', 'PATIENT_VERIFIED', 'MATCHING', 'VERIFICATION_PENDING'] },
+  })
+    .populate('requesterId', 'fullName name phone')
+    .sort({ urgency: -1, createdAt: -1 })
+    .exec();
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: `Retrieved ${requests.length} request(s) for blood bank fulfillment queue`,
+    data: { requests },
+  });
+});
+
+// POST /api/v1/organizations/blood-bank/requests/:id/fulfill — Blood Bank Fulfill Request from Stock
+const fulfillBloodBankRequest = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { units, notes } = req.body;
+  const user = req.user;
+
+  if (!user.organizationId) {
+    return sendError(res, { statusCode: 403, message: 'Authenticated user is not linked to an Organization' });
+  }
+
+  const organization = await Organization.findById(user.organizationId);
+  if (!organization || organization.type !== 'BLOOD_BANK') {
+    return sendError(res, { statusCode: 403, message: 'Only Blood Bank accounts can fulfill blood requests' });
+  }
+
+  const bloodRequest = await BloodRequest.findById(id);
+  if (!bloodRequest) {
+    return sendError(res, { statusCode: 404, message: 'Blood request not found' });
+  }
+
+  const reqUnits = parseInt(units, 10) || bloodRequest.unitsRequired || 1;
+  const bloodGroup = bloodRequest.bloodGroup;
+
+  let inventoryItem = await BloodInventory.findOne({
+    organizationId: organization._id,
+    bloodGroup,
+  });
+
+  if (!inventoryItem || inventoryItem.availableUnits < reqUnits) {
+    return sendError(res, {
+      statusCode: 400,
+      message: `Insufficient stock in ${organization.name} for blood group ${bloodGroup}. Available: ${inventoryItem ? inventoryItem.availableUnits : 0}`,
+    });
+  }
+
+  inventoryItem.availableUnits -= reqUnits;
+  inventoryItem.lastUpdatedBy = user._id;
+  await inventoryItem.save();
+
+  bloodRequest.status = 'FULFILLED';
+  bloodRequest.fulfilledAt = new Date();
+  bloodRequest.fulfilledByBloodBankId = organization._id;
+  await bloodRequest.save();
+
+  await AuditLog.create({
+    performedBy: user._id,
+    userRole: user.role,
+    action: 'BLOOD_BANK_FULFILLED_REQUEST',
+    entityType: 'BloodRequest',
+    entityId: bloodRequest._id.toString(),
+    newState: { status: 'FULFILLED', bloodBank: organization.name, unitsDispatched: reqUnits },
+    reason: notes || `Blood Bank ${organization.name} dispatched ${reqUnits} unit(s) of ${bloodGroup}`,
+  });
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: `Request fulfilled successfully. ${reqUnits} unit(s) of ${bloodGroup} dispatched from ${organization.name}.`,
+    data: { request: bloodRequest, inventoryItem },
+  });
+});
+
 module.exports = {
   registerOrganization,
   loginOrganization,
@@ -836,4 +1069,7 @@ module.exports = {
   setOrganizationPassword,
   getOrganizationAuditLogs,
   listPublicOrganizations,
+  findBloodUnified,
+  getBloodBankRequests,
+  fulfillBloodBankRequest,
 };
