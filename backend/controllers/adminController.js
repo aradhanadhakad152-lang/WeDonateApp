@@ -103,7 +103,6 @@ const getAdminDashboardMetrics = asyncHandler(async (req, res) => {
     .sort({ createdAt: -1 })
     .limit(5)
     .populate('requesterId', 'fullName name phone')
-    .populate('hospitalId', 'name')
     .exec();
 
   const recentBloodRequests = rawRecentBloodRequests.map(r => ({
