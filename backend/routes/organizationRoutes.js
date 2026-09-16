@@ -36,7 +36,7 @@ router.get('/list', listPublicOrganizations);
 // Authenticated Organization Staff Operations
 router.get('/me', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'HOSPITAL_STAFF', 'ADMIN', 'SUPER_ADMIN'), getMyOrganization);
 router.patch('/me', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'ADMIN', 'SUPER_ADMIN'), updateMyOrganization);
-router.get('/find-blood', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'HOSPITAL_STAFF', 'ADMIN', 'SUPER_ADMIN'), findBloodUnified);
+router.get('/find-blood', authenticate, authorizeRoles('CITIZEN', 'HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'HOSPITAL_STAFF', 'ADMIN', 'SUPER_ADMIN'), findBloodUnified);
 router.get('/requests', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'HOSPITAL_STAFF', 'ADMIN', 'SUPER_ADMIN'), getOrganizationRequestsQueue);
 router.post('/requests', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'HOSPITAL_STAFF', 'ADMIN', 'SUPER_ADMIN'), createHospitalBloodRequest);
 router.get('/requests/:id/notifications', authenticate, authorizeRoles('HOSPITAL_MANAGER', 'BLOOD_BANK_MANAGER', 'HOSPITAL_STAFF', 'ADMIN', 'SUPER_ADMIN'), getRequestNotificationHistory);
