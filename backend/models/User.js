@@ -14,7 +14,7 @@ const ROLES = [
   'SUPER_ADMIN',
 ];
 const ACCOUNT_STATUSES = ['ACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'];
-const DONOR_STATUSES = ['AVAILABLE', 'UNAVAILABLE', 'INELIGIBLE'];
+const DONOR_STATUSES = ['AVAILABLE', 'UNAVAILABLE', 'INELIGIBLE', 'UNVERIFIED', 'ACTIVE', 'TEMPORARILY_UNAVAILABLE', 'OPTED_OUT'];
 const GENDERS = ['MALE', 'FEMALE', 'OTHER'];
 
 /**
@@ -127,6 +127,32 @@ const userSchema = new mongoose.Schema(
     isAvailable: {
       type: Boolean,
       default: true,
+    },
+
+    // 1313 Donor Dataset Consent & App Activity Verification
+    phoneVerified: {
+      type: Boolean,
+      default: false,
+    },
+    profileConfirmed: {
+      type: Boolean,
+      default: false,
+    },
+    emergencyConsent: {
+      type: Boolean,
+      default: false,
+    },
+    lastConfirmedAt: {
+      type: Date,
+      default: null,
+    },
+    appInstalled: {
+      type: Boolean,
+      default: false,
+    },
+    lastAppActivity: {
+      type: Date,
+      default: null,
     },
 
     // Location (GeoJSON Point + Structured Address)

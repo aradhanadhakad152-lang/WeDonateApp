@@ -515,7 +515,7 @@
           document.getElementById('topbarBankTitle').innerText = `${currentOrg.name} — Blood Bank Control`;
 
           const metrics = res.data.metrics || {};
-          document.getElementById('kpiTotalUnits').innerText = metrics.availableBloodUnits !== undefined ? metrics.availableBloodUnits : 40;
+          document.getElementById('kpiTotalUnits').innerText = metrics.availableBloodUnits !== undefined ? metrics.availableBloodUnits : 0;
           document.getElementById('kpiLowStockAlerts').innerText = (metrics.criticalLowGroups || []).length;
           document.getElementById('kpiPendingDispatches').innerText = metrics.activeRequests || 0;
           document.getElementById('kpiFulfilledDispatches').innerText = metrics.fulfilledRequests || 0;
@@ -535,7 +535,7 @@
         const groups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
         grid.innerHTML = groups.map(bg => {
           const matched = items.find(i => i.bloodGroup === bg);
-          const units = matched ? matched.availableUnits : 40;
+          const units = matched ? matched.availableUnits : 0;
           const isLow = units < 10;
           return `
             <div class="col-md-3">

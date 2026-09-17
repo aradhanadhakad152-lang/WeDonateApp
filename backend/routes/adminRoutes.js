@@ -33,6 +33,11 @@ const {
   createAdminCampaign,
   getAdminReports,
   getAdminNotifications,
+  getAdminInventoryTrendAnalytics,
+  getAdminBloodGroupAnalytics,
+  getAdminBloodRequestAnalytics,
+  getAdminDonationAnalytics,
+  getAdminUserAnalytics,
 } = require('../controllers/adminController');
 
 const { getAdminRevenueStats } = require('../controllers/serviceFeeController');
@@ -46,6 +51,11 @@ router.use(authenticate);
 router.use(authorizeRoles('SUPER_ADMIN', 'ADMIN'));
 
 router.get('/dashboard', getAdminDashboardMetrics);
+router.get('/analytics/inventory-trend', getAdminInventoryTrendAnalytics);
+router.get('/analytics/blood-groups', getAdminBloodGroupAnalytics);
+router.get('/analytics/requests', getAdminBloodRequestAnalytics);
+router.get('/analytics/donations', getAdminDonationAnalytics);
+router.get('/analytics/users', getAdminUserAnalytics);
 router.get('/revenue', getAdminRevenueStats);
 router.get('/users', getUsersList);
 router.get('/donors', getAdminDonorsList);

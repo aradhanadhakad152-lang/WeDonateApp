@@ -62,7 +62,7 @@ const getAdminDashboardMetrics = asyncHandler(async (req, res) => {
   // Calculate required units from open requests
   const requiredAgg = await BloodRequest.aggregate([
     { $match: { status: { $in: ['OPEN', 'VERIFICATION_PENDING', 'MATCHING', 'DONOR_RESPONDED'] } } },
-    { $group: { _id: '$bloodGroup', totalRequired: { $sum: '$units' } } }
+    { $group: { _id: '$bloodGroup', totalRequired: { $sum: '$unitsRequired' } } }
   ]);
   const requiredMap = {};
   requiredAgg.forEach(item => {
@@ -71,11 +71,10 @@ const getAdminDashboardMetrics = asyncHandler(async (req, res) => {
     }
   });
 
-  // Construct inventory trend array
+  // Construct inventory trend array strictly from MongoDB Atlas data
   const inventoryTrend = bloodGroupsList.map(bg => {
-    const current = inventoryMap[bg] !== undefined ? inventoryMap[bg] : (bg === 'O-' ? 8 : (bg === 'A+' ? 390 : (bg === 'O+' ? 340 : (bg === 'B+' ? 340 : (bg === 'B-' ? 90 : (bg === 'AB+' ? 190 : (bg === 'AB-' ? 55 : 120)))))));
-    const required = requiredMap[bg] !== undefined ? requiredMap[bg] : (bg === 'O-' ? 12 : (bg === 'A+' ? 440 : (bg === 'O+' ? 360 : (bg === 'B+' ? 220 : (bg === 'B-' ? 45 : (bg === 'AB+' ? 130 : (bg === 'AB-' ? 48 : 50)))))));
-    grandTotalUnits = Math.max(grandTotalUnits, 2847);
+    const current = inventoryMap[bg] || 0;
+    const required = requiredMap[bg] || 0;
     return {
       bloodGroup: bg,
       currentStock: current,
@@ -86,9 +85,9 @@ const getAdminDashboardMetrics = asyncHandler(async (req, res) => {
   });
 
   // Find most critical stock group
-  let criticalGroup = inventoryTrend.find(i => i.isCritical) || inventoryTrend.reduce((min, cur) => (cur.currentStock < min.currentStock ? cur : min), inventoryTrend[0]);
+  const criticalGroup = inventoryTrend.find(i => i.isCritical && i.currentStock > 0) || inventoryTrend.reduce((min, cur) => (cur.currentStock < min.currentStock ? cur : min), inventoryTrend[0]);
 
-  // Calculate Today's Activity
+  // Calculate Today's Activity strictly from MongoDB
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
 
@@ -97,6 +96,18 @@ const getAdminDashboardMetrics = asyncHandler(async (req, res) => {
   const newDonorsToday = await User.countDocuments({ isDonor: true, createdAt: { $gte: startOfDay } });
   const hospitalRegistrationsToday = await Organization.countDocuments({ type: 'HOSPITAL', createdAt: { $gte: startOfDay } });
   const bloodBankUpdatesToday = await BloodInventory.countDocuments({ updatedAt: { $gte: startOfDay } });
+
+  // Real 30-Day Growth Delta Calculations
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+
+  const donorsLast30 = await User.countDocuments({ isDonor: true, createdAt: { $gte: thirtyDaysAgo } });
+  const donorsPrev30 = await User.countDocuments({ isDonor: true, createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } });
+  const donorGrowthPct = donorsPrev30 > 0 ? Math.round(((donorsLast30 - donorsPrev30) / donorsPrev30) * 100) : (donorsLast30 > 0 ? 100 : 0);
+
+  const reqsLast30 = await BloodRequest.countDocuments({ createdAt: { $gte: thirtyDaysAgo } });
+  const reqsPrev30 = await BloodRequest.countDocuments({ createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } });
+  const reqGrowthPct = reqsPrev30 > 0 ? Math.round(((reqsLast30 - reqsPrev30) / reqsPrev30) * 100) : (reqsLast30 > 0 ? 100 : 0);
 
   // Fetch Recent Blood Requests & Normalize Fields
   const rawRecentBloodRequests = await BloodRequest.find()
@@ -109,10 +120,10 @@ const getAdminDashboardMetrics = asyncHandler(async (req, res) => {
     _id: r._id,
     patientName: r.patientName || (r.requesterId ? (r.requesterId.fullName || r.requesterId.name) : 'Patient'),
     bloodGroup: r.bloodGroup || 'A+',
-    units: r.unitsRequired !== undefined ? r.unitsRequired : (r.units !== undefined ? r.units : 1),
-    unitsRequired: r.unitsRequired !== undefined ? r.unitsRequired : (r.units !== undefined ? r.units : 1),
-    hospitalName: r.hospitalName || (r.hospitalId ? r.hospitalId.name : 'City Hospital'),
-    urgency: r.urgency || 'HIGH',
+    units: r.unitsRequired !== undefined ? r.unitsRequired : 1,
+    unitsRequired: r.unitsRequired !== undefined ? r.unitsRequired : 1,
+    hospitalName: r.hospitalName || 'Medical Facility',
+    urgency: r.urgency || 'NORMAL',
     status: r.status || 'OPEN',
     createdAt: r.createdAt || new Date(),
   }));
@@ -126,8 +137,8 @@ const getAdminDashboardMetrics = asyncHandler(async (req, res) => {
 
   const recentDonors = rawRecentDonors.map(d => ({
     _id: d._id,
-    fullName: d.fullName || d.name || 'Donor',
-    name: d.fullName || d.name || 'Donor',
+    fullName: d.fullName || d.name || 'Registered Donor',
+    name: d.fullName || d.name || 'Registered Donor',
     bloodGroup: d.bloodGroup || 'O+',
     lastDonatedAt: d.lastDonatedAt,
     isAvailable: d.isAvailable !== undefined ? d.isAvailable : true,
@@ -148,11 +159,11 @@ const getAdminDashboardMetrics = asyncHandler(async (req, res) => {
     data: {
       metrics: {
         totalUsers,
-        totalDonors: Math.max(totalDonors, 1426),
+        totalDonors,
         activeDonors,
-        totalHospitals: Math.max(totalHospitals, 28),
-        totalBloodBanks: Math.max(totalBloodBanks, 7),
-        activeBloodRequests: Math.max(activeBloodRequests, 12),
+        totalHospitals,
+        totalBloodBanks,
+        activeBloodRequests,
         totalBloodRequests,
         pendingOrgVerifications,
         pendingRequestVerifications,
@@ -165,26 +176,26 @@ const getAdminDashboardMetrics = asyncHandler(async (req, res) => {
         totalDonationFunding,
         totalCampaigns,
         trends: {
-          totalBloodUnits: '+12%',
-          registeredDonors: '+8%',
-          partnerHospitals: '+4%',
-          bloodBanks: '+2%',
-          activeRequests: '-20%',
+          totalBloodUnits: '0%',
+          registeredDonors: `${donorGrowthPct >= 0 ? '+' : ''}${donorGrowthPct}%`,
+          partnerHospitals: '0%',
+          bloodBanks: '0%',
+          activeRequests: `${reqGrowthPct >= 0 ? '+' : ''}${reqGrowthPct}%`,
         },
       },
       inventoryTrend,
       criticalStockAlert: {
         bloodGroup: criticalGroup ? criticalGroup.bloodGroup : 'O-',
-        unitsLeft: criticalGroup ? criticalGroup.currentStock : 8,
-        requiredUnits: criticalGroup ? criticalGroup.requiredUnits : 12,
-        message: `Only ${criticalGroup ? criticalGroup.currentStock : 8} units left!`,
+        unitsLeft: criticalGroup ? criticalGroup.currentStock : 0,
+        requiredUnits: criticalGroup ? criticalGroup.requiredUnits : 0,
+        message: criticalGroup && criticalGroup.currentStock > 0 ? `Only ${criticalGroup.currentStock} units left of ${criticalGroup.bloodGroup}!` : 'No critical stock alerts',
       },
       todayActivity: {
-        newDonations: Math.max(newDonationsToday, 14),
-        newRequests: Math.max(newRequestsToday, 8),
-        newDonors: Math.max(newDonorsToday, 6),
-        hospitalRegistrations: Math.max(hospitalRegistrationsToday, 2),
-        bloodBankUpdates: Math.max(bloodBankUpdatesToday, 1),
+        newDonations: newDonationsToday,
+        newRequests: newRequestsToday,
+        newDonors: newDonorsToday,
+        hospitalRegistrations: hospitalRegistrationsToday,
+        bloodBankUpdates: bloodBankUpdatesToday,
       },
       recentBloodRequests,
       recentDonors,
@@ -1597,6 +1608,135 @@ const getAdminNotifications = asyncHandler(async (req, res) => {
   });
 });
 
+// REAL-TIME ANALYTICS ENDPOINTS (MongoDB Aggregation Pipelines)
+
+// GET /api/v1/admin/analytics/inventory-trend — Live Stock Aggregation by Blood Group
+const getAdminInventoryTrendAnalytics = asyncHandler(async (req, res) => {
+  const bloodGroupsList = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  
+  const inventoryAgg = await BloodInventory.aggregate([
+    { $group: { _id: '$bloodGroup', totalAvailable: { $sum: '$availableUnits' }, totalReserved: { $sum: '$reservedUnits' } } }
+  ]);
+  const inventoryMap = {};
+  inventoryAgg.forEach(item => {
+    if (item._id) inventoryMap[item._id] = item.totalAvailable || 0;
+  });
+
+  const requiredAgg = await BloodRequest.aggregate([
+    { $match: { status: { $in: ['OPEN', 'VERIFICATION_PENDING', 'MATCHING', 'DONOR_RESPONDED'] } } },
+    { $group: { _id: '$bloodGroup', totalRequired: { $sum: '$unitsRequired' } } }
+  ]);
+  const requiredMap = {};
+  requiredAgg.forEach(item => {
+    if (item._id) requiredMap[item._id] = item.totalRequired || 0;
+  });
+
+  const labels = bloodGroupsList;
+  const currentStockData = bloodGroupsList.map(bg => inventoryMap[bg] || 0);
+  const requiredUnitsData = bloodGroupsList.map(bg => requiredMap[bg] || 0);
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: 'Live inventory trend analytics retrieved',
+    data: {
+      labels,
+      currentStockData,
+      requiredUnitsData,
+      isEmpty: currentStockData.every(val => val === 0),
+    }
+  });
+});
+
+// GET /api/v1/admin/analytics/blood-groups — Donor Distribution by Blood Group
+const getAdminBloodGroupAnalytics = asyncHandler(async (req, res) => {
+  const bgAgg = await User.aggregate([
+    { $match: { isDonor: true, bloodGroup: { $exists: true, $ne: null } } },
+    { $group: { _id: '$bloodGroup', count: { $sum: 1 } } },
+    { $sort: { count: -1 } }
+  ]);
+
+  const labels = bgAgg.map(item => item._id);
+  const counts = bgAgg.map(item => item.count);
+  const totalDonors = counts.reduce((acc, curr) => acc + curr, 0);
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: 'Live donor blood group distribution analytics retrieved',
+    data: {
+      labels,
+      counts,
+      totalDonors,
+      isEmpty: labels.length === 0,
+    }
+  });
+});
+
+// GET /api/v1/admin/analytics/requests — Blood Request Lifecycle Trends
+const getAdminBloodRequestAnalytics = asyncHandler(async (req, res) => {
+  const statusAgg = await BloodRequest.aggregate([
+    { $group: { _id: '$status', count: { $sum: 1 } } }
+  ]);
+
+  const requestsByStatus = {};
+  statusAgg.forEach(item => {
+    requestsByStatus[item._id] = item.count;
+  });
+
+  const totalRequests = await BloodRequest.countDocuments();
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: 'Blood request lifecycle analytics retrieved',
+    data: {
+      totalRequests,
+      requestsByStatus,
+      isEmpty: totalRequests === 0,
+    }
+  });
+});
+
+// GET /api/v1/admin/analytics/donations — Donation Activity Pipeline
+const getAdminDonationAnalytics = asyncHandler(async (req, res) => {
+  const totalMatches = await DonorMatch.countDocuments();
+  const acceptedMatches = await DonorMatch.countDocuments({ status: 'ACCEPTED' });
+  const completedDonations = await BloodRequest.countDocuments({ status: 'FULFILLED' });
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: 'Donation activity analytics retrieved',
+    data: {
+      totalMatches,
+      acceptedMatches,
+      completedDonations,
+      isEmpty: totalMatches === 0 && completedDonations === 0,
+    }
+  });
+});
+
+// GET /api/v1/admin/analytics/users — User Registration & Role Distribution
+const getAdminUserAnalytics = asyncHandler(async (req, res) => {
+  const roleAgg = await User.aggregate([
+    { $group: { _id: '$role', count: { $sum: 1 } } }
+  ]);
+
+  const usersByRole = {};
+  roleAgg.forEach(item => {
+    usersByRole[item._id] = item.count;
+  });
+
+  const totalUsers = await User.countDocuments();
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: 'User distribution analytics retrieved',
+    data: {
+      totalUsers,
+      usersByRole,
+      isEmpty: totalUsers === 0,
+    }
+  });
+});
+
 module.exports = {
   getAdminDashboardMetrics,
   getUsersList,
@@ -1626,4 +1766,9 @@ module.exports = {
   createAdminCampaign,
   getAdminReports,
   getAdminNotifications,
+  getAdminInventoryTrendAnalytics,
+  getAdminBloodGroupAnalytics,
+  getAdminBloodRequestAnalytics,
+  getAdminDonationAnalytics,
+  getAdminUserAnalytics,
 };

@@ -991,20 +991,19 @@
         const res = await fetchAPI('/admin/dashboard');
         const data = res.data;
 
-        document.getElementById('kpiTotalUnits').innerText = (data.metrics.totalBloodUnits || 2847).toLocaleString();
-        document.getElementById('kpiTotalDonors').innerText = (data.metrics.totalDonors || 1426).toLocaleString();
-        document.getElementById('kpiTotalHospitals').innerText = (data.metrics.totalHospitals || 28).toLocaleString();
-        document.getElementById('kpiTotalBanks').innerText = (data.metrics.totalBloodBanks || 7).toLocaleString();
-        document.getElementById('kpiActiveRequests').innerText = (data.metrics.activeBloodRequests || 12).toLocaleString();
+        document.getElementById('kpiTotalUnits').innerText = (data.metrics.totalBloodUnits ?? 0).toLocaleString();
+        document.getElementById('kpiTotalDonors').innerText = (data.metrics.totalDonors ?? 0).toLocaleString();
+        document.getElementById('kpiTotalHospitals').innerText = (data.metrics.totalHospitals ?? 0).toLocaleString();
+        document.getElementById('kpiTotalBanks').innerText = (data.metrics.totalBloodBanks ?? 0).toLocaleString();
+        document.getElementById('kpiActiveRequests').innerText = (data.metrics.activeBloodRequests ?? 0).toLocaleString();
 
         renderInventoryTrendChart(data.inventoryTrend);
-        renderDistributionDonutChart(data.inventoryTrend);
+        loadBloodGroupDistributionChart();
         renderRecentRequestsTable(data.recentBloodRequests || []);
         renderRecentDonorsTable(data.recentDonors || []);
 
       } catch (err) {
-        showToast('System Admin dashboard loaded with active platform data');
-        renderDefaultCharts();
+        showToast('System Admin dashboard loaded');
       }
     }
 
@@ -1015,12 +1014,7 @@
         const res = await fetchAPI('/inventory');
         const items = res.data.inventory || [];
         if (items.length === 0) {
-          tbody.innerHTML = `
-            <tr><td class="fw-bold">AIIMS Hospital Bhopal</td><td><span class="badge bg-primary">HOSPITAL</span></td><td><span class="badge bg-danger">O+</span></td><td class="fw-bold">25 Units</td><td>0 Units</td><td><span class="badge bg-success-subtle text-success">IN STOCK</span></td><td>Sep 16, 2026</td></tr>
-            <tr><td class="fw-bold">City Hospital</td><td><span class="badge bg-primary">HOSPITAL</span></td><td><span class="badge bg-danger">O+</span></td><td class="fw-bold">10 Units</td><td>0 Units</td><td><span class="badge bg-warning-subtle text-dark">MEDIUM</span></td><td>Sep 16, 2026</td></tr>
-            <tr><td class="fw-bold">Central Blood Bank</td><td><span class="badge bg-info">BLOOD_BANK</span></td><td><span class="badge bg-danger">O+</span></td><td class="fw-bold">40 Units</td><td>0 Units</td><td><span class="badge bg-success-subtle text-success">IN STOCK</span></td><td>Sep 16, 2026</td></tr>
-            <tr><td class="fw-bold">Red Cross Blood Bank</td><td><span class="badge bg-info">BLOOD_BANK</span></td><td><span class="badge bg-danger">O+</span></td><td class="fw-bold">15 Units</td><td>0 Units</td><td><span class="badge bg-success-subtle text-success">IN STOCK</span></td><td>Sep 16, 2026</td></tr>
-          `;
+          tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">No blood inventory records found in database</td></tr>`;
           return;
         }
         tbody.innerHTML = items.map(i => `
@@ -1035,7 +1029,7 @@
           </tr>
         `).join('');
       } catch (err) {
-        showToast('Loaded global organization stock breakdown');
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">Unable to load stock breakdown</td></tr>`;
       }
     }
 
@@ -1053,12 +1047,16 @@
       try {
         const res = await fetchAPI('/admin/donors');
         const donors = res.data.donors || [];
+        if (donors.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">No registered donors found in database</td></tr>`;
+          return;
+        }
         tbody.innerHTML = donors.map(d => `
           <tr>
             <td class="fw-bold">${d.fullName || d.name}</td>
-            <td><span class="badge bg-danger">${d.bloodGroup || 'O+'}</span></td>
-            <td>${d.location?.city || 'Bhopal'}</td>
-            <td>${d.phone || '+919876543210'}</td>
+            <td><span class="badge bg-danger">${d.bloodGroup || 'N/A'}</span></td>
+            <td>${d.location?.city || 'Not Specified'}</td>
+            <td>${d.phone || 'N/A'}</td>
             <td><span class="badge ${d.isAvailable ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'}">${d.isAvailable ? 'Available' : 'Unavailable'}</span></td>
             <td><span class="badge bg-light text-dark border">${d.accountStatus || 'ACTIVE'}</span></td>
           </tr>
@@ -1071,8 +1069,12 @@
       try {
         const res = await fetchAPI('/admin/organizations?type=HOSPITAL');
         const orgs = res.data.organizations || [];
+        if (orgs.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">No registered hospitals found</td></tr>`;
+          return;
+        }
         tbody.innerHTML = orgs.map(o => `
-          <tr><td class="fw-bold">${o.name}</td><td>${o.city || 'Bhopal'}</td><td>${o.licenseNumber || 'LIC-2026-901'}</td><td>${o.contactPhone || '+919876543210'}</td><td><span class="badge bg-success-subtle text-success">${o.status}</span></td></tr>
+          <tr><td class="fw-bold">${o.name}</td><td>${o.city || 'Not Specified'}</td><td>${o.licenseNumber || 'N/A'}</td><td>${o.contactPhone || 'N/A'}</td><td><span class="badge bg-success-subtle text-success">${o.status}</span></td></tr>
         `).join('');
       } catch (err) {}
     }
@@ -1082,8 +1084,12 @@
       try {
         const res = await fetchAPI('/admin/organizations?type=BLOOD_BANK');
         const orgs = res.data.organizations || [];
+        if (orgs.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">No registered blood banks found</td></tr>`;
+          return;
+        }
         tbody.innerHTML = orgs.map(o => `
-          <tr><td class="fw-bold">${o.name}</td><td>${o.city || 'Bhopal'}</td><td>${o.licenseNumber || 'LIC-2026-881'}</td><td>${o.officialEmail || 'bank@wedonate.org'}</td><td><span class="badge bg-success-subtle text-success">${o.status}</span></td></tr>
+          <tr><td class="fw-bold">${o.name}</td><td>${o.city || 'Not Specified'}</td><td>${o.licenseNumber || 'N/A'}</td><td>${o.officialEmail || 'N/A'}</td><td><span class="badge bg-success-subtle text-success">${o.status}</span></td></tr>
         `).join('');
       } catch (err) {}
     }
@@ -1093,6 +1099,10 @@
       try {
         const res = await fetchAPI('/admin/users');
         const users = res.data.users || [];
+        if (users.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">No users found in database</td></tr>`;
+          return;
+        }
         tbody.innerHTML = users.map(u => `
           <tr><td class="fw-bold">${u.fullName || u.name}</td><td>${u.email || u.phone}</td><td><span class="badge bg-secondary">${u.role}</span></td><td><span class="badge bg-success-subtle text-success">${u.accountStatus}</span></td><td>${new Date(u.createdAt).toLocaleDateString()}</td></tr>
         `).join('');
@@ -1104,6 +1114,10 @@
       try {
         const res = await fetchAPI('/admin/audit-logs');
         const logs = res.data.logs || [];
+        if (logs.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">No audit activity logged yet</td></tr>`;
+          return;
+        }
         tbody.innerHTML = logs.map(l => `
           <tr><td>${new Date(l.createdAt).toLocaleTimeString()}</td><td class="fw-bold text-danger">${l.action}</td><td>${l.userRole || 'Admin'}</td><td>${l.entityType}</td><td>${l.reason || 'System operation executed'}</td></tr>
         `).join('');
@@ -1112,15 +1126,18 @@
 
     function renderRecentRequestsTable(requests) {
       const tbody = document.getElementById('recentRequestsTbody');
-      if (!requests || requests.length === 0) return;
+      if (!requests || requests.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">No recent blood requests</td></tr>';
+        return;
+      }
       tbody.innerHTML = requests.map(r => `
         <tr>
-          <td>#${r._id ? String(r._id).slice(-4) : '1027'}</td>
+          <td>#${r._id ? String(r._id).slice(-4) : 'REQ'}</td>
           <td class="fw-bold">${r.patientName || 'Patient'}</td>
-          <td><span class="badge bg-danger">${r.bloodGroup || 'A+'}</span></td>
+          <td><span class="badge bg-danger">${r.bloodGroup || 'N/A'}</span></td>
           <td>${r.unitsRequired || r.units || 1}</td>
-          <td>${r.hospitalName || 'AIIMS Hospital'}</td>
-          <td><span class="badge ${r.urgency === 'CRITICAL' ? 'bg-danger text-white' : 'bg-warning-subtle text-dark'}">${r.urgency || 'HIGH'}</span></td>
+          <td>${r.hospitalName || 'Medical Facility'}</td>
+          <td><span class="badge ${r.urgency === 'CRITICAL' ? 'bg-danger text-white' : 'bg-warning-subtle text-dark'}">${r.urgency || 'NORMAL'}</span></td>
           <td><span class="badge bg-info-subtle text-dark">${r.status || 'OPEN'}</span></td>
         </tr>
       `).join('');
@@ -1128,11 +1145,14 @@
 
     function renderRecentDonorsTable(donors) {
       const tbody = document.getElementById('recentDonorsTbody');
-      if (!donors || donors.length === 0) return;
+      if (!donors || donors.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No recent donor registrations</td></tr>';
+        return;
+      }
       tbody.innerHTML = donors.map(d => `
         <tr>
           <td class="fw-bold">${d.fullName || d.name}</td>
-          <td><span class="badge bg-danger">${d.bloodGroup || 'O+'}</span></td>
+          <td><span class="badge bg-danger">${d.bloodGroup || 'N/A'}</span></td>
           <td>${d.lastDonatedAt ? new Date(d.lastDonatedAt).toLocaleDateString() : 'Never'}</td>
           <td><span class="badge ${d.isAvailable ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'}">${d.isAvailable ? 'Available' : 'Unavailable'}</span></td>
         </tr>
@@ -1143,31 +1163,49 @@
       const ctx = document.getElementById('inventoryTrendChart').getContext('2d');
       if (trendChartInstance) trendChartInstance.destroy();
 
+      const labels = (trendData && trendData.length > 0) ? trendData.map(i => i.bloodGroup) : ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+      const stockData = (trendData && trendData.length > 0) ? trendData.map(i => i.currentStock) : [0, 0, 0, 0, 0, 0, 0, 0];
+      const reqData = (trendData && trendData.length > 0) ? trendData.map(i => i.requiredUnits) : [0, 0, 0, 0, 0, 0, 0, 0];
+
       trendChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
-          labels: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
+          labels: labels,
           datasets: [
-            { label: 'Current Stock', data: [390, 120, 340, 90, 190, 55, 300, 8], backgroundColor: '#E11D48', borderRadius: 6 },
-            { label: 'Required Units', data: [440, 50, 220, 45, 130, 48, 360, 12], backgroundColor: '#FECDD3', borderRadius: 6 }
+            { label: 'Current Stock (Units)', data: stockData, backgroundColor: '#E11D48', borderRadius: 6 },
+            { label: 'Required Units', data: reqData, backgroundColor: '#FECDD3', borderRadius: 6 }
           ]
         },
         options: { responsive: true, maintainAspectRatio: false }
       });
     }
 
-    function renderDistributionDonutChart() {
+    async function loadBloodGroupDistributionChart() {
       const ctx = document.getElementById('distributionDonutChart').getContext('2d');
       if (donutChartInstance) donutChartInstance.destroy();
 
-      donutChartInstance = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: ['A+', 'O+', 'B+', 'A-', 'O-', 'B-', 'AB+', 'AB-'],
-          datasets: [{ data: [28, 24, 18, 8, 8, 7, 4, 3], backgroundColor: ['#E11D48', '#0284C7', '#4F46E5', '#D97706', '#16A34A', '#9333EA', '#EC4899', '#64748B'] }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
-      });
+      try {
+        const res = await fetchAPI('/admin/analytics/blood-groups');
+        const data = res.data;
+        const labels = (data.labels && data.labels.length > 0) ? data.labels : ['No Donor Data'];
+        const counts = (data.counts && data.counts.length > 0) ? data.counts : [1];
+        const colors = ['#E11D48', '#0284C7', '#4F46E5', '#D97706', '#16A34A', '#9333EA', '#EC4899', '#64748B'];
+
+        donutChartInstance = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: labels,
+            datasets: [{ data: counts, backgroundColor: data.isEmpty ? ['#E2E8F0'] : colors.slice(0, labels.length) }]
+          },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+        });
+      } catch (err) {
+        donutChartInstance = new Chart(ctx, {
+          type: 'doughnut',
+          data: { labels: ['No Data'], datasets: [{ data: [1], backgroundColor: ['#E2E8F0'] }] },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+      }
     }
 
     function renderDefaultCharts() {

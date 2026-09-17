@@ -714,7 +714,7 @@
         const groups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
         grid.innerHTML = groups.map(bg => {
           const matched = items.find(i => i.bloodGroup === bg);
-          const units = matched ? matched.availableUnits : 15;
+          const units = matched ? matched.availableUnits : 0;
           return `
             <div class="col-md-3">
               <div class="card-panel text-center">
