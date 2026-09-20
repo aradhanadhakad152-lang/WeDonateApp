@@ -528,7 +528,7 @@
                 <div class="kpi-icon kpi-red"><i class="bi bi-droplet-fill"></i></div>
                 <div>
                   <small class="text-muted fw-bold d-block text-uppercase" style="font-size: 0.72rem;">Total Blood Units</small>
-                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiTotalUnits">2,847</h3>
+                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiTotalUnits">--</h3>
                   <span class="trend-badge trend-up mt-1 d-inline-block"><i class="bi bi-arrow-up-short"></i> Global System Stock</span>
                 </div>
               </div>
@@ -538,7 +538,7 @@
                 <div class="kpi-icon kpi-blue"><i class="bi bi-people-fill"></i></div>
                 <div>
                   <small class="text-muted fw-bold d-block text-uppercase" style="font-size: 0.72rem;">Registered Donors</small>
-                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiTotalDonors">1,426</h3>
+                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiTotalDonors">--</h3>
                   <span class="trend-badge trend-up mt-1 d-inline-block"><i class="bi bi-arrow-up-short"></i> Active Donors</span>
                 </div>
               </div>
@@ -548,7 +548,7 @@
                 <div class="kpi-icon kpi-indigo"><i class="bi bi-building"></i></div>
                 <div>
                   <small class="text-muted fw-bold d-block text-uppercase" style="font-size: 0.72rem;">Partner Hospitals</small>
-                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiTotalHospitals">28</h3>
+                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiTotalHospitals">--</h3>
                   <span class="trend-badge trend-up mt-1 d-inline-block">Onboarded</span>
                 </div>
               </div>
@@ -558,7 +558,7 @@
                 <div class="kpi-icon kpi-amber"><i class="bi bi-journal-check"></i></div>
                 <div>
                   <small class="text-muted fw-bold d-block text-uppercase" style="font-size: 0.72rem;">Blood Banks</small>
-                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiTotalBanks">7</h3>
+                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiTotalBanks">--</h3>
                   <span class="trend-badge trend-up mt-1 d-inline-block">Network Active</span>
                 </div>
               </div>
@@ -568,8 +568,45 @@
                 <div class="kpi-icon kpi-green"><i class="bi bi-file-earmark-medical"></i></div>
                 <div>
                   <small class="text-muted fw-bold d-block text-uppercase" style="font-size: 0.72rem;">Active Requests</small>
-                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiActiveRequests">12</h3>
+                  <h3 class="fw-extrabold text-dark mb-0 mt-1" id="kpiActiveRequests">--</h3>
                   <span class="trend-badge trend-down mt-1 d-inline-block">In System Queue</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3B. Donor Dataset & Verification Breakdown -->
+          <div class="card-panel mb-4 bg-white border">
+            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-person-badge-fill text-danger me-2"></i> Donor Dataset & Verification Breakdown</h6>
+            <div class="row g-3 text-center">
+              <div class="col">
+                <div class="p-2 border rounded-3 bg-light">
+                  <small class="text-muted d-block fw-bold" style="font-size: 0.72rem;">IMPORTED / UNVERIFIED</small>
+                  <span class="fw-extrabold text-dark fs-5" id="statImportedDonors">0</span>
+                </div>
+              </div>
+              <div class="col">
+                <div class="p-2 border rounded-3 bg-light">
+                  <small class="text-muted d-block fw-bold" style="font-size: 0.72rem;">PHONE VERIFIED</small>
+                  <span class="fw-extrabold text-primary fs-5" id="statPhoneVerified">0</span>
+                </div>
+              </div>
+              <div class="col">
+                <div class="p-2 border rounded-3 bg-light">
+                  <small class="text-muted d-block fw-bold" style="font-size: 0.72rem;">PROFILE CONFIRMED</small>
+                  <span class="fw-extrabold text-info fs-5" id="statProfileConfirmed">0</span>
+                </div>
+              </div>
+              <div class="col">
+                <div class="p-2 border rounded-3 bg-light">
+                  <small class="text-muted d-block fw-bold" style="font-size: 0.72rem;">EMERGENCY CONSENT</small>
+                  <span class="fw-extrabold text-warning fs-5" id="statEmergencyConsent">0</span>
+                </div>
+              </div>
+              <div class="col">
+                <div class="p-2 border rounded-3 bg-light">
+                  <small class="text-muted d-block fw-bold" style="font-size: 0.72rem;">ACTIVE DONORS</small>
+                  <span class="fw-extrabold text-success fs-5" id="statActiveDonors">0</span>
                 </div>
               </div>
             </div>
@@ -581,11 +618,8 @@
             <div class="col-lg-5">
               <div class="card-panel h-100">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                  <h5 class="fw-bold text-dark mb-0"><i class="bi bi-bar-chart-fill text-danger me-2"></i> Blood Inventory Trend</h5>
-                  <select class="form-select form-select-sm w-auto border-0 bg-light fw-bold" id="timeframeFilter">
-                    <option value="7">Last 7 Days</option>
-                    <option value="30">Last 30 Days</option>
-                  </select>
+                  <h5 class="fw-bold text-dark mb-0"><i class="bi bi-bar-chart-fill text-danger me-2"></i> Current Blood Stock & Demand by Group</h5>
+                  <span class="badge bg-light text-secondary border small">Live MongoDB Stock</span>
                 </div>
                 <div style="height: 240px; position: relative;">
                   <canvas id="inventoryTrendChart"></canvas>
@@ -613,8 +647,8 @@
                   <span class="fw-bold small text-uppercase tracking-wider opacity-90"><i class="bi bi-exclamation-triangle-fill me-1"></i> Critical Stock Alert</span>
                   <i class="bi bi-chevron-right"></i>
                 </div>
-                <h1 class="fw-extrabold display-4 mb-1" id="alertBloodGroup">O-</h1>
-                <p class="mb-3 fw-semibold opacity-90" id="alertUnitsMsg">Only 8 units left system-wide!</p>
+                <h1 class="fw-extrabold display-4 mb-1" id="alertBloodGroup">--</h1>
+                <p class="mb-3 fw-semibold opacity-90" id="alertUnitsMsg">Monitoring live inventory...</p>
                 <button class="btn btn-white text-danger fw-bold btn-sm rounded-pill px-4 shadow-sm" onclick="switchTab('inventory')">View Details</button>
               </div>
 
@@ -627,23 +661,23 @@
                 <ul class="list-unstyled mb-0" id="todaysActivityList">
                   <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
                     <span class="small text-secondary"><i class="bi bi-heart-fill text-success me-2"></i> New Donations</span>
-                    <span class="fw-bold text-dark" id="actDonations">14</span>
+                    <span class="fw-bold text-dark" id="actDonations">0</span>
                   </li>
                   <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
                     <span class="small text-secondary"><i class="bi bi-droplet-fill text-primary me-2"></i> New Requests</span>
-                    <span class="fw-bold text-dark" id="actRequests">8</span>
+                    <span class="fw-bold text-dark" id="actRequests">0</span>
                   </li>
                   <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
                     <span class="small text-secondary"><i class="bi bi-person-plus-fill text-info me-2"></i> New Donors</span>
-                    <span class="fw-bold text-dark" id="actDonors">6</span>
+                    <span class="fw-bold text-dark" id="actDonors">0</span>
                   </li>
                   <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
                     <span class="small text-secondary"><i class="bi bi-hospital text-warning me-2"></i> Hospital Registrations</span>
-                    <span class="fw-bold text-dark" id="actHospitals">2</span>
+                    <span class="fw-bold text-dark" id="actHospitals">0</span>
                   </li>
                   <li class="d-flex justify-content-between align-items-center py-2">
                     <span class="small text-secondary"><i class="bi bi-building text-secondary me-2"></i> Blood Bank Updates</span>
-                    <span class="fw-bold text-dark" id="actBanks">1</span>
+                    <span class="fw-bold text-dark" id="actBanks">0</span>
                   </li>
                 </ul>
               </div>
@@ -991,11 +1025,59 @@
         const res = await fetchAPI('/admin/dashboard');
         const data = res.data;
 
+        // KPI Cards
         document.getElementById('kpiTotalUnits').innerText = (data.metrics.totalBloodUnits ?? 0).toLocaleString();
         document.getElementById('kpiTotalDonors').innerText = (data.metrics.totalDonors ?? 0).toLocaleString();
         document.getElementById('kpiTotalHospitals').innerText = (data.metrics.totalHospitals ?? 0).toLocaleString();
         document.getElementById('kpiTotalBanks').innerText = (data.metrics.totalBloodBanks ?? 0).toLocaleString();
         document.getElementById('kpiActiveRequests').innerText = (data.metrics.activeBloodRequests ?? 0).toLocaleString();
+
+        // Sidebar Badges (Fixed: Sync with real DB metrics)
+        const badgeRequests = document.getElementById('badgeRequests');
+        const badgeDonors = document.getElementById('badgeDonors');
+        const badgeHospitals = document.getElementById('badgeHospitals');
+        const badgeBanks = document.getElementById('badgeBanks');
+
+        if (badgeRequests) badgeRequests.innerText = (data.metrics.activeBloodRequests ?? 0).toLocaleString();
+        if (badgeDonors) badgeDonors.innerText = (data.metrics.totalDonors ?? 0).toLocaleString();
+        if (badgeHospitals) badgeHospitals.innerText = (data.metrics.totalHospitals ?? 0).toLocaleString();
+        if (badgeBanks) badgeBanks.innerText = (data.metrics.totalBloodBanks ?? 0).toLocaleString();
+
+        // Granular Donor Verification Breakdown Stats
+        const statImported = document.getElementById('statImportedDonors');
+        const statPhone = document.getElementById('statPhoneVerified');
+        const statProfile = document.getElementById('statProfileConfirmed');
+        const statEmergency = document.getElementById('statEmergencyConsent');
+        const statActive = document.getElementById('statActiveDonors');
+
+        if (statImported) statImported.innerText = (data.metrics.unverifiedImportedDonors ?? 0).toLocaleString();
+        if (statPhone) statPhone.innerText = (data.metrics.phoneVerifiedDonors ?? 0).toLocaleString();
+        if (statProfile) statProfile.innerText = (data.metrics.profileConfirmedDonors ?? 0).toLocaleString();
+        if (statEmergency) statEmergency.innerText = (data.metrics.emergencyConsentDonors ?? 0).toLocaleString();
+        if (statActive) statActive.innerText = (data.metrics.activeDonors ?? 0).toLocaleString();
+
+        // Today's Activity (Fixed: Bind real MongoDB counts)
+        if (data.todayActivity) {
+          const actDonations = document.getElementById('actDonations');
+          const actRequests = document.getElementById('actRequests');
+          const actDonors = document.getElementById('actDonors');
+          const actHospitals = document.getElementById('actHospitals');
+          const actBanks = document.getElementById('actBanks');
+
+          if (actDonations) actDonations.innerText = (data.todayActivity.newDonations ?? 0).toLocaleString();
+          if (actRequests) actRequests.innerText = (data.todayActivity.newRequests ?? 0).toLocaleString();
+          if (actDonors) actDonors.innerText = (data.todayActivity.newDonors ?? 0).toLocaleString();
+          if (actHospitals) actHospitals.innerText = (data.todayActivity.hospitalRegistrations ?? 0).toLocaleString();
+          if (actBanks) actBanks.innerText = (data.todayActivity.bloodBankUpdates ?? 0).toLocaleString();
+        }
+
+        // Critical Stock Alert (Fixed: Bind real MongoDB low stock status)
+        if (data.criticalStockAlert) {
+          const alertBloodGroup = document.getElementById('alertBloodGroup');
+          const alertUnitsMsg = document.getElementById('alertUnitsMsg');
+          if (alertBloodGroup) alertBloodGroup.innerText = data.criticalStockAlert.bloodGroup || 'OK';
+          if (alertUnitsMsg) alertUnitsMsg.innerText = data.criticalStockAlert.message || 'System stock healthy';
+        }
 
         renderInventoryTrendChart(data.inventoryTrend);
         loadBloodGroupDistributionChart();
@@ -1003,7 +1085,7 @@
         renderRecentDonorsTable(data.recentDonors || []);
 
       } catch (err) {
-        showToast('System Admin dashboard loaded');
+        showToast('Live data unavailable from API', true);
       }
     }
 
@@ -1029,21 +1111,25 @@
           </tr>
         `).join('');
       } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">Unable to load stock breakdown</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4"><i class="bi bi-exclamation-triangle-fill me-2"></i>Live data unavailable — <button class="btn btn-sm btn-outline-danger ms-2" onclick="loadGlobalInventoryTab()">Retry</button></td></tr>`;
       }
     }
 
     async function loadRequestsTab() {
       const tbody = document.getElementById('fullRequestsTbody');
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Loading all requests...</td></tr>';
       try {
         const res = await fetchAPI('/admin/requests');
         renderRecentRequestsTable(res.data.requests || []);
         tbody.innerHTML = document.getElementById('recentRequestsTbody').innerHTML;
-      } catch (err) {}
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger py-4"><i class="bi bi-exclamation-triangle-fill me-2"></i>Live data unavailable — <button class="btn btn-sm btn-outline-danger ms-2" onclick="loadRequestsTab()">Retry</button></td></tr>';
+      }
     }
 
     async function loadDonorsTab() {
       const tbody = document.getElementById('fullDonorsTbody');
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Loading donors...</td></tr>';
       try {
         const res = await fetchAPI('/admin/donors');
         const donors = res.data.donors || [];
@@ -1061,11 +1147,14 @@
             <td><span class="badge bg-light text-dark border">${d.accountStatus || 'ACTIVE'}</span></td>
           </tr>
         `).join('');
-      } catch (err) {}
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4"><i class="bi bi-exclamation-triangle-fill me-2"></i>Live data unavailable — <button class="btn btn-sm btn-outline-danger ms-2" onclick="loadDonorsTab()">Retry</button></td></tr>';
+      }
     }
 
     async function loadHospitalsTab() {
       const tbody = document.getElementById('hospitalsTbody');
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Loading hospitals...</td></tr>';
       try {
         const res = await fetchAPI('/admin/organizations?type=HOSPITAL');
         const orgs = res.data.organizations || [];
@@ -1076,11 +1165,14 @@
         tbody.innerHTML = orgs.map(o => `
           <tr><td class="fw-bold">${o.name}</td><td>${o.city || 'Not Specified'}</td><td>${o.licenseNumber || 'N/A'}</td><td>${o.contactPhone || 'N/A'}</td><td><span class="badge bg-success-subtle text-success">${o.status}</span></td></tr>
         `).join('');
-      } catch (err) {}
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4"><i class="bi bi-exclamation-triangle-fill me-2"></i>Live data unavailable — <button class="btn btn-sm btn-outline-danger ms-2" onclick="loadHospitalsTab()">Retry</button></td></tr>';
+      }
     }
 
     async function loadBloodBanksTab() {
       const tbody = document.getElementById('bloodBanksTbody');
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Loading blood banks...</td></tr>';
       try {
         const res = await fetchAPI('/admin/organizations?type=BLOOD_BANK');
         const orgs = res.data.organizations || [];
@@ -1091,11 +1183,14 @@
         tbody.innerHTML = orgs.map(o => `
           <tr><td class="fw-bold">${o.name}</td><td>${o.city || 'Not Specified'}</td><td>${o.licenseNumber || 'N/A'}</td><td>${o.officialEmail || 'N/A'}</td><td><span class="badge bg-success-subtle text-success">${o.status}</span></td></tr>
         `).join('');
-      } catch (err) {}
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4"><i class="bi bi-exclamation-triangle-fill me-2"></i>Live data unavailable — <button class="btn btn-sm btn-outline-danger ms-2" onclick="loadBloodBanksTab()">Retry</button></td></tr>';
+      }
     }
 
     async function loadUsersTab() {
       const tbody = document.getElementById('usersTbody');
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Loading user accounts...</td></tr>';
       try {
         const res = await fetchAPI('/admin/users');
         const users = res.data.users || [];
@@ -1106,11 +1201,14 @@
         tbody.innerHTML = users.map(u => `
           <tr><td class="fw-bold">${u.fullName || u.name}</td><td>${u.email || u.phone}</td><td><span class="badge bg-secondary">${u.role}</span></td><td><span class="badge bg-success-subtle text-success">${u.accountStatus}</span></td><td>${new Date(u.createdAt).toLocaleDateString()}</td></tr>
         `).join('');
-      } catch (err) {}
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4"><i class="bi bi-exclamation-triangle-fill me-2"></i>Live data unavailable — <button class="btn btn-sm btn-outline-danger ms-2" onclick="loadUsersTab()">Retry</button></td></tr>';
+      }
     }
 
     async function loadAuditTab() {
       const tbody = document.getElementById('fullAuditTbody');
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Loading audit trail...</td></tr>';
       try {
         const res = await fetchAPI('/admin/audit-logs');
         const logs = res.data.logs || [];
@@ -1121,7 +1219,9 @@
         tbody.innerHTML = logs.map(l => `
           <tr><td>${new Date(l.createdAt).toLocaleTimeString()}</td><td class="fw-bold text-danger">${l.action}</td><td>${l.userRole || 'Admin'}</td><td>${l.entityType}</td><td>${l.reason || 'System operation executed'}</td></tr>
         `).join('');
-      } catch (err) {}
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4"><i class="bi bi-exclamation-triangle-fill me-2"></i>Live data unavailable — <button class="btn btn-sm btn-outline-danger ms-2" onclick="loadAuditTab()">Retry</button></td></tr>';
+      }
     }
 
     function renderRecentRequestsTable(requests) {

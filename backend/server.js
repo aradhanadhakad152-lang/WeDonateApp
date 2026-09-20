@@ -173,6 +173,9 @@ const publicPath = path.join(__dirname, 'public');
 
 // Explicit route handlers for 3 distinct portals
 app.get(['/portal/admin', '/portal/admin/', '/portal/admin/index.html'], (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   const targetFile = fs.existsSync(path.join(portalPath, 'admin', 'index.html'))
     ? path.join(portalPath, 'admin', 'index.html')
     : path.join(publicPortalPath, 'admin', 'index.html');
@@ -181,6 +184,9 @@ app.get(['/portal/admin', '/portal/admin/', '/portal/admin/index.html'], (req, r
 });
 
 app.get(['/portal/hospital', '/portal/hospital/', '/portal/hospital/index.html'], (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   const targetFile = fs.existsSync(path.join(portalPath, 'hospital', 'index.html'))
     ? path.join(portalPath, 'hospital', 'index.html')
     : path.join(publicPortalPath, 'hospital', 'index.html');
@@ -189,6 +195,9 @@ app.get(['/portal/hospital', '/portal/hospital/', '/portal/hospital/index.html']
 });
 
 app.get(['/portal/blood-bank', '/portal/blood-bank/', '/portal/blood-bank/index.html'], (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   const targetFile = fs.existsSync(path.join(portalPath, 'blood-bank', 'index.html'))
     ? path.join(portalPath, 'blood-bank', 'index.html')
     : path.join(publicPortalPath, 'blood-bank', 'index.html');
@@ -197,6 +206,9 @@ app.get(['/portal/blood-bank', '/portal/blood-bank/', '/portal/blood-bank/index.
 });
 
 app.get(['/portal', '/portal/', '/portal/index.html'], (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   const targetFile = fs.existsSync(path.join(portalPath, 'index.html'))
     ? path.join(portalPath, 'index.html')
     : path.join(publicPortalPath, 'index.html');

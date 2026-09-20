@@ -22,7 +22,11 @@ const logger = require('../utils/logger');
 const getAdminDashboardMetrics = asyncHandler(async (req, res) => {
   const totalUsers = await User.countDocuments();
   const totalDonors = await User.countDocuments({ isDonor: true });
-  const activeDonors = await User.countDocuments({ isDonor: true, isAvailable: true, accountStatus: 'ACTIVE' });
+  const activeDonors = await User.countDocuments({ isDonor: true, isAvailable: true, accountStatus: 'ACTIVE', donorStatus: 'ACTIVE' });
+  const unverifiedImportedDonors = await User.countDocuments({ donorStatus: 'UNVERIFIED' });
+  const phoneVerifiedDonors = await User.countDocuments({ phoneVerified: true });
+  const profileConfirmedDonors = await User.countDocuments({ profileConfirmed: true });
+  const emergencyConsentDonors = await User.countDocuments({ emergencyConsent: true });
 
   const totalHospitals = await Organization.countDocuments({ type: 'HOSPITAL' });
   const totalBloodBanks = await Organization.countDocuments({ type: 'BLOOD_BANK' });
@@ -85,7 +89,13 @@ const getAdminDashboardMetrics = asyncHandler(async (req, res) => {
   });
 
   // Find most critical stock group
-  const criticalGroup = inventoryTrend.find(i => i.isCritical && i.currentStock > 0) || inventoryTrend.reduce((min, cur) => (cur.currentStock < min.currentStock ? cur : min), inventoryTrend[0]);
+  const criticalGroup = inventoryTrend.find(i => i.isCritical && i.currentStock > 0);
+  const criticalStockAlert = {
+    bloodGroup: criticalGroup ? criticalGroup.bloodGroup : 'OK',
+    unitsLeft: criticalGroup ? criticalGroup.currentStock : 0,
+    requiredUnits: criticalGroup ? criticalGroup.requiredUnits : 0,
+    message: criticalGroup ? `Only ${criticalGroup.currentStock} units left of ${criticalGroup.bloodGroup}!` : 'System stock healthy',
+  };
 
   // Calculate Today's Activity strictly from MongoDB
   const startOfDay = new Date();
@@ -161,6 +171,10 @@ const getAdminDashboardMetrics = asyncHandler(async (req, res) => {
         totalUsers,
         totalDonors,
         activeDonors,
+        unverifiedImportedDonors,
+        phoneVerifiedDonors,
+        profileConfirmedDonors,
+        emergencyConsentDonors,
         totalHospitals,
         totalBloodBanks,
         activeBloodRequests,
@@ -184,12 +198,7 @@ const getAdminDashboardMetrics = asyncHandler(async (req, res) => {
         },
       },
       inventoryTrend,
-      criticalStockAlert: {
-        bloodGroup: criticalGroup ? criticalGroup.bloodGroup : 'O-',
-        unitsLeft: criticalGroup ? criticalGroup.currentStock : 0,
-        requiredUnits: criticalGroup ? criticalGroup.requiredUnits : 0,
-        message: criticalGroup && criticalGroup.currentStock > 0 ? `Only ${criticalGroup.currentStock} units left of ${criticalGroup.bloodGroup}!` : 'No critical stock alerts',
-      },
+      criticalStockAlert,
       todayActivity: {
         newDonations: newDonationsToday,
         newRequests: newRequestsToday,
