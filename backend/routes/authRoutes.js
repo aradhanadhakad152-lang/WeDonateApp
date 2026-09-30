@@ -14,10 +14,12 @@ const { firebaseLogin, phoneLogin, refreshToken, logout, adminLogin, devLogin, g
 // GET /api/v1/auth/whatsapp-status
 router.get('/whatsapp-status', getWhatsAppStatus);
 
-// POST /api/v1/auth/send-otp — Citizen SMS OTP Request
+// POST /api/v1/auth/send-whatsapp-otp & /send-otp — Citizen WhatsApp OTP Request
+router.post('/send-whatsapp-otp', authLimiter, sendOTP);
 router.post('/send-otp', authLimiter, sendOTP);
 
-// POST /api/v1/auth/verify-otp — Citizen SMS OTP Verification & Account Login/Registration
+// POST /api/v1/auth/verify-whatsapp-otp & /verify-otp — Citizen WhatsApp OTP Verification & Account Login/Registration
+router.post('/verify-whatsapp-otp', authLimiter, verifyOTP);
 router.post('/verify-otp', authLimiter, verifyOTP);
 
 // POST /api/v1/auth/firebase-login

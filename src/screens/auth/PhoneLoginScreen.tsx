@@ -11,8 +11,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { phoneLogin } from '../../services/authService';
-import { useAuthStore } from '../../store/authStore';
+import { sendWhatsAppOTP } from '../../services/authService';
 import { User } from '../../types/user.types';
 import { COLORS, SHADOWS } from '../../theme/colors';
 
@@ -21,7 +20,7 @@ interface PhoneLoginScreenProps {
   onSendOTP?: (phoneNumber: string, purpose: 'LOGIN' | 'REGISTER', fullName?: string) => void;
 }
 
-export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onSuccess }) => {
+export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onSuccess, onSendOTP }) => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [fullName, setFullName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -47,18 +46,19 @@ export const PhoneLoginScreen: React.FC<PhoneLoginScreenProps> = ({ onSuccess })
 
     setIsLoading(true);
     try {
-      const user = await phoneLogin(formattedPhone, trimmedName);
+      await sendWhatsAppOTP(formattedPhone, 'LOGIN', trimmedName);
       setIsLoading(false);
-      useAuthStore.getState().setUser(user);
-      onSuccess(user);
+      if (onSendOTP) {
+        onSendOTP(formattedPhone, 'LOGIN', trimmedName);
+      }
     } catch (error: any) {
       setIsLoading(false);
       const msg =
         error?.response?.data?.message ||
         error?.message ||
-        'Authentication request failed. Please try again.';
+        'Failed to deliver WhatsApp OTP code. Please check your number and try again.';
       setErrorMessage(msg);
-      Alert.alert('Authentication Failed', msg);
+      Alert.alert('WhatsApp Delivery Failed', msg);
     }
   };
 

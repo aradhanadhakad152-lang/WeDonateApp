@@ -173,7 +173,7 @@ export const sendSMSOTP = async (
 ): Promise<{ phone: string; purpose: string }> => {
   try {
     const response = await api.post<ApiSuccessResponse<{ phone: string; purpose: string }>>(
-      '/auth/send-otp',
+      '/auth/send-whatsapp-otp',
       { phone, purpose, fullName }
     );
     return response.data.data!;
@@ -191,7 +191,7 @@ export const verifySMSOTP = async (
 ): Promise<User> => {
   try {
     const response = await api.post<ApiSuccessResponse<LoginResponse>>(
-      '/auth/verify-otp',
+      '/auth/verify-whatsapp-otp',
       { phone, otp, purpose, fullName }
     );
 

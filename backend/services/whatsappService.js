@@ -19,10 +19,10 @@ const logger = require('../utils/logger');
 
 const WHATSAPP_ENABLED = process.env.WHATSAPP_ENABLED === 'true';
 const WHATSAPP_PROVIDER = process.env.WHATSAPP_PROVIDER || 'GENERIC';
-const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN || process.env.WHATSAPP_API_KEY;
-const WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
-const WHATSAPP_TEMPLATE_NAME = process.env.WHATSAPP_TEMPLATE_NAME || 'emergency_blood_alert';
-const WHATSAPP_TEMPLATE_LANGUAGE = process.env.WHATSAPP_TEMPLATE_LANGUAGE || 'en';
+const WHATSAPP_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN || process.env.WHATSAPP_ACCESS_TOKEN || process.env.WHATSAPP_API_KEY;
+const WHATSAPP_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || process.env.WHATSAPP_PHONE_NUMBER_ID;
+const WHATSAPP_TEMPLATE_NAME = process.env.META_TEMPLATE_NAME || process.env.WHATSAPP_TEMPLATE_NAME || 'emergency_blood_alert';
+const WHATSAPP_TEMPLATE_LANGUAGE = process.env.META_TEMPLATE_LANGUAGE || process.env.WHATSAPP_TEMPLATE_LANGUAGE || 'en';
 const WHATSAPP_FROM = process.env.WHATSAPP_FROM || 'WE DONATE Emergency';
 const WHATSAPP_MAX_DONORS_PER_REQUEST = Number(process.env.WHATSAPP_MAX_DONORS_PER_REQUEST) || 5;
 
