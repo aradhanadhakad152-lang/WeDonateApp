@@ -1,0 +1,48 @@
+[
+  {
+    "_id": "670000000000000000000201",
+    "title": "National Voluntary Blood Donation Drive 2026",
+    "description": "Annual community blood donation camp organized with Red Cross Society & local hospitals to support emergency reserves.",
+    "organizationId": "670000000000000000000301",
+    "date": "2026-11-05T09:00:00.000Z",
+    "startTime": "09:00 AM",
+    "endTime": "04:30 PM",
+    "address": "Community Hall, Sector 14",
+    "city": "New Delhi",
+    "state": "Delhi",
+    "location": {
+      "type": "Point",
+      "coordinates": [77.2180, 28.6250]
+    },
+    "contactPhone": "+919999000081",
+    "contactEmail": "camp.organizer@wedonate-demo.org",
+    "supportedBloodGroups": ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"],
+    "registrationLimit": 150,
+    "registeredCount": 18,
+    "status": "PUBLISHED",
+    "totalUnitsCollected": 0
+  },
+  {
+    "_id": "670000000000000000000202",
+    "title": "Corporate Tech Park Life Saver Camp",
+    "description": "Weekend blood donation drive for IT professionals and corporate volunteers in collaboration with Rotary Blood Bank.",
+    "organizationId": "670000000000000000000301",
+    "date": "2026-11-20T10:00:00.000Z",
+    "startTime": "10:00 AM",
+    "endTime": "05:00 PM",
+    "address": "DLF CyberCity Hub, Atrium Level",
+    "city": "Gurugram",
+    "state": "Haryana",
+    "location": {
+      "type": "Point",
+      "coordinates": [77.0878, 28.4950]
+    },
+    "contactPhone": "+919999000082",
+    "contactEmail": "corporate.drive@wedonate-demo.org",
+    "supportedBloodGroups": ["O+", "O-", "A+", "B+"],
+    "registrationLimit": 200,
+    "registeredCount": 35,
+    "status": "PUBLISHED",
+    "totalUnitsCollected": 0
+  }
+]

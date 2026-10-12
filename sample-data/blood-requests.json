@@ -1,0 +1,77 @@
+[
+  {
+    "_id": "670000000000000000000101",
+    "requesterId": "670000000000000000000001",
+    "patientName": "Karan Malhotra",
+    "bloodGroup": "O-",
+    "unitsRequired": 2,
+    "urgency": "CRITICAL",
+    "status": "OPEN",
+    "hospitalName": "AIIMS Emergency Trauma Centre",
+    "hospitalAddress": "Sri Aurobindo Marg, Ansari Nagar, New Delhi",
+    "hospitalLatitude": 28.5672,
+    "hospitalLongitude": 77.2100,
+    "location": {
+      "type": "Point",
+      "coordinates": [77.2100, 28.5672]
+    },
+    "city": "New Delhi",
+    "state": "Delhi",
+    "contactPerson": "Dr. S. Mehta (Trauma ICU)",
+    "contactPhone": "+919999000091",
+    "reason": "Emergency trauma resuscitation following road accident",
+    "requiredBy": "2026-10-15T18:00:00.000Z",
+    "matchedCount": 0,
+    "acceptedCount": 0
+  },
+  {
+    "_id": "670000000000000000000102",
+    "requesterId": "670000000000000000000003",
+    "patientName": "Meera Sen",
+    "bloodGroup": "A+",
+    "unitsRequired": 1,
+    "urgency": "URGENT",
+    "status": "OPEN",
+    "hospitalName": "Safdarjung General Hospital",
+    "hospitalAddress": "Ring Road, Opposite AIIMS, New Delhi",
+    "hospitalLatitude": 28.5700,
+    "hospitalLongitude": 77.2065,
+    "location": {
+      "type": "Point",
+      "coordinates": [77.2065, 28.5700]
+    },
+    "city": "New Delhi",
+    "state": "Delhi",
+    "contactPerson": "Rajesh Sen (Family)",
+    "contactPhone": "+919999000092",
+    "reason": "Elective cardiovascular surgery blood reserve",
+    "requiredBy": "2026-10-16T12:00:00.000Z",
+    "matchedCount": 0,
+    "acceptedCount": 0
+  },
+  {
+    "_id": "670000000000000000000103",
+    "requesterId": "670000000000000000000005",
+    "patientName": "Baby Aarohi",
+    "bloodGroup": "B+",
+    "unitsRequired": 1,
+    "urgency": "HIGH",
+    "status": "OPEN",
+    "hospitalName": "Kalawati Saran Children Hospital",
+    "hospitalAddress": "Bangla Sahib Rd, Connaught Place, New Delhi",
+    "hospitalLatitude": 28.6315,
+    "hospitalLongitude": 77.2135,
+    "location": {
+      "type": "Point",
+      "coordinates": [77.2135, 28.6315]
+    },
+    "city": "New Delhi",
+    "state": "Delhi",
+    "contactPerson": "Dr. R. Kapoor",
+    "contactPhone": "+919999000093",
+    "reason": "Pediatric thalassemia monthly blood transfusion",
+    "requiredBy": "2026-10-18T09:00:00.000Z",
+    "matchedCount": 0,
+    "acceptedCount": 0
+  }
+]

@@ -33,6 +33,7 @@ const inventoryRoutes = require('./routes/inventoryRoutes');
 const fundingRoutes = require('./routes/fundingRoutes');
 const donationRoutes = require('./routes/donationRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const appRoutes = require('./routes/appRoutes');
 
 // ============================================
 // App initialization
@@ -239,6 +240,7 @@ app.use(`/api/${API_VERSION}/inventory`, inventoryRoutes);
 app.use(`/api/${API_VERSION}/funding`, fundingRoutes);
 app.use(`/api/${API_VERSION}/donations`, donationRoutes);
 app.use(`/api/${API_VERSION}/payments`, paymentRoutes);
+app.use(`/api/${API_VERSION}/app`, appRoutes);
 
 // ============================================
 // 404 handler — unknown routes

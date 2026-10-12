@@ -1,0 +1,28 @@
+[
+  {
+    "_id": "670000000000000000000401",
+    "title": "Emergency Platelet & Blood Transfusion Support for Pediatric Oncology",
+    "description": "Funding emergency repeated blood components and apheresis platelets for underprivileged children undergoing chemotherapy.",
+    "patientName": "Master Devansh (Age 7)",
+    "hospitalName": "Regional Cancer Centre",
+    "targetAmount": 75000,
+    "raisedAmount": 28500,
+    "category": "PATIENT_CARE",
+    "status": "ACTIVE",
+    "donorCount": 24,
+    "createdBy": "670000000000000000000001"
+  },
+  {
+    "_id": "670000000000000000000402",
+    "title": "Thalassemia Free India: Continuous Transfusion Logistics Fund",
+    "description": "Subsidizing safe blood storage bags, NAT testing consumables, and cross-matching charges for regular thalassemia patients.",
+    "patientName": null,
+    "hospitalName": "Rotary Thalassemia Care Wing",
+    "targetAmount": 150000,
+    "raisedAmount": 82000,
+    "category": "BLOOD_BANK_DRIVE",
+    "status": "ACTIVE",
+    "donorCount": 61,
+    "createdBy": "670000000000000000000003"
+  }
+]
